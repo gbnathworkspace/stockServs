@@ -19,7 +19,7 @@ def get_zerodha_login_url():
     Generate Zerodha login URL
     returns str: Login URL
     """
-    login_url = kite.login_url(redirect_uri=KITE_REDIRECT_URL)
+    login_url = kite.login_url()
     return login_url
 
 def generate_access_token(request_token: str):

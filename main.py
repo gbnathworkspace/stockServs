@@ -1,5 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from routes.auth import router as auth_router
+from routes.holdings import router as holdings_router
+
+
+
+
 
 app = FastAPI(title="Stock Services API", version="1.0.0")
 
@@ -11,6 +17,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include routers
+app.include_router(auth_router)
+app.include_router(holdings_router)
 
 @app.get("/")
 async def root():
@@ -20,3 +29,5 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "alive", "service": "stock_servs"}
+
+
