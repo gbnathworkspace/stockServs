@@ -3,10 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.auth import router as auth_router
 from routes.holdings import router as holdings_router
 
-
-
-
-
 app = FastAPI(title="Stock Services API", version="1.0.0")
 
 app.add_middleware(
