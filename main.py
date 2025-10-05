@@ -27,3 +27,11 @@ async def health_check():
     return {"status": "alive", "service": "stock_servs"}
 
 
+@app.get("/setup-database")
+async def setup_database():
+    """One-time endpoint to create database tables"""
+    from setup_db import setup_database
+    result = setup_database()
+    return result
+
+
