@@ -39,7 +39,7 @@ async def zerodha_callback(request_token: str, status: str, db: Session = Depend
         zerodha_token.access_token = token_data['access_token']
     else:
         # Create new user and token
-        new_user = User()
+        new_user = User(email=None)
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
