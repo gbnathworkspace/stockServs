@@ -4,7 +4,7 @@ from nse_data.movers import router as movers_router
 router = APIRouter(prefix="/nse_data", tags=["NSE Data"])
 
 
-router.include_router(movers_router, prefix="/movers", tags=["Movers"])
+router.include_router(movers_router, prefix="", tags=["Movers"])
 
 
 @router.get("/status")
