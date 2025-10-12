@@ -1,18 +1,18 @@
- # Environment variables (secrets!)
-  .env
+# Environment variables (secrets!)
+.env
 
-  # Database file
-  *.db
+# Database file
+*.db
 
-  # Python cache
-  __pycache__/
-  *.pyc
-  *.pyo
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
 
-  # Virtual environment
-  venv/
-  env/
+# Virtual environment
+venv/
+env/
 
-  # IDE
-  .vscode/
-  .idea/
+# IDE
+.vscode/
+.idea/
