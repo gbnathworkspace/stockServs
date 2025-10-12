@@ -5,8 +5,6 @@ from sqlalchemy.orm import Session
 from database.connection import get_db
 
 
-
-
 router = APIRouter(prefix="/holdings", tags=["Holdings"])
 
 @router.get("/{zerodha_user_id}")
