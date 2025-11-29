@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSE Market Movers</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>NSE Market Movers</h1>
+            <div class="header-controls">
+                <span id="last-updated">Last updated: Never</span>
+                <button id="refresh-btn" onclick="fetchData()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Top Gainers Section -->
+            <section class="card">
+                <div class="card-header gainers-header">
+                    <h2>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                        Top Gainers
+                    </h2>
+                </div>
+                <div class="table-container">
+                    <table id="gainers-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th class="text-right">Price</th>
+                                <th class="text-right">% Change</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="3" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Top Losers Section -->
+            <section class="card">
+                <div class="card-header losers-header">
+                    <h2>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
+                        Top Losers
+                    </h2>
+                </div>
+                <div class="table-container">
+                    <table id="losers-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th class="text-right">Price</th>
+                                <th class="text-right">% Change</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="3" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- FII/DII Activity Section -->
+            <section class="card fii-dii-card">
+                <div class="card-header">
+                    <h2>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                        FII/DII Activity
+                    </h2>
+                    <span id="fii-dii-date" class="data-date">--</span>
+                </div>
+                <div class="fii-dii-container">
+                    <div class="investor-section">
+                        <h3>FII/FPI</h3>
+                        <div class="investor-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Buy</span>
+                                <span id="fii-buy" class="stat-value">--</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Sell</span>
+                                <span id="fii-sell" class="stat-value">--</span>
+                            </div>
+                            <div class="stat-item net-flow">
+                                <span class="stat-label">Net</span>
+                                <span id="fii-net" class="stat-value">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="investor-section">
+                        <h3>DII</h3>
+                        <div class="investor-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Buy</span>
+                                <span id="dii-buy" class="stat-value">--</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Sell</span>
+                                <span id="dii-sell" class="stat-value">--</span>
+                            </div>
+                            <div class="stat-item net-flow">
+                                <span class="stat-label">Net</span>
+                                <span id="dii-net" class="stat-value">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Most Active Stocks Section -->
+            <section class="card">
+                <div class="card-header">
+                    <h2>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><polyline points="17 5 12 1 7 5"></polyline><polyline points="7 19 12 23 17 19"></polyline></svg>
+                        Most Active (Volume)
+                    </h2>
+                </div>
+                <div class="table-container">
+                    <table id="most-active-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th class="text-right">Price</th>
+                                <th class="text-right">% Change</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="3" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 52-Week High Section -->
+            <section class="card">
+                <div class="card-header">
+                    <h2>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                        52-Week High
+                    </h2>
+                </div>
+                <div class="table-container">
+                    <table id="week-52-high-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th class="text-right">LTP</th>
+                                <th class="text-right">52W High</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="3" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Bulk Deals Section -->
+            <section class="card full-width">
+                <div class="card-header">
+                    <h2>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        Bulk Deals
+                    </h2>
+                    <span id="bulk-deals-date" class="data-date">--</span>
+                </div>
+                <div class="table-container">
+                    <table id="bulk-deals-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Client Name</th>
+                                <th class="text-right">Quantity</th>
+                                <th class="text-right">Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="4" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+    <script src="app.js?v=3"></script>
+</body>
+</html>

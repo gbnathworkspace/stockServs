@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 from routes.auth import router as auth_router
 from routes.holdings import router as holdings_router
 from routes.users import router as users_router
@@ -15,6 +17,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # Include routers
 app.include_router(auth_router)
 app.include_router(holdings_router)
@@ -23,7 +28,7 @@ app.include_router(nse_data_router)
 
 @app.get("/")
 async def root():
-    return {"message": "Stock Services API"}
+    return RedirectResponse(url="/static/index.html")
 
 
 @app.get("/health")

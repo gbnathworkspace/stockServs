@@ -1,0 +1,47 @@
+﻿
+============================================================
+Testing parameter: gainers
+============================================================
+Status: 200
+Response type: <class 'dict'>
+Keys: ['legends', 'NIFTY', 'BANKNIFTY', 'NIFTYNEXT50', 'SecGtr20', 'SecLwr20', 'FOSec', 'allSec']
+
+============================================================
+Testing parameter: losers
+============================================================
+Status: 200
+Response type: <class 'dict'>
+Keys: ['data']
+Data items count: not a list
+
+============================================================
+Testing parameter: 52_week_high_low
+============================================================
+Status: 200
+Response type: <class 'dict'>
+Keys: ['data']
+Data items count: not a list
+
+============================================================
+Testing parameter: 52weekhigh
+============================================================
+Status: 200
+Response type: <class 'dict'>
+Keys: ['data']
+Data items count: not a list
+
+============================================================
+Testing parameter: 52weeklow
+============================================================
+Status: 200
+Response type: <class 'dict'>
+Keys: ['data']
+Data items count: not a list
+
+============================================================
+Testing parameter: allSec
+============================================================
+Status: 200
+Response type: <class 'dict'>
+Keys: ['data']
+Data items count: not a list

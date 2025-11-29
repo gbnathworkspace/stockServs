@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cache Test</title>
+</head>
+<body>
+    <h1>Testing if JavaScript is loading</h1>
+    <p>Open browser console (F12) and check for this message:</p>
+    <pre id="test"></pre>
+    
+    <script>
+        const msg = "JavaScript loaded at: " + new Date().toLocaleTimeString();
+        console.log(msg);
+        document.getElementById('test').textContent = msg;
+        
+        // Test if the API works
+        fetch('http://localhost:8000/nse_data/most-active-volume')
+            .then(r => r.json())
+            .then(data => {
+                console.log("API Response:", data);
+                if (data.most_active && data.most_active[0]) {
+                    console.log("First item:", data.most_active[0]);
+                    console.log("Has symbol?", !!data.most_active[0].symbol);
+                    console.log("Has lastPrice?", !!data.most_active[0].lastPrice);
+                    console.log("Has pChange?", !!data.most_active[0].pChange);
+                }
+            });
+    </script>
+</body>
+</html>
