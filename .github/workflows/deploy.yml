@@ -36,6 +36,20 @@ jobs:
     - name: Add Known Hosts
       run: ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Deploy to EC2
+    - name: Debug - Check Configuration
       run: |
-        ssh -v -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} "docker stop stock_servs || true; docker rm stock_servs || true; docker pull ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest; docker run -d --name stock_servs -p 8000:8000 --restart unless-stopped ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest"
+        echo "EC2_HOST length: ${#EC2_HOST}"
+        echo "EC2_USERNAME length: ${#EC2_USER}"
+        echo "Key file exists: $(test -f ~/.ssh/id_rsa && echo 'yes' || echo 'no')"
+        echo "Key file permissions: $(ls -la ~/.ssh/id_rsa 2>/dev/null || echo 'file not found')"
+      env:
+        EC2_HOST: ${{ secrets.EC2_HOST }}
+        EC2_USER: ${{ secrets.EC2_USERNAME }}
+
+    - name: Deploy to EC2
+      env:
+        EC2_HOST: ${{ secrets.EC2_HOST }}
+        EC2_USER: ${{ secrets.EC2_USERNAME }}
+        DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
+      run: |
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa "${EC2_USER}@${EC2_HOST}" "docker stop stock_servs || true; docker rm stock_servs || true; docker pull ${DOCKER_USER}/stock_servs:latest; docker run -d --name stock_servs -p 8000:8000 --restart unless-stopped ${DOCKER_USER}/stock_servs:latest"
