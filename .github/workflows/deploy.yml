@@ -36,10 +36,4 @@ jobs:
       run: ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
     - name: Deploy to EC2
-      run: |
-        ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} << 'ENDSSH'
-        docker stop stock_servs || true
-        docker rm stock_servs || true
-        docker pull ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest
-        docker run -d --name stock_servs -p 8000:8000 --restart unless-stopped ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest
-        ENDSSH
+      run: ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} "docker stop stock_servs || true; docker rm stock_servs || true; docker pull ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest; docker run -d --name stock_servs -p 8000:8000 --restart unless-stopped ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest"
