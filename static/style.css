@@ -303,3 +303,101 @@ tr:hover td {
         font-size: 0.875rem;
     }
 }
+
+/* Weekly Historical Section */
+.weekly-card {
+    min-height: 400px;
+}
+
+.weekly-grid-container {
+    display: flex;
+    gap: 1.5rem;
+    overflow-x: auto;
+    padding: 1.5rem;
+    padding-bottom: 1rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) var(--bg-color);
+}
+
+.weekly-grid-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.weekly-grid-container::-webkit-scrollbar-track {
+    background: var(--bg-color);
+    border-radius: 4px;
+}
+
+.weekly-grid-container::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: 4px;
+}
+
+.daily-column {
+    flex: 0 0 280px;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.daily-header {
+    padding: 1rem;
+    background-color: var(--hover-bg);
+    border-bottom: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.daily-header h3 {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.daily-header span {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.daily-content {
+    padding: 0;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.mini-table {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.mini-table th {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.7rem;
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.mini-table td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.mini-table tr:last-child td {
+    border-bottom: none;
+}
+
+.section-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin: 1rem 0.75rem 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-label.gainers-label { color: var(--accent-green); }
+.section-label.losers-label { color: var(--accent-red); margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem; }

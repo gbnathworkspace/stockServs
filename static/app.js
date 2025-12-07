@@ -30,7 +30,8 @@ async function fetchData() {
             fetchFIIDII(),
             fetchMostActive(),
             fetch52WeekHigh(),
-            fetchBulkDeals()
+            fetchBulkDeals(),
+            fetchWeeklyGainers()
         ]);
         updateTimestamp();
     } catch (error) {
@@ -236,3 +237,70 @@ function renderBulkDeals(items, date) {
 
 // Initial load
 document.addEventListener('DOMContentLoaded', fetchData);
+
+
+async function fetchWeeklyGainers() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/nse_data/weekly-gainers?days=5`);
+        const data = await response.json();
+        renderWeeklyGainers(data);
+    } catch (error) {
+        console.error('Error fetching weekly gainers:', error);
+        document.getElementById('weekly-movers-container').innerHTML = '<div class="loading">Error loading weekly data</div>';
+    }
+}
+
+function renderWeeklyGainers(data) {
+    const container = document.getElementById('weekly-movers-container');
+    
+    if (!data || !data.weeklyData || data.weeklyData.length === 0) {
+        container.innerHTML = '<div class="loading">No weekly data available</div>';
+        return;
+    }
+
+    container.innerHTML = data.weeklyData.map(day => `
+        <div class="daily-column">
+            <div class="daily-header">
+                <h3>${day.dayName}</h3>
+                <span>${day.date}</span>
+            </div>
+            <div class="daily-content">
+                <span class="section-label gainers-label">Top Gainers</span>
+                <table class="mini-table">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th class="text-right">%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${day.topGainers.slice(0, 10).map(item => `
+                            <tr>
+                                <td>${item.symbol}</td>
+                                <td class="text-right positive">+${item.pChange}%</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+
+                <span class="section-label losers-label">Top Losers</span>
+                <table class="mini-table">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th class="text-right">%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${day.topLosers.slice(0, 10).map(item => `
+                            <tr>
+                                <td>${item.symbol}</td>
+                                <td class="text-right negative">${item.pChange}%</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `).join('');
+}
