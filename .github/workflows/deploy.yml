@@ -27,27 +27,19 @@ jobs:
 
     - name: Setup SSH Key
       run: |
-        echo "${{ secrets.EC2_SSH_KEY_BASE64 }}" | base64 -d > /tmp/ec2_key.pem
-        chmod 600 /tmp/ec2_key.pem
+        mkdir -p ~/.ssh
+        printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
+        chmod 600 ~/.ssh/ec2_key.pem
 
     - name: Deploy to EC2
       run: |
-        ssh -o StrictHostKeyChecking=no -i /tmp/ec2_key.pem ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} << 'EOF'
-          # Stop and remove existing container
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key.pem ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
           docker stop stock_servs || true
           docker rm stock_servs || true
-          
-          # Pull the latest image
           docker pull ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest
-          
-          # Run the new container
-          docker run -d \
-            --name stock_servs \
-            -p 8000:8000 \
-            --restart unless-stopped \
-            ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest
-        EOF
+          docker run -d --name stock_servs -p 8000:8000 --restart unless-stopped ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest
+        '
 
     - name: Cleanup
       if: always()
-      run: rm -f /tmp/ec2_key.pem
+      run: rm -f ~/.ssh/ec2_key.pem
