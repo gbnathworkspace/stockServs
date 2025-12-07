@@ -21,53 +21,52 @@
         </header>
 
         <div class="dashboard-grid">
-            <!-- Top Gainers Section -->
-            <section class="card">
-                <div class="card-header gainers-header">
-                    <h2>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+            <!-- Top Gainers / Losers Tabbed Section -->
+            <section class="card tabbed-card">
+                <div class="tabs-header">
+                    <button class="tab-btn active" data-tab="gainers" onclick="switchTab('gainers')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
                         Top Gainers
-                    </h2>
+                    </button>
+                    <button class="tab-btn" data-tab="losers" onclick="switchTab('losers')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
+                        Top Losers
+                    </button>
                 </div>
-                <div class="table-container">
-                    <table id="gainers-table">
-                        <thead>
-                            <tr>
-                                <th>Symbol</th>
-                                <th class="text-right">Price</th>
-                                <th class="text-right">% Change</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td colspan="3" class="loading">Loading...</td></tr>
-                        </tbody>
-                    </table>
+                <div class="tab-content" id="gainers-content">
+                    <div class="table-container">
+                        <table id="gainers-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th class="text-right">Price</th>
+                                    <th class="text-right">% Change</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="3" class="loading">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="tab-content hidden" id="losers-content">
+                    <div class="table-container">
+                        <table id="losers-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th class="text-right">Price</th>
+                                    <th class="text-right">% Change</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="3" class="loading">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
-            <!-- Top Losers Section -->
-            <section class="card">
-                <div class="card-header losers-header">
-                    <h2>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
-                        Top Losers
-                    </h2>
-                </div>
-                <div class="table-container">
-                    <table id="losers-table">
-                        <thead>
-                            <tr>
-                                <th>Symbol</th>
-                                <th class="text-right">Price</th>
-                                <th class="text-right">% Change</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td colspan="3" class="loading">Loading...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
 
             <!-- FII/DII Activity Section -->
             <section class="card fii-dii-card">

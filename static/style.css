@@ -234,6 +234,61 @@ tr:hover td {
     grid-column: 1 / -1;
 }
 
+/* Tab Styles */
+.tabbed-card {
+    overflow: visible;
+}
+
+.tabs-header {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 1rem 1.5rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0;
+}
+
+.tab-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--hover-bg);
+    border-color: transparent;
+}
+
+.tab-btn.active {
+    color: var(--accent-green);
+    border-bottom-color: var(--accent-green);
+    background: transparent;
+}
+
+.tab-btn[data-tab="losers"].active {
+    color: var(--accent-red);
+    border-bottom-color: var(--accent-red);
+}
+
+.tab-content {
+    padding: 0;
+}
+
+.tab-content.hidden {
+    display: none;
+}
+
 @media (max-width: 768px) {
     .dashboard-grid {
         grid-template-columns: 1fr;
@@ -241,5 +296,10 @@ tr:hover td {
     
     .container {
         padding: 1rem;
+    }
+    
+    .tab-btn {
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
     }
 }

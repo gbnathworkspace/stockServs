@@ -1,6 +1,23 @@
 // Use dynamic API URL based on current origin for network access
 const API_BASE_URL = window.location.origin;
 
+// Tab switching function
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tabName) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+    document.getElementById(`${tabName}-content`).classList.remove('hidden');
+}
+
 async function fetchData() {
     const refreshBtn = document.getElementById('refresh-btn');
     refreshBtn.disabled = true;
