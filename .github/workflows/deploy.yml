@@ -25,14 +25,14 @@ jobs:
         push: true
         tags: ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest
 
+    - name: Setup SSH Key
+      run: |
+        echo "${{ secrets.EC2_SSH_KEY_BASE64 }}" | base64 -d > /tmp/ec2_key.pem
+        chmod 600 /tmp/ec2_key.pem
+
     - name: Deploy to EC2
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USERNAME }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        debug: true
-        script: |
+      run: |
+        ssh -o StrictHostKeyChecking=no -i /tmp/ec2_key.pem ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} << 'EOF'
           # Stop and remove existing container
           docker stop stock_servs || true
           docker rm stock_servs || true
@@ -41,10 +41,13 @@ jobs:
           docker pull ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest
           
           # Run the new container
-          # Note: Make sure to pass necessary env vars or mount a .env file if needed
-          # For example: --env-file .env
           docker run -d \
             --name stock_servs \
             -p 8000:8000 \
             --restart unless-stopped \
             ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest
+        EOF
+
+    - name: Cleanup
+      if: always()
+      run: rm -f /tmp/ec2_key.pem
