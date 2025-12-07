@@ -25,15 +25,10 @@ jobs:
         push: true
         tags: ${{ secrets.DOCKER_USERNAME }}/stock_servs:latest
 
-    - name: Setup SSH Key
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
-      run: |
-        mkdir -p ~/.ssh
-        cat <<EOF > ~/.ssh/ec2_key.pem
-        $SSH_PRIVATE_KEY
-        EOF
-        chmod 600 ~/.ssh/ec2_key.pem
+    - name: Setup SSH Agent
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
     - name: Deploy to EC2
       env:
@@ -41,8 +36,4 @@ jobs:
         EC2_HOST: ${{ secrets.EC2_HOST }}
         DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
       run: |
-        ssh -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key.pem ${EC2_USER}@${EC2_HOST} "docker stop stock_servs || true && docker rm stock_servs || true && docker pull ${DOCKER_USER}/stock_servs:latest && docker run -d --name stock_servs -p 8000:8000 --restart unless-stopped ${DOCKER_USER}/stock_servs:latest"
-
-    - name: Cleanup
-      if: always()
-      run: rm -f ~/.ssh/ec2_key.pem
+        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "docker stop stock_servs || true && docker rm stock_servs || true && docker pull ${DOCKER_USER}/stock_servs:latest && docker run -d --name stock_servs -p 8000:8000 --restart unless-stopped ${DOCKER_USER}/stock_servs:latest"
