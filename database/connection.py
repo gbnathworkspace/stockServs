@@ -1,14 +1,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-import os
+from services.config_manager import get_database_url
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Get database URL from .env
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Get database URL (supports .env and AWS Parameter Store)
+DATABASE_URL = get_database_url()
 
 # Create the database engine
 engine = create_engine(DATABASE_URL)
