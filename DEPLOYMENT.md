@@ -59,12 +59,35 @@ Your EC2 instance needs permission to read this parameter.
 
 #### Step 3: Run Application
 
-On your EC2 instance, you only need to set the `DB_SSM_PARAM_NAME` environment variable.
+## Running with Docker on EC2
 
-```bash
-# ~/.bashrc or systemd service file
-export DB_SSM_PARAM_NAME="/my-app/prod/database-url"
-export AWS_REGION="ap-south-1"  # Optional, defaults to ap-south-1
-```
+To restart the application with the new changes:
 
-The application will now automatically fetch the connection string securely at startup.
+1.  **Pull the latest code**:
+    ```bash
+    git pull origin main
+    ```
+
+2.  **Rebuild the image**:
+    ```bash
+    docker build -t stock_servs .
+    ```
+
+3.  **Stop old container** (if running):
+    ```bash
+    docker stop stock_servs_container || true
+    docker rm stock_servs_container || true
+    ```
+
+4.  **Run the new container**:
+    We pass the `DB_SSM_PARAM_NAME` so the app knows where to look. We also pass `AWS_REGION`.
+    ```bash
+    docker run -d \
+      --name stock_servs_container \
+      --restart always \
+      -p 8000:8000 \
+      -e DB_SSM_PARAM_NAME="/my-app/prod/database-url" \
+      -e AWS_REGION="us-east-1" \
+      stock_servs
+    ```
+    *(Note: If your EC2 has the IAM Role attached, you do NOT need to pass AWS credentials. The SDK handles it automatically.)*
