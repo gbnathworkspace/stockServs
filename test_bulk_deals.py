@@ -25,6 +25,7 @@ async def check_bulk_deals():
                 print(f"Date: {data.get('date')}")
             else:
                 print(f"Failed with status {response.status_code}")
+                print(f"Response: {response.text}")
         except Exception as e:
             print(f"Error: {e}")
 
