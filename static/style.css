@@ -77,12 +77,15 @@ button:active {
     transform: translateY(1px);
 }
 
+/* Mobile Responsiveness Improvements */
+
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
 }
 
+/* Restored General Styles */
 .card {
     background-color: var(--card-bg);
     border-radius: 12px;
@@ -104,10 +107,6 @@ button:active {
 
 .gainers-header h2 { color: var(--accent-green); }
 .losers-header h2 { color: var(--accent-red); }
-
-.table-container {
-    padding: 0.5rem;
-}
 
 table {
     width: 100%;
@@ -158,13 +157,71 @@ tr:hover td {
     padding: 2rem;
 }
 
-.loading {
-    text-align: center;
-    color: var(--text-secondary);
-    padding: 2rem;
+
+/* Ensure tables scroll horizontally on small screens */
+.table-container {
+    padding: 0.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS/Android */
 }
 
-/* FII/DII Styles */
+/* Header adjustments for mobile */
+@media (max-width: 600px) {
+    header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+
+    .header-controls {
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+
+    h1 {
+        text-align: center;
+        font-size: 1.25rem;
+    }
+
+    button {
+        flex-grow: 1;
+        justify-content: center;
+        font-size: 0.85rem;
+        padding: 0.6rem;
+    }
+
+    #last-updated {
+        width: 100%;
+        text-align: center;
+        order: -1; 
+        margin-bottom: 0.5rem;
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: 1fr; /* Single column on mobile */
+        gap: 1rem;
+    }
+
+    .fii-dii-container {
+        grid-template-columns: 1fr; /* Stack FII/DII on mobile */
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .daily-column {
+        flex: 0 0 260px; /* Slightly smaller columns for weekly view */
+    }
+    
+    .container {
+        padding: 0.75rem;
+    }
+    
+    .card-header h2 {
+        font-size: 1rem;
+    }
+}
+
+/* FII/DII Styles - Adjusted for responsiveness */
 .fii-dii-card {
     grid-column: 1 / -1;
 }
@@ -178,11 +235,12 @@ tr:hover td {
 .data-date {
     color: var(--text-secondary);
     font-size: 0.875rem;
+    white-space: nowrap; /* Prevent date line break */
 }
 
 .fii-dii-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 2rem;
     padding: 1.5rem;
 }
@@ -220,10 +278,6 @@ tr:hover td {
 
 .net-flow {
     border: 1px solid var(--border-color);
-}
-
-.net-flow .stat-value {
-    font-size: 1.1rem;
 }
 
 .net-flow .stat-value {
@@ -351,6 +405,7 @@ tr:hover td {
 }
 
 @media (max-width: 768px) {
+    /* Keep existing tablet styles but improve structure */
     .dashboard-grid {
         grid-template-columns: 1fr;
     }
@@ -372,12 +427,13 @@ tr:hover td {
 
 .weekly-grid-container {
     display: flex;
-    gap: 1.5rem;
+    gap: 1rem; /* Reduced gap */
     overflow-x: auto;
-    padding: 1.5rem;
+    padding: 1rem;
     padding-bottom: 1rem;
     scrollbar-width: thin;
     scrollbar-color: var(--border-color) var(--bg-color);
+    -webkit-overflow-scrolling: touch;
 }
 
 .weekly-grid-container::-webkit-scrollbar {
