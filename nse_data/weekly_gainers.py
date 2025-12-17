@@ -9,6 +9,8 @@ from typing import Dict, List, Any
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import httpx
+import time
+from urllib.parse import quote
 
 NIFTY_100_STOCKS = [
     "ABB", "ACC", "ADANIENSOL", "ADANIENT", "ADANIGREEN", "ADANIPORTS",
@@ -42,10 +44,9 @@ def fetch_nse_index_constituents(index: str = "NIFTY 100") -> List[Dict[str, Any
     This provides LTP-based fields like `lastPrice` and `pChange`, which can differ
     from official EOD `close` after the market closes.
     """
-    url = f"https://www.nseindia.com/api/equity-stockIndices?index={index.replace(' ', '%20')}"
-    headers = {
+    url = f"https://www.nseindia.com/api/equity-stockIndices?index={quote(index, safe='')}"
+    common_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "*/*",
         "Accept-Language": "en-US,en;q=0.9",
         "Referer": "https://www.nseindia.com/",
     }
@@ -53,11 +54,23 @@ def fetch_nse_index_constituents(index: str = "NIFTY 100") -> List[Dict[str, Any
     try:
         with httpx.Client(follow_redirects=True, timeout=20) as client:
             try:
-                client.get("https://www.nseindia.com", headers=headers)
+                client.get(
+                    "https://www.nseindia.com",
+                    headers={
+                        **common_headers,
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    },
+                )
+                time.sleep(0.5)
             except Exception:
                 pass
-            resp = client.get(url, headers=headers)
+            resp = client.get(
+                url,
+                headers={**common_headers, "Accept": "application/json,text/plain,*/*"},
+            )
             resp.raise_for_status()
+            if "application/json" not in resp.headers.get("content-type", ""):
+                return []
             payload = resp.json()
             return payload.get("data", []) or []
     except Exception as e:
