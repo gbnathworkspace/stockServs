@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import httpx
 
 NIFTY_100_STOCKS = [
     "ABB", "ACC", "ADANIENSOL", "ADANIENT", "ADANIGREEN", "ADANIPORTS",
@@ -33,6 +34,35 @@ NIFTY_100_STOCKS = [
     "TIINDIA", "ULTRACEMCO", "UNIONBANK", "UPL", "VBL", "VEDL", "WIPRO",
     "ZOMATO", "ZYDUSLIFE"
 ]
+
+def fetch_nse_index_constituents(index: str = "NIFTY 100") -> List[Dict[str, Any]]:
+    """
+    Fetch live constituents data from NSE's stock indices API.
+
+    This provides LTP-based fields like `lastPrice` and `pChange`, which can differ
+    from official EOD `close` after the market closes.
+    """
+    url = f"https://www.nseindia.com/api/equity-stockIndices?index={index.replace(' ', '%20')}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.nseindia.com/",
+    }
+
+    try:
+        with httpx.Client(follow_redirects=True, timeout=20) as client:
+            try:
+                client.get("https://www.nseindia.com", headers=headers)
+            except Exception:
+                pass
+            resp = client.get(url, headers=headers)
+            resp.raise_for_status()
+            payload = resp.json()
+            return payload.get("data", []) or []
+    except Exception as e:
+        print(f"Error fetching NSE index data ({index}): {e}")
+        return []
 
 
 def get_stock_history(symbol: str, period: str = "7d") -> pd.DataFrame:
@@ -95,6 +125,29 @@ def get_weekly_gainers_losers(num_days: int = 5) -> Dict[str, Any]:
     if 'index' in combined.columns:
         combined = combined.rename(columns={'index': 'Date'})
     combined['Date'] = pd.to_datetime(combined['Date']).dt.date
+
+    # Override the latest day with NSE LTP-based values (lastPrice/pChange) so
+    # "today" matches NSE's live calculations.
+    if not combined.empty:
+        latest_date = combined['Date'].max()
+        nse_rows = fetch_nse_index_constituents("NIFTY 100")
+        if nse_rows:
+            ltp_by_symbol = {}
+            for row in nse_rows:
+                symbol = row.get("symbol")
+                last_price = row.get("lastPrice")
+                p_change = row.get("pChange")
+                if symbol and last_price is not None and p_change is not None:
+                    try:
+                        ltp_by_symbol[str(symbol)] = (float(last_price), float(p_change))
+                    except Exception:
+                        continue
+
+            if ltp_by_symbol:
+                mask = combined['Date'].eq(latest_date) & combined['Symbol'].isin(ltp_by_symbol.keys())
+                if mask.any():
+                    combined.loc[mask, 'Close'] = combined.loc[mask, 'Symbol'].map(lambda s: ltp_by_symbol[s][0])
+                    combined.loc[mask, 'ChangePercent'] = combined.loc[mask, 'Symbol'].map(lambda s: ltp_by_symbol[s][1])
 
     
     # Group by date and get top gainers/losers
