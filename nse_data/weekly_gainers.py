@@ -4,13 +4,14 @@ Fetches historical data for NIFTY 100 stocks and calculates daily top gainers/lo
 """
 
 import yfinance as yf
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Dict, List, Any
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import httpx
 import time
 from urllib.parse import quote
+from typing import Optional
 
 NIFTY_100_STOCKS = [
     "ABB", "ACC", "ADANIENSOL", "ADANIENT", "ADANIGREEN", "ADANIPORTS",
@@ -37,13 +38,8 @@ NIFTY_100_STOCKS = [
     "ZOMATO", "ZYDUSLIFE"
 ]
 
-def fetch_nse_index_constituents(index: str = "NIFTY 100") -> List[Dict[str, Any]]:
-    """
-    Fetch live constituents data from NSE's stock indices API.
-
-    This provides LTP-based fields like `lastPrice` and `pChange`, which can differ
-    from official EOD `close` after the market closes.
-    """
+def fetch_nse_index_payload(index: str = "NIFTY 100") -> Dict[str, Any]:
+    """Fetch raw NSE stock index payload (used for LTP snapshot)."""
     url = f"https://www.nseindia.com/api/equity-stockIndices?index={quote(index, safe='')}"
     common_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -51,28 +47,39 @@ def fetch_nse_index_constituents(index: str = "NIFTY 100") -> List[Dict[str, Any
         "Referer": "https://www.nseindia.com/",
     }
 
-    try:
-        with httpx.Client(follow_redirects=True, timeout=20) as client:
-            try:
-                client.get(
-                    "https://www.nseindia.com",
-                    headers={
-                        **common_headers,
-                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                    },
-                )
-                time.sleep(0.5)
-            except Exception:
-                pass
-            resp = client.get(
-                url,
-                headers={**common_headers, "Accept": "application/json,text/plain,*/*"},
+    with httpx.Client(follow_redirects=True, timeout=20) as client:
+        try:
+            client.get(
+                "https://www.nseindia.com",
+                headers={
+                    **common_headers,
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                },
             )
-            resp.raise_for_status()
-            if "application/json" not in resp.headers.get("content-type", ""):
-                return []
-            payload = resp.json()
-            return payload.get("data", []) or []
+            time.sleep(0.5)
+        except Exception:
+            pass
+
+        resp = client.get(
+            url,
+            headers={**common_headers, "Accept": "application/json,text/plain,*/*"},
+        )
+        resp.raise_for_status()
+        if "application/json" not in resp.headers.get("content-type", ""):
+            return {}
+        return resp.json() or {}
+
+
+def fetch_nse_index_constituents(index: str = "NIFTY 100") -> List[Dict[str, Any]]:
+    """
+    Fetch live constituents data from NSE's stock indices API.
+
+    This provides LTP-based fields like `lastPrice` and `pChange`, which can differ
+    from official EOD `close` after the market closes.
+    """
+    try:
+        payload = fetch_nse_index_payload(index)
+        return payload.get("data", []) or []
     except Exception as e:
         print(f"Error fetching NSE index data ({index}): {e}")
         return []
@@ -109,6 +116,35 @@ def get_weekly_gainers_losers(num_days: int = 5) -> Dict[str, Any]:
     Returns data for each trading day with top 10 gainers and losers
     """
     all_data = []
+    # NSE LTP snapshot for "today" (more accurate than yfinance Close).
+    nse_ltp_date: Optional[date] = None
+    nse_ltp_records: List[Dict[str, Any]] = []
+    try:
+        payload = fetch_nse_index_payload("NIFTY 100")
+        ts = payload.get("timestamp") or payload.get("metadata", {}).get("timeVal")
+        if ts:
+            nse_ltp_date = datetime.strptime(ts.split()[0], "%d-%b-%Y").date()
+        for row in (payload.get("data") or []):
+            symbol = row.get("symbol")
+            if not symbol or symbol not in NIFTY_100_STOCKS:
+                continue
+            last_price = row.get("lastPrice")
+            p_change = row.get("pChange")
+            if last_price is None or p_change is None:
+                continue
+            try:
+                nse_ltp_records.append(
+                    {
+                        "Date": nse_ltp_date,
+                        "Symbol": symbol,
+                        "Close": float(last_price),
+                        "ChangePercent": float(p_change),
+                    }
+                )
+            except Exception:
+                continue
+    except Exception:
+        nse_ltp_records = []
     
     # Fetch data for all stocks in parallel
     with ThreadPoolExecutor(max_workers=10) as executor:
@@ -139,28 +175,21 @@ def get_weekly_gainers_losers(num_days: int = 5) -> Dict[str, Any]:
         combined = combined.rename(columns={'index': 'Date'})
     combined['Date'] = pd.to_datetime(combined['Date']).dt.date
 
-    # Override the latest day with NSE LTP-based values (lastPrice/pChange) so
-    # "today" matches NSE's live calculations.
-    if not combined.empty:
-        latest_date = combined['Date'].max()
-        nse_rows = fetch_nse_index_constituents("NIFTY 100")
-        if nse_rows:
-            ltp_by_symbol = {}
-            for row in nse_rows:
-                symbol = row.get("symbol")
-                last_price = row.get("lastPrice")
-                p_change = row.get("pChange")
-                if symbol and last_price is not None and p_change is not None:
-                    try:
-                        ltp_by_symbol[str(symbol)] = (float(last_price), float(p_change))
-                    except Exception:
-                        continue
-
-            if ltp_by_symbol:
-                mask = combined['Date'].eq(latest_date) & combined['Symbol'].isin(ltp_by_symbol.keys())
-                if mask.any():
-                    combined.loc[mask, 'Close'] = combined.loc[mask, 'Symbol'].map(lambda s: ltp_by_symbol[s][0])
-                    combined.loc[mask, 'ChangePercent'] = combined.loc[mask, 'Symbol'].map(lambda s: ltp_by_symbol[s][1])
+    # Inject/override "today" using NSE LTP-based values (lastPrice/pChange).
+    if nse_ltp_date and nse_ltp_records:
+        nse_df = pd.DataFrame.from_records(nse_ltp_records)
+        if not combined.empty:
+            mask = combined["Date"].eq(nse_ltp_date) & combined["Symbol"].isin(nse_df["Symbol"])
+            if mask.any():
+                combined.loc[mask, "Close"] = combined.loc[mask, "Symbol"].map(
+                    nse_df.set_index("Symbol")["Close"].to_dict()
+                )
+                combined.loc[mask, "ChangePercent"] = combined.loc[mask, "Symbol"].map(
+                    nse_df.set_index("Symbol")["ChangePercent"].to_dict()
+                )
+        # If yfinance doesn't have this date yet, append NSE rows so the latest day exists.
+        if combined.empty or nse_ltp_date not in set(combined["Date"].unique()):
+            combined = pd.concat([combined, nse_df], ignore_index=True)
 
     
     # Group by date and get top gainers/losers
