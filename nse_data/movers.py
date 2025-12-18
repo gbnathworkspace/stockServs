@@ -32,6 +32,13 @@ async def fetch_nifty_data():
             print(f"Error fetching NSE data: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to fetch data: {str(e)}")
 
+@router.get("/all-stocks")
+async def get_all_stocks():
+    """Return the full list of stocks for the virtual trading tab"""
+    data = await fetch_nifty_data()
+    sorted_data = sorted(data, key=lambda x: x.get("symbol", ""))
+    return {"stocks": sorted_data}
+
 @router.get("/top-gainers")
 async def get_top_gainers():
     """Fetch top gainers from NSE (NIFTY 50)"""
