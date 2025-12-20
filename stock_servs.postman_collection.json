@@ -454,6 +454,22 @@
           }
         },
         {
+          "name": "FII DII History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/fii-dii-history?limit=30"
+          }
+        },
+        {
+          "name": "FII DII History by Date",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/fii-dii-history/date?date=2024-01-01"
+          }
+        },
+        {
           "name": "Most Active by Value",
           "request": {
             "method": "GET",
@@ -499,6 +515,29 @@
             "method": "GET",
             "header": [],
             "url": "{{base_url}}/nse_data/block-deals"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Market Data",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{access_token}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Candles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/market-data/candles?symbol=RELIANCE&interval=5m&period=5d"
           }
         }
       ]

@@ -8,6 +8,7 @@ from routes.users import router as users_router
 from routes.nse_data import router as nse_data_router
 from routes.profile import router as profile_router
 from routes.portfolio import router as portfolio_router
+from routes.market_data import router as market_data_router
 from routes.logs import router as logs_router
 from routes.deps import get_current_user
 from services.request_logger import RequestLogger
@@ -56,6 +57,7 @@ app.include_router(users_router, dependencies=protected)
 app.include_router(profile_router, dependencies=protected)
 app.include_router(portfolio_router, dependencies=protected)
 app.include_router(nse_data_router, dependencies=protected)
+app.include_router(market_data_router, dependencies=protected)
 app.include_router(logs_router, dependencies=protected)
 
 

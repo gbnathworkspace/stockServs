@@ -7,6 +7,19 @@ let displayedStocks = [];
 let selectedStock = null;
 let priceMap = {};
 let portfolioHoldings = [];
+let chartState = {
+    symbol: null,
+    interval: '5m',
+    period: '5d',
+    chart: null,
+    rsiChart: null,
+    candleSeries: null,
+    volumeSeries: null,
+    smaSeries: null,
+    emaSeries: null,
+    rsiSeries: null,
+    rsiLinesReady: false,
+};
 let fiiDiiHistoryRecords = [];
 let sectionLoaded = {
     gainers: false,
@@ -762,7 +775,7 @@ function renderSelectedStock(stock) {
         <div class="trade-actions">
             <button class="trade-btn buy" onclick="simulateTrade('BUY')">Buy</button>
             <button class="trade-btn sell" onclick="simulateTrade('SELL')">Sell</button>
-            <button class="trade-btn outline" onclick="simulateTrade('CHART')">Chart</button>
+            <button class="trade-btn outline" onclick="openChartModal()">View chart</button>
         </div>
         <div class="sparkline-card">
             <div class="sparkline-header">
@@ -917,19 +930,250 @@ function drawSparkline(canvasId, stock) {
     ctx.stroke();
 }
 
+function openChartModal() {
+    if (!selectedStock) return;
+    const modal = document.getElementById('chart-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    chartState.symbol = selectedStock.symbol;
+    updateChartHeader();
+    const ready = initChartInstances();
+    if (!ready) return;
+    setActiveRangeButtons(chartState.interval, chartState.period);
+    loadChartData(chartState.symbol, chartState.interval, chartState.period);
+}
+
+function closeChartModal() {
+    const modal = document.getElementById('chart-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function initChartInstances() {
+    if (chartState.chart && chartState.rsiChart) {
+        resizeCharts();
+        return true;
+    }
+    if (!window.LightweightCharts) {
+        setChartLoading(false, 'Chart library failed to load');
+        return false;
+    }
+
+    const candleContainer = document.getElementById('candles-chart');
+    const rsiContainer = document.getElementById('rsi-chart');
+    if (!candleContainer || !rsiContainer) return false;
+
+    chartState.chart = LightweightCharts.createChart(candleContainer, {
+        layout: {
+            background: { color: '#181b21' },
+            textColor: '#e1e3e6',
+            fontFamily: 'Inter, system-ui, sans-serif',
+        },
+        grid: {
+            vertLines: { color: '#1f242d' },
+            horzLines: { color: '#1f242d' },
+        },
+        rightPriceScale: { borderColor: '#2d333b' },
+        timeScale: { timeVisible: true },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    });
+
+    chartState.candleSeries = chartState.chart.addCandlestickSeries({
+        upColor: '#00d09c',
+        downColor: '#ff4d4d',
+        wickUpColor: '#00d09c',
+        wickDownColor: '#ff4d4d',
+        borderVisible: false,
+    });
+
+    chartState.volumeSeries = chartState.chart.addHistogramSeries({
+        priceFormat: { type: 'volume' },
+        priceScaleId: '',
+        scaleMargins: { top: 0.8, bottom: 0 },
+    });
+
+    chartState.smaSeries = chartState.chart.addLineSeries({
+        color: '#f5c542',
+        lineWidth: 2,
+        priceLineVisible: false,
+    });
+
+    chartState.emaSeries = chartState.chart.addLineSeries({
+        color: '#4f9cf7',
+        lineWidth: 2,
+        priceLineVisible: false,
+    });
+
+    chartState.rsiChart = LightweightCharts.createChart(rsiContainer, {
+        layout: {
+            background: { color: '#181b21' },
+            textColor: '#e1e3e6',
+            fontFamily: 'Inter, system-ui, sans-serif',
+        },
+        grid: {
+            vertLines: { color: '#1f242d' },
+            horzLines: { color: '#1f242d' },
+        },
+        rightPriceScale: { borderColor: '#2d333b' },
+        timeScale: { timeVisible: true },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    });
+
+    chartState.rsiSeries = chartState.rsiChart.addLineSeries({
+        color: '#9b74ff',
+        lineWidth: 2,
+        priceLineVisible: false,
+    });
+
+    chartState.rsiChart.priceScale('right').applyOptions({ minValue: 0, maxValue: 100 });
+    chartState.rsiSeries.createPriceLine({
+        price: 70,
+        color: '#4f9cf7',
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+    });
+    chartState.rsiSeries.createPriceLine({
+        price: 30,
+        color: '#ff4d4d',
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+    });
+
+    chartState.chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+        if (range && chartState.rsiChart) {
+            chartState.rsiChart.timeScale().setVisibleLogicalRange(range);
+        }
+    });
+
+    resizeCharts();
+    return true;
+}
+
+function resizeCharts() {
+    const candleContainer = document.getElementById('candles-chart');
+    const rsiContainer = document.getElementById('rsi-chart');
+    if (!candleContainer || !rsiContainer) return;
+    if (chartState.chart) {
+        chartState.chart.applyOptions({
+            width: candleContainer.clientWidth,
+            height: candleContainer.clientHeight,
+        });
+    }
+    if (chartState.rsiChart) {
+        chartState.rsiChart.applyOptions({
+            width: rsiContainer.clientWidth,
+            height: rsiContainer.clientHeight,
+        });
+    }
+}
+
+async function loadChartData(symbol, interval, period) {
+    if (!symbol) return;
+    setChartLoading(true, 'Loading chart...');
+    try {
+        const url = `${API_BASE_URL}/market-data/candles?symbol=${encodeURIComponent(symbol)}&interval=${interval}&period=${period}`;
+        const res = await authFetch(url);
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.detail || 'Failed to load chart');
+        }
+        applyChartData(data);
+        updateChartHeader(data.interval, data.period);
+        setChartLoading(false);
+    } catch (err) {
+        setChartLoading(false, err?.message || 'Failed to load chart');
+    }
+}
+
+function applyChartData(data) {
+    if (!data || !chartState.candleSeries) return;
+    chartState.candleSeries.setData(data.candles || []);
+    if (chartState.volumeSeries) {
+        chartState.volumeSeries.setData(data.volume || []);
+    }
+    if (chartState.smaSeries) {
+        chartState.smaSeries.setData(data.indicators?.sma20 || []);
+    }
+    if (chartState.emaSeries) {
+        chartState.emaSeries.setData(data.indicators?.ema20 || []);
+    }
+    if (chartState.rsiSeries) {
+        chartState.rsiSeries.setData(data.indicators?.rsi14 || []);
+    }
+    if (chartState.chart) {
+        chartState.chart.timeScale().fitContent();
+    }
+    if (chartState.rsiChart) {
+        chartState.rsiChart.timeScale().fitContent();
+    }
+}
+
+function updateChartHeader(interval = chartState.interval, period = chartState.period) {
+    const title = document.getElementById('chart-title');
+    const subtitle = document.getElementById('chart-subtitle');
+    if (title) title.textContent = `${chartState.symbol || 'Chart'}`;
+    if (subtitle) subtitle.textContent = `${interval.toUpperCase()} • ${period}`;
+}
+
+function setChartLoading(isLoading, message) {
+    const loadingEl = document.getElementById('chart-loading');
+    const contentEl = document.querySelector('.chart-content');
+    const showContent = !isLoading && !message;
+    if (loadingEl) {
+        loadingEl.textContent = message || 'Loading chart...';
+        loadingEl.style.display = isLoading || message ? 'block' : 'none';
+    }
+    if (contentEl) {
+        contentEl.style.display = showContent ? 'flex' : 'none';
+    }
+}
+
+function setActiveRangeButtons(interval, period) {
+    const buttons = document.querySelectorAll('.chart-range');
+    buttons.forEach(btn => {
+        const isActive = btn.dataset.interval === interval && btn.dataset.period === period;
+        btn.classList.toggle('active', isActive);
+    });
+}
+
+function attachChartHandlers() {
+    const modal = document.getElementById('chart-modal');
+    if (modal) {
+        modal.addEventListener('click', event => {
+            if (event.target === modal) {
+                closeChartModal();
+            }
+        });
+    }
+
+    document.querySelectorAll('.chart-range').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const interval = btn.dataset.interval;
+            const period = btn.dataset.period;
+            chartState.interval = interval;
+            chartState.period = period;
+            setActiveRangeButtons(interval, period);
+            loadChartData(chartState.symbol, interval, period);
+        });
+    });
+
+    window.addEventListener('resize', () => {
+        if (!document.getElementById('chart-modal')?.classList.contains('hidden')) {
+            resizeCharts();
+        }
+    });
+}
+
 async function simulateTrade(action) {
     const toast = document.getElementById('virtual-toast');
     if (!toast || !selectedStock) return;
 
     const side = action.toUpperCase();
     if (side === 'CHART') {
-        toast.textContent = `Chart view coming soon`;
-        toast.classList.remove('hidden');
-        toast.classList.add('show');
-        setTimeout(() => {
-            toast.classList.remove('show');
-            toast.classList.add('hidden');
-        }, 1600);
+        openChartModal();
         return;
     }
 
@@ -1152,4 +1396,5 @@ document.addEventListener('DOMContentLoaded', () => {
     setInitialPlaceholders();
     fetchProfile();
     attachStockListHandler();
+    attachChartHandlers();
 });

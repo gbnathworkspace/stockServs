@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 import httpx
 import asyncio
 from datetime import datetime
@@ -63,7 +63,7 @@ async def get_fii_dii_activity(db: Session = Depends(get_db)):
 
 @router.get("/fii-dii-history")
 async def get_fii_dii_history(
-    limit: int = 30,
+    limit: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
     records = (
