@@ -20,14 +20,46 @@ const VirtualTrading = () => {
     setTimeout(() => setToast({ message: '', type: '', show: false }), 3000);
   };
 
-  // Fetch all stocks
+  // Fetch all stocks (with fallback to top gainers + losers)
   const fetchStocks = async () => {
     setLoading((l) => ({ ...l, stocks: true }));
     try {
+      // Try all-stocks first
       const res = await authApi(`${API_BASE_URL}/nse_data/all-stocks`);
       const stockList = res.stocks || [];
-      setStocks(stockList);
-      setFilteredStocks(stockList);
+      if (stockList.length > 0) {
+        setStocks(stockList);
+        setFilteredStocks(stockList);
+        return;
+      }
+    } catch (err) {
+      console.log('all-stocks failed, trying fallback...', err);
+    }
+
+    // Fallback: combine top gainers and top losers
+    try {
+      const [gainersRes, losersRes] = await Promise.all([
+        authApi(`${API_BASE_URL}/nse_data/top-gainers`),
+        authApi(`${API_BASE_URL}/nse_data/top-losers`),
+      ]);
+      const gainers = gainersRes.top_gainers || [];
+      const losers = losersRes.top_losers || [];
+      
+      // Combine and deduplicate
+      const combined = [...gainers, ...losers];
+      const seen = new Set();
+      const unique = combined.filter((s) => {
+        if (seen.has(s.symbol)) return false;
+        seen.add(s.symbol);
+        return true;
+      });
+      
+      // Sort alphabetically
+      unique.sort((a, b) => a.symbol.localeCompare(b.symbol));
+      
+      setStocks(unique);
+      setFilteredStocks(unique);
+      showToast('Loaded stocks from market movers', 'info');
     } catch (err) {
       console.error('Failed to load stocks', err);
       showToast('Failed to load stocks', 'error');
@@ -35,6 +67,7 @@ const VirtualTrading = () => {
       setLoading((l) => ({ ...l, stocks: false }));
     }
   };
+
 
   // Fetch portfolio
   const fetchPortfolio = async () => {
