@@ -1,11 +1,14 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
-from routes.auth import router as auth_router
+from routes.auth import router as auth_router, auth_router as core_auth_router
 from routes.holdings import router as holdings_router
 from routes.users import router as users_router
 from routes.nse_data import router as nse_data_router
+from routes.profile import router as profile_router
+from routes.portfolio import router as portfolio_router
+from routes.deps import get_current_user
 
 app = FastAPI(title="Stock Services API", version="1.0.0")
 
@@ -21,10 +24,15 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Include routers
+protected = [Depends(get_current_user)]
+
 app.include_router(auth_router)
-app.include_router(holdings_router)
-app.include_router(users_router)
-app.include_router(nse_data_router)
+app.include_router(core_auth_router)
+app.include_router(holdings_router, dependencies=protected)
+app.include_router(users_router, dependencies=protected)
+app.include_router(profile_router, dependencies=protected)
+app.include_router(portfolio_router, dependencies=protected)
+app.include_router(nse_data_router, dependencies=protected)
 
 @app.get("/")
 async def root():
@@ -42,5 +50,3 @@ async def setup_database():
     from setup_db import setup_database
     result = setup_database()
     return result
-
-

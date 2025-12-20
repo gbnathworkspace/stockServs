@@ -1,9 +1,203 @@
 // Use dynamic API URL based on current origin for network access
 const API_BASE_URL = window.location.origin;
+const RELEASE_VERSION = "2024-12-18.v1";
 
 let allStocks = [];
 let displayedStocks = [];
 let selectedStock = null;
+let priceMap = {};
+let portfolioHoldings = [];
+let sectionLoaded = {
+    gainers: false,
+    losers: false,
+    fii: false,
+    mostActive: false,
+    week52: false,
+    weekly: false,
+    bulkDeals: false,
+};
+
+function buildPriceMap(stocks = []) {
+    const map = {};
+    stocks.forEach(item => {
+        if (!item || !item.symbol) return;
+        const raw = item.lastPrice ?? item.last_price ?? item.closePrice ?? item.close_price;
+        const price = parseFloat(raw);
+        if (Number.isFinite(price)) {
+            map[item.symbol] = price;
+        }
+    });
+    return map;
+}
+
+function getToken() {
+    return localStorage.getItem("access_token");
+}
+
+function redirectToLogin() {
+    window.location.href = "/static/login.html";
+}
+
+function ensureAuthenticated() {
+    const token = getToken();
+    if (!token) {
+        redirectToLogin();
+        return false;
+    }
+    return true;
+}
+
+async function authFetch(url, options = {}) {
+    if (!ensureAuthenticated()) {
+        return Promise.reject(new Error("Not authenticated"));
+    }
+    const token = getToken();
+    const headers = options.headers ? { ...options.headers } : {};
+    headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(url, { ...options, headers });
+
+    if (res.status === 401) {
+        redirectToLogin();
+        throw new Error("Unauthorized");
+    }
+
+    return res;
+}
+
+function logout() {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("user_email");
+    redirectToLogin();
+}
+
+function setReleaseTag() {
+    const el = document.getElementById("release-tag");
+    if (el) {
+        el.textContent = RELEASE_VERSION;
+    }
+}
+
+function setInitialPlaceholders() {
+    const msg3 = '<tr><td colspan="3" class="loading">Tap Refresh to load</td></tr>';
+    const msg4 = '<tr><td colspan="4" class="loading">Tap Refresh to load</td></tr>';
+    const msg5 = '<tr><td colspan="5" class="loading">Tap Refresh to load</td></tr>';
+
+    const gainers = document.querySelector('#gainers-table tbody');
+    if (gainers) gainers.innerHTML = msg3;
+    const losers = document.querySelector('#losers-table tbody');
+    if (losers) losers.innerHTML = msg3;
+    const mostActive = document.querySelector('#most-active-table tbody');
+    if (mostActive) mostActive.innerHTML = msg3;
+    const weekHigh = document.querySelector('#week-52-high-table tbody');
+    if (weekHigh) weekHigh.innerHTML = msg3;
+    const bulkDeals = document.querySelector('#bulk-deals-table tbody');
+    if (bulkDeals) bulkDeals.innerHTML = msg4;
+    const weekly = document.getElementById('weekly-movers-container');
+    if (weekly) weekly.innerHTML = '<div class="loading">Tap Refresh to load</div>';
+    const portfolioTable = document.querySelector('#portfolio-table tbody');
+    if (portfolioTable) portfolioTable.innerHTML = msg5;
+    const stockList = document.getElementById('stock-list');
+    if (stockList) stockList.innerHTML = '<div class="loading">Tap "Refresh list" to load stocks</div>';
+    const lastUpdated = document.getElementById('last-updated');
+    if (lastUpdated) lastUpdated.textContent = 'Last updated: tap Refresh to load';
+
+    hideDataSections();
+}
+
+function hideDataSections() {
+    const selectors = [
+        '#gainers-content',
+        '#losers-content',
+        '.fii-dii-container',
+        '#most-active-table',
+        '#week-52-high-table',
+        '#weekly-movers-container',
+        '#bulk-deals-table',
+    ];
+    selectors.forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) el.classList.add('hidden');
+    });
+}
+
+function revealSection(key) {
+    const map = {
+        gainers: '#gainers-content',
+        losers: '#losers-content',
+        fii: '.fii-dii-container',
+        mostActive: '#most-active-table',
+        week52: '#week-52-high-table',
+        weekly: '#weekly-movers-container',
+        bulkDeals: '#bulk-deals-table',
+    };
+    const sel = map[key];
+    if (!sel) return;
+    const el = document.querySelector(sel);
+    if (el) el.classList.remove('hidden');
+}
+
+function loadSection(key) {
+    switch (key) {
+        case 'gainers':
+            revealSection('gainers');
+            fetchGainers();
+            break;
+        case 'losers':
+            revealSection('losers');
+            fetchLosers();
+            break;
+        case 'fii':
+            revealSection('fii');
+            fetchFIIDII();
+            break;
+        case 'mostActive':
+            revealSection('mostActive');
+            fetchMostActive();
+            break;
+        case 'week52':
+            revealSection('week52');
+            fetch52WeekHigh();
+            break;
+        case 'bulkDeals':
+            revealSection('bulkDeals');
+            fetchBulkDeals();
+            break;
+        case 'weekly':
+            revealSection('weekly');
+            fetchWeeklyGainers();
+            break;
+        default:
+            break;
+    }
+}
+
+async function fetchProfile() {
+    try {
+        const res = await authFetch(`${API_BASE_URL}/profile/me`);
+        const data = await res.json();
+        setUserChip(data.profile);
+    } catch (err) {
+        console.error("Error fetching profile:", err);
+        setUserChip(null);
+    }
+}
+
+function setUserChip(profile) {
+    const chip = document.getElementById("user-chip");
+    if (!chip) return;
+
+    const nameEl = chip.querySelector(".user-name");
+    const emailEl = chip.querySelector(".user-email");
+
+    if (profile) {
+        nameEl.textContent = profile.display_name || "User";
+        emailEl.textContent = profile.preferences?.email || localStorage.getItem("user_email") || profile.user_id;
+    } else {
+        nameEl.textContent = "Signed in";
+        emailEl.textContent = localStorage.getItem("user_email") || "";
+    }
+}
 
 // Top-level view switching (market dashboard vs virtual trading)
 function switchView(viewName) {
@@ -35,6 +229,34 @@ function switchTab(tabName) {
         content.classList.add('hidden');
     });
     document.getElementById(`${tabName}-content`).classList.remove('hidden');
+
+    // Lazy load tab data on first open
+    if (tabName === 'gainers') {
+        revealSection('gainers');
+        fetchGainers();
+    } else if (tabName === 'losers') {
+        revealSection('losers');
+        fetchLosers();
+    }
+}
+
+function switchVirtualTab(tabName) {
+    const tabs = ['stocks', 'portfolio'];
+    tabs.forEach(name => {
+        document.querySelectorAll(`.virtual-subtab[data-tab="${name}"]`).forEach(btn => {
+            btn.classList.toggle('active', name === tabName);
+        });
+        const panel = document.getElementById(`virtual-tab-${name}`);
+        if (panel) {
+            panel.classList.toggle('hidden', name !== tabName);
+        }
+    });
+
+    if (tabName === 'portfolio') {
+        fetchPortfolio();
+    } else if (tabName === 'stocks' && allStocks.length === 0) {
+        fetchAllStocks(true);
+    }
 }
 
 async function fetchData() {
@@ -42,16 +264,27 @@ async function fetchData() {
     refreshBtn.disabled = true;
     refreshBtn.innerHTML = 'Loading...';
 
+    // Reset lazy flags to force reload
+    sectionLoaded = {
+        gainers: false,
+        losers: false,
+        fii: false,
+        mostActive: false,
+        week52: false,
+        weekly: false,
+        bulkDeals: false,
+    };
+
     try {
         await Promise.all([
-            fetchAllStocks(),
-            fetchGainers(),
-            fetchLosers(),
-            fetchFIIDII(),
-            fetchMostActive(),
-            fetch52WeekHigh(),
-            fetchBulkDeals(),
-            fetchWeeklyGainers()
+            fetchAllStocks(true),
+            fetchGainers(true),
+            fetchLosers(true),
+            fetchFIIDII(true),
+            fetchMostActive(true),
+            fetch52WeekHigh(true),
+            fetchBulkDeals(true),
+            fetchWeeklyGainers(true)
         ]);
         updateTimestamp();
     } catch (error) {
@@ -65,22 +298,32 @@ async function fetchData() {
     }
 }
 
-async function fetchGainers() {
+async function fetchGainers(force = false) {
+    if (!force && sectionLoaded.gainers) return;
     try {
-        const response = await fetch(`${API_BASE_URL}/nse_data/top-gainers`);
+        const tbody = document.querySelector('#gainers-table tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="loading">Loading...</td></tr>';
+
+        const response = await authFetch(`${API_BASE_URL}/nse_data/top-gainers`);
         const data = await response.json();
         renderTable('gainers-table', data.top_gainers, true);
+        sectionLoaded.gainers = true;
     } catch (error) {
         console.error('Error fetching gainers:', error);
         document.querySelector('#gainers-table tbody').innerHTML = '<tr><td colspan="3" class="loading">Error loading data</td></tr>';
     }
 }
 
-async function fetchLosers() {
+async function fetchLosers(force = false) {
+    if (!force && sectionLoaded.losers) return;
     try {
-        const response = await fetch(`${API_BASE_URL}/nse_data/top-losers`);
+        const tbody = document.querySelector('#losers-table tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="loading">Loading...</td></tr>';
+
+        const response = await authFetch(`${API_BASE_URL}/nse_data/top-losers`);
         const data = await response.json();
         renderTable('losers-table', data.top_losers, false);
+        sectionLoaded.losers = true;
     } catch (error) {
         console.error('Error fetching losers:', error);
         document.querySelector('#losers-table tbody').innerHTML = '<tr><td colspan="3" class="loading">Error loading data</td></tr>';
@@ -108,11 +351,17 @@ function renderTable(tableId, items, isGainer) {
     `).join('');
 }
 
-async function fetchFIIDII() {
+async function fetchFIIDII(force = false) {
+    if (!force && sectionLoaded.fii) return;
     try {
-        const response = await fetch(`${API_BASE_URL}/nse_data/fii-dii-activity`);
+        const dateEl = document.getElementById('fii-dii-date');
+        if (dateEl) dateEl.textContent = 'Loading...';
+        revealSection('fii');
+
+        const response = await authFetch(`${API_BASE_URL}/nse_data/fii-dii-activity`);
         const data = await response.json();
         renderFIIDII(data);
+        sectionLoaded.fii = true;
     } catch (error) {
         console.error('Error fetching FII/DII data:', error);
     }
@@ -155,11 +404,17 @@ function updateTimestamp() {
     document.getElementById('last-updated').textContent = `Last updated: ${now.toLocaleTimeString()}`;
 }
 
-async function fetchMostActive() {
+async function fetchMostActive(force = false) {
+    if (!force && sectionLoaded.mostActive) return;
     try {
-        const response = await fetch(`${API_BASE_URL}/nse_data/most-active-volume`);
+        const tbody = document.querySelector('#most-active-table tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="loading">Loading...</td></tr>';
+        revealSection('mostActive');
+
+        const response = await authFetch(`${API_BASE_URL}/nse_data/most-active-volume`);
         const data = await response.json();
         renderMostActive(data.most_active);
+        sectionLoaded.mostActive = true;
     } catch (error) {
         console.error('Error fetching most active:', error);
         document.querySelector('#most-active-table tbody').innerHTML = '<tr><td colspan="3" class="loading">Error loading data</td></tr>';
@@ -189,11 +444,17 @@ function renderMostActive(items) {
     `}).join('');
 }
 
-async function fetch52WeekHigh() {
+async function fetch52WeekHigh(force = false) {
+    if (!force && sectionLoaded.week52) return;
     try {
-        const response = await fetch(`${API_BASE_URL}/nse_data/52-week-high`);
+        const tbody = document.querySelector('#week-52-high-table tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="loading">Loading...</td></tr>';
+        revealSection('week52');
+
+        const response = await authFetch(`${API_BASE_URL}/nse_data/52-week-high`);
         const data = await response.json();
         render52WeekHigh(data.stocks);
+        sectionLoaded.week52 = true;
     } catch (error) {
         console.error('Error fetching 52-week high:', error);
         document.querySelector('#week-52-high-table tbody').innerHTML = '<tr><td colspan="3" class="loading">Error loading data</td></tr>';
@@ -222,11 +483,17 @@ function render52WeekHigh(items) {
     `}).join('');
 }
 
-async function fetchBulkDeals() {
+async function fetchBulkDeals(force = false) {
+    if (!force && sectionLoaded.bulkDeals) return;
     try {
-        const response = await fetch(`${API_BASE_URL}/nse_data/bulk-deals`);
+        const tbody = document.querySelector('#bulk-deals-table tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="loading">Loading...</td></tr>';
+        revealSection('bulkDeals');
+
+        const response = await authFetch(`${API_BASE_URL}/nse_data/bulk-deals`);
         const data = await response.json();
         renderBulkDeals(data.bulk_deals, data.date);
+        sectionLoaded.bulkDeals = true;
     } catch (error) {
         console.error('Error fetching bulk deals:', error);
         document.querySelector('#bulk-deals-table tbody').innerHTML = '<tr><td colspan="4" class="loading">Error loading data</td></tr>';
@@ -263,9 +530,10 @@ async function fetchAllStocks(forceSelect = false) {
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/nse_data/all-stocks`);
+        const response = await authFetch(`${API_BASE_URL}/nse_data/all-stocks`);
         const data = await response.json();
         allStocks = (data.stocks || []).filter(stock => stock && stock.symbol);
+        priceMap = buildPriceMap(allStocks);
         const searchInput = document.getElementById('stock-search');
         const currentQuery = searchInput ? searchInput.value : '';
 
@@ -279,6 +547,10 @@ async function fetchAllStocks(forceSelect = false) {
 
         if (selectionPool.length > 0 && (forceSelect || !selectedStock)) {
             selectStock(selectionPool[0].symbol);
+        }
+
+        if (portfolioHoldings.length > 0) {
+            renderPortfolio(portfolioHoldings);
         }
     } catch (error) {
         console.error('Error fetching full stock list:', error);
@@ -539,18 +811,61 @@ function drawSparkline(canvasId, stock) {
     ctx.stroke();
 }
 
-function simulateTrade(action) {
+async function simulateTrade(action) {
     const toast = document.getElementById('virtual-toast');
     if (!toast || !selectedStock) return;
 
-    toast.textContent = `${action} ${selectedStock.symbol} in virtual mode`;
-    toast.classList.remove('hidden');
-    toast.classList.add('show');
+    const side = action.toUpperCase();
+    if (side === 'CHART') {
+        toast.textContent = `Chart view coming soon`;
+        toast.classList.remove('hidden');
+        toast.classList.add('show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.classList.add('hidden');
+        }, 1600);
+        return;
+    }
 
-    setTimeout(() => {
-        toast.classList.remove('show');
-        toast.classList.add('hidden');
-    }, 1600);
+    const qty = 1;
+    const priceVal = parseFloat(selectedStock.lastPrice || selectedStock.last_price || 0);
+
+    try {
+        const res = await authFetch(`${API_BASE_URL}/portfolio/trade`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                symbol: selectedStock.symbol,
+                quantity: qty,
+                price: priceVal || 1,
+                side,
+            })
+        });
+
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(body.detail || `Failed to ${side}`);
+        }
+
+        toast.textContent = `${side} ${selectedStock.symbol} recorded`;
+        toast.classList.remove('hidden');
+        toast.classList.add('show');
+        if (body?.holdings) {
+            portfolioHoldings = body.holdings;
+            renderPortfolio(portfolioHoldings);
+        } else {
+            fetchPortfolio();
+        }
+    } catch (err) {
+        toast.textContent = err?.message || `Failed to ${side}`;
+        toast.classList.remove('hidden');
+        toast.classList.add('show');
+    } finally {
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.classList.add('hidden');
+        }, 1600);
+    }
 }
 
 function attachStockListHandler() {
@@ -565,11 +880,62 @@ function attachStockListHandler() {
     });
 }
 
-async function fetchWeeklyGainers() {
+async function fetchPortfolio() {
     try {
-        const response = await fetch(`${API_BASE_URL}/nse_data/weekly-gainers?days=5`);
+        const res = await authFetch(`${API_BASE_URL}/portfolio`);
+        if (!res.ok) {
+            throw new Error('Failed to load portfolio');
+        }
+        const data = await res.json();
+        portfolioHoldings = data.holdings || [];
+        renderPortfolio(portfolioHoldings);
+    } catch (err) {
+        console.error('Error fetching portfolio', err);
+    }
+}
+
+function renderPortfolio(holdings) {
+    const tbody = document.querySelector('#portfolio-table tbody');
+    if (!tbody) return;
+
+    if (!holdings || holdings.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="loading">No trades yet</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = holdings.map(item => {
+        const symbol = item.symbol || '';
+        const qty = Number(item.quantity) || 0;
+        const avg = Number(item.average_price) || 0;
+        const ltpValue = item.ltp !== undefined ? Number(item.ltp) : priceMap[symbol];
+        const pnlValue = item.pnl !== undefined ? Number(item.pnl) :
+            (Number.isFinite(ltpValue) ? (ltpValue - avg) * qty : null);
+        const ltpText = Number.isFinite(ltpValue) ? `₹${ltpValue.toFixed(2)}` : '--';
+        const pnlClass = pnlValue > 0 ? 'positive' : pnlValue < 0 ? 'negative' : '';
+        const pnlText = Number.isFinite(pnlValue) ? `₹${pnlValue.toFixed(2)}` : '--';
+        return `
+        <tr>
+            <td><strong>${symbol}</strong></td>
+            <td class="text-right">${qty}</td>
+            <td class="text-right">₹${avg.toFixed(2)}</td>
+            <td class="text-right">${ltpText}</td>
+            <td class="text-right ${pnlClass}">${pnlText}</td>
+        </tr>
+    `;
+    }).join('');
+}
+
+async function fetchWeeklyGainers(force = false) {
+    if (!force && sectionLoaded.weekly) return;
+    try {
+        const container = document.getElementById('weekly-movers-container');
+        if (container) container.innerHTML = '<div class="loading">Loading weekly data...</div>';
+        revealSection('weekly');
+
+        const response = await authFetch(`${API_BASE_URL}/nse_data/weekly-gainers?days=5`);
         const data = await response.json();
         renderWeeklyGainers(data);
+        sectionLoaded.weekly = true;
     } catch (error) {
         console.error('Error fetching weekly gainers:', error);
         document.getElementById('weekly-movers-container').innerHTML = '<div class="loading">Error loading weekly data</div>';
@@ -675,6 +1041,9 @@ function renderTrackedStockList() {
 
 // Initial load
 document.addEventListener('DOMContentLoaded', () => {
-    fetchData();
+    if (!ensureAuthenticated()) return;
+    setReleaseTag();
+    setInitialPlaceholders();
+    fetchProfile();
     attachStockListHandler();
 });

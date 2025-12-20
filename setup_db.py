@@ -3,7 +3,7 @@ One-time script to initialize database tables on Render
 Visit: https://stockservs.onrender.com/setup-database
 """
 from database.connection import engine, Base
-from database.models import User, ZerodhaToken
+from database.models import User, ZerodhaToken, UserProfile, LocalCredential, VirtualHolding
 
 def setup_database():
     try:

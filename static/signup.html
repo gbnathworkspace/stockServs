@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - Stock Servs</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body class="auth-body">
+    <div class="auth-card">
+        <h1>Create account</h1>
+        <p class="muted">Start tracking markets with your own profile.</p>
+
+        <form id="signup-form" class="auth-form">
+            <label>Name (optional)</label>
+            <input id="signup-name" type="text" placeholder="Display name">
+
+            <label>Email</label>
+            <input id="signup-email" type="email" placeholder="you@example.com" required>
+
+            <label>Password</label>
+            <input id="signup-password" type="password" placeholder="••••••••" required>
+
+            <button type="submit" class="primary-btn">Sign up</button>
+        </form>
+
+        <div class="auth-divider">or</div>
+
+        <div class="google-config">
+            <input id="google-client-id" type="text" placeholder="Google Client ID (optional)">
+            <button id="set-google" type="button" class="ghost">Save Client ID</button>
+        </div>
+        <div id="google-signin" class="google-placeholder"></div>
+
+        <div class="auth-footer">
+            <span class="muted">Already have an account?</span>
+            <a href="/static/login.html">Sign in</a>
+        </div>
+
+        <div id="auth-status" class="auth-message"></div>
+    </div>
+    <script src="auth.js?v=1"></script>
+</body>
+</html>
