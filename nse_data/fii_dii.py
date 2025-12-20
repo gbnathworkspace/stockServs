@@ -1,6 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 import httpx
 import asyncio
+from datetime import datetime
+from sqlalchemy.orm import Session
+
+from database.connection import get_db
+from database.models import FiiDiiActivity
 
 router = APIRouter()
 
@@ -33,7 +38,7 @@ async def fetch_fii_dii_data():
             raise HTTPException(status_code=500, detail=f"Failed to fetch data: {str(e)}")
 
 @router.get("/fii-dii-activity")
-async def get_fii_dii_activity():
+async def get_fii_dii_activity(db: Session = Depends(get_db)):
     """Fetch FII/DII activity data (buy/sell values and net flows)"""
     data = await fetch_fii_dii_data()
     
@@ -46,9 +51,71 @@ async def get_fii_dii_activity():
             fii_data = item
         elif "DII" in item.get("category", ""):
             dii_data = item
-    
+
+    store_daily_activity(db, fii_data, dii_data)
+
     return {
         "fii": fii_data,
         "dii": dii_data,
         "date": fii_data.get("date") if fii_data else None
     }
+
+
+def parse_numeric(value):
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip()
+    if not text or text == "--":
+        return None
+    return float(text.replace(",", ""))
+
+
+def parse_trade_date(value):
+    if not value:
+        return None
+    text = str(value).strip()
+    for fmt in ("%d-%b-%Y", "%d-%b-%Y %H:%M:%S", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def store_daily_activity(db: Session, fii_data, dii_data):
+    date_str = None
+    if fii_data and fii_data.get("date"):
+        date_str = fii_data.get("date")
+    elif dii_data and dii_data.get("date"):
+        date_str = dii_data.get("date")
+
+    trade_date = parse_trade_date(date_str)
+    if not trade_date:
+        return
+
+    record = (
+        db.query(FiiDiiActivity)
+        .filter(FiiDiiActivity.trade_date == trade_date)
+        .first()
+    )
+
+    if record is None:
+        record = FiiDiiActivity(trade_date=trade_date)
+        db.add(record)
+
+    if fii_data:
+        record.fii_buy_value = parse_numeric(fii_data.get("buyValue"))
+        record.fii_sell_value = parse_numeric(fii_data.get("sellValue"))
+        record.fii_net_value = parse_numeric(fii_data.get("netValue"))
+    if dii_data:
+        record.dii_buy_value = parse_numeric(dii_data.get("buyValue"))
+        record.dii_sell_value = parse_numeric(dii_data.get("sellValue"))
+        record.dii_net_value = parse_numeric(dii_data.get("netValue"))
+
+    record.source_date_str = date_str
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()

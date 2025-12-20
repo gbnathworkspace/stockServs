@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database.connection import Base
@@ -53,3 +53,33 @@ class VirtualHolding(Base):
     average_price = Column(Float, nullable=False, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ApiLog(Base):
+    __tablename__ = "api_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    request_id = Column(String(64), nullable=False, index=True)
+    path = Column(String(255), nullable=False, index=True)
+    method = Column(String(10), nullable=False)
+    status_code = Column(Integer, nullable=False)
+    duration_ms = Column(Integer, nullable=False)
+    client_ip = Column(String(64), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class FiiDiiActivity(Base):
+    __tablename__ = "fii_dii_daily"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trade_date = Column(Date, nullable=False, unique=True, index=True)
+    fii_buy_value = Column(Float, nullable=True)
+    fii_sell_value = Column(Float, nullable=True)
+    fii_net_value = Column(Float, nullable=True)
+    dii_buy_value = Column(Float, nullable=True)
+    dii_sell_value = Column(Float, nullable=True)
+    dii_net_value = Column(Float, nullable=True)
+    source_date_str = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

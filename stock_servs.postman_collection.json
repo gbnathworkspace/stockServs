@@ -1,0 +1,507 @@
+{
+  "info": {
+    "name": "Stock Services API",
+    "description": "Postman collection for the Stock Services API. Set base_url and access_token before calling protected endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "email",
+      "value": "test@example.com"
+    },
+    {
+      "key": "password",
+      "value": "ChangeMe123!"
+    },
+    {
+      "key": "user_id",
+      "value": ""
+    },
+    {
+      "key": "zerodha_user_id",
+      "value": ""
+    },
+    {
+      "key": "request_token",
+      "value": ""
+    },
+    {
+      "key": "google_id_token",
+      "value": ""
+    },
+    {
+      "key": "days",
+      "value": "5"
+    }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/health"
+          }
+        },
+        {
+          "name": "Setup Database",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/setup-database"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Zerodha Login URL",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/zerodha/login"
+          }
+        },
+        {
+          "name": "Zerodha Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/zerodha/callback?request_token={{request_token}}&status=success"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json && json.user_id) {",
+                  "  pm.collectionVariables.set(\"zerodha_user_id\", json.user_id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Signup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"display_name\": \"Test User\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/signup"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json && json.access_token) {",
+                  "  pm.collectionVariables.set(\"access_token\", json.access_token);",
+                  "}",
+                  "if (json && json.user && json.user.id) {",
+                  "  pm.collectionVariables.set(\"user_id\", json.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "{{email}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json && json.access_token) {",
+                  "  pm.collectionVariables.set(\"access_token\", json.access_token);",
+                  "}",
+                  "if (json && json.user && json.user.id) {",
+                  "  pm.collectionVariables.set(\"user_id\", json.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Google Sign-In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_token\": \"{{google_id_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/google"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json && json.access_token) {",
+                  "  pm.collectionVariables.set(\"access_token\", json.access_token);",
+                  "}",
+                  "if (json && json.user && json.user.id) {",
+                  "  pm.collectionVariables.set(\"user_id\", json.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Holdings",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{access_token}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Get Holdings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/holdings/{{zerodha_user_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{access_token}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/users"
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/users?email={{email}}"
+          }
+        },
+        {
+          "name": "Get User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/users/{{user_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{access_token}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/profile/me"
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"display_name\": \"Test User\",\n  \"avatar_url\": \"https://example.com/avatar.png\",\n  \"preferences\": {\n    \"currency\": \"INR\",\n    \"theme\": \"light\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/profile/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Portfolio",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{access_token}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Get Portfolio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/portfolio"
+          }
+        },
+        {
+          "name": "Place Trade",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"symbol\": \"RELIANCE\",\n  \"quantity\": 1,\n  \"price\": 2500,\n  \"side\": \"BUY\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/portfolio/trade"
+          }
+        }
+      ]
+    },
+    {
+      "name": "NSE Data",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{access_token}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/status"
+          }
+        },
+        {
+          "name": "Weekly Gainers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/weekly-gainers?days={{days}}"
+          }
+        },
+        {
+          "name": "All Stocks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/all-stocks"
+          }
+        },
+        {
+          "name": "Top Gainers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/top-gainers"
+          }
+        },
+        {
+          "name": "Top Losers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/top-losers"
+          }
+        },
+        {
+          "name": "FII DII Activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/fii-dii-activity"
+          }
+        },
+        {
+          "name": "Most Active by Value",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/most-active-value"
+          }
+        },
+        {
+          "name": "Most Active by Volume",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/most-active-volume"
+          }
+        },
+        {
+          "name": "52 Week High",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/52-week-high"
+          }
+        },
+        {
+          "name": "52 Week Low",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/52-week-low"
+          }
+        },
+        {
+          "name": "Bulk Deals",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/bulk-deals"
+          }
+        },
+        {
+          "name": "Block Deals",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/nse_data/block-deals"
+          }
+        }
+      ]
+    }
+  ]
+}
