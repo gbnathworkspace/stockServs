@@ -21,16 +21,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Paths
-BASE_DIR = os.path.dirname(__file__)
+# Paths - use absolute path
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REACT_APP_PATH = os.path.join(BASE_DIR, "static", "app")
 REACT_INDEX = os.path.join(REACT_APP_PATH, "index.html")
 REACT_ASSETS = os.path.join(REACT_APP_PATH, "assets")
 
+# Debug: Check if React app exists at startup
+print(f"[DEBUG] BASE_DIR: {BASE_DIR}")
+print(f"[DEBUG] REACT_INDEX exists: {os.path.exists(REACT_INDEX)}")
+print(f"[DEBUG] REACT_ASSETS exists: {os.path.exists(REACT_ASSETS)}")
+if os.path.exists(REACT_APP_PATH):
+    print(f"[DEBUG] Contents of static/app: {os.listdir(REACT_APP_PATH)}")
+
 # Mount static files (legacy HTML frontend)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Mount React app assets directly (JS, CSS files)
+# Mount React app assets directly (JS, CSS files) if they exist
 if os.path.exists(REACT_ASSETS):
     app.mount("/app/assets", StaticFiles(directory=REACT_ASSETS), name="react_assets")
 
@@ -54,18 +61,45 @@ async def root():
     return RedirectResponse(url="/static/index.html")
 
 
-# SPA catch-all route - serves index.html for all /app/* routes
+def serve_react():
+    """Helper to serve React index.html"""
+    if os.path.exists(REACT_INDEX):
+        return FileResponse(REACT_INDEX, media_type="text/html")
+    return HTMLResponse(
+        content="<h1>React app not built</h1><p>Run 'npm run build' in the frontend directory.</p>", 
+        status_code=404
+    )
+
+
+# SPA routes - serve index.html for all /app/* routes
+@app.get("/app/")
+async def serve_react_root():
+    """Serve React app for /app/"""
+    return serve_react()
+
+
 @app.get("/app/{full_path:path}")
 async def serve_react_app(full_path: str):
     """Serve React app index.html for all client-side routes"""
-    if os.path.exists(REACT_INDEX):
-        return FileResponse(REACT_INDEX, media_type="text/html")
-    return HTMLResponse(content="<h1>React app not built</h1><p>Run 'npm run build' in the frontend directory.</p>", status_code=404)
+    return serve_react()
 
 
 @app.get("/health")
 async def health_check():
     return {"status": "alive", "service": "stock_servs"}
+
+
+@app.get("/debug/static")
+async def debug_static():
+    """Debug endpoint to check static file status"""
+    return {
+        "base_dir": BASE_DIR,
+        "react_app_path": REACT_APP_PATH,
+        "react_index_exists": os.path.exists(REACT_INDEX),
+        "react_assets_exists": os.path.exists(REACT_ASSETS),
+        "static_app_contents": os.listdir(REACT_APP_PATH) if os.path.exists(REACT_APP_PATH) else [],
+        "static_contents": os.listdir(os.path.join(BASE_DIR, "static")) if os.path.exists(os.path.join(BASE_DIR, "static")) else [],
+    }
 
 
 @app.get("/setup-database")
