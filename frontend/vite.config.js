@@ -32,6 +32,10 @@ export default defineConfig(({ command }) => {
           target: 'http://localhost:8000',
           changeOrigin: true,
         },
+        '/market-data': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+        },
       },
     },
   };

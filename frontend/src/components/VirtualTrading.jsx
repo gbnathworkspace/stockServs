@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { authApi } from '../lib/api.js';
 
 const API_BASE_URL = window.location.origin;
+const CHART_RANGES = [
+  { label: '5m', interval: '5m', period: '5d' },
+  { label: '15m', interval: '15m', period: '1mo' },
+  { label: '1D', interval: '1d', period: '6mo' },
+];
 
 const VirtualTrading = () => {
   const [activeTab, setActiveTab] = useState('stocks');
@@ -13,11 +18,216 @@ const VirtualTrading = () => {
   const [loading, setLoading] = useState({ stocks: false, portfolio: false, trade: false });
   const [tradeForm, setTradeForm] = useState({ quantity: 1, price: '' });
   const [toast, setToast] = useState({ message: '', type: '', show: false });
+  const [isChartOpen, setIsChartOpen] = useState(false);
+  const [chartRange, setChartRange] = useState({ interval: '5m', period: '5d' });
+  const [chartStatus, setChartStatus] = useState({ loading: false, error: '' });
+  const candleContainerRef = useRef(null);
+  const rsiContainerRef = useRef(null);
+  const chartRefs = useRef({
+    chart: null,
+    rsiChart: null,
+    candleSeries: null,
+    volumeSeries: null,
+    smaSeries: null,
+    emaSeries: null,
+    rsiSeries: null,
+  });
 
   // Show toast notification
   const showToast = (message, type = 'info') => {
     setToast({ message, type, show: true });
     setTimeout(() => setToast({ message: '', type: '', show: false }), 3000);
+  };
+
+  const openChart = () => {
+    if (!selectedStock) return;
+    setChartStatus({ loading: false, error: '' });
+    setIsChartOpen(true);
+  };
+
+  const closeChart = () => {
+    setIsChartOpen(false);
+    clearCharts();
+  };
+
+  const clearCharts = () => {
+    if (chartRefs.current.chart) {
+      chartRefs.current.chart.remove();
+    }
+    if (chartRefs.current.rsiChart) {
+      chartRefs.current.rsiChart.remove();
+    }
+    chartRefs.current = {
+      chart: null,
+      rsiChart: null,
+      candleSeries: null,
+      volumeSeries: null,
+      smaSeries: null,
+      emaSeries: null,
+      rsiSeries: null,
+    };
+  };
+
+  const updateChartStatus = (loadingState, errorMessage = '') => {
+    setChartStatus({ loading: loadingState, error: errorMessage });
+  };
+
+  const resizeCharts = () => {
+    const chart = chartRefs.current.chart;
+    const rsiChart = chartRefs.current.rsiChart;
+    const candleContainer = candleContainerRef.current;
+    const rsiContainer = rsiContainerRef.current;
+    if (chart && candleContainer) {
+      chart.applyOptions({
+        width: candleContainer.clientWidth,
+        height: candleContainer.clientHeight,
+      });
+    }
+    if (rsiChart && rsiContainer) {
+      rsiChart.applyOptions({
+        width: rsiContainer.clientWidth,
+        height: rsiContainer.clientHeight,
+      });
+    }
+  };
+
+  const ensureCharts = () => {
+    if (chartRefs.current.chart && chartRefs.current.rsiChart) {
+      resizeCharts();
+      return true;
+    }
+    const lib = window.LightweightCharts;
+    if (!lib) {
+      updateChartStatus(false, 'Chart library failed to load');
+      return false;
+    }
+    const candleContainer = candleContainerRef.current;
+    const rsiContainer = rsiContainerRef.current;
+    if (!candleContainer || !rsiContainer) return false;
+
+    chartRefs.current.chart = lib.createChart(candleContainer, {
+      layout: {
+        background: { color: '#181b21' },
+        textColor: '#e1e3e6',
+        fontFamily: 'Inter, system-ui, sans-serif',
+      },
+      grid: {
+        vertLines: { color: '#1f242d' },
+        horzLines: { color: '#1f242d' },
+      },
+      rightPriceScale: { borderColor: '#2d333b' },
+      timeScale: { timeVisible: true },
+      crosshair: { mode: lib.CrosshairMode.Normal },
+    });
+
+    chartRefs.current.candleSeries = chartRefs.current.chart.addCandlestickSeries({
+      upColor: '#00d09c',
+      downColor: '#ff4d4d',
+      wickUpColor: '#00d09c',
+      wickDownColor: '#ff4d4d',
+      borderVisible: false,
+    });
+
+    chartRefs.current.volumeSeries = chartRefs.current.chart.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: '',
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+
+    chartRefs.current.smaSeries = chartRefs.current.chart.addLineSeries({
+      color: '#f5c542',
+      lineWidth: 2,
+      priceLineVisible: false,
+    });
+
+    chartRefs.current.emaSeries = chartRefs.current.chart.addLineSeries({
+      color: '#4f9cf7',
+      lineWidth: 2,
+      priceLineVisible: false,
+    });
+
+    chartRefs.current.rsiChart = lib.createChart(rsiContainer, {
+      layout: {
+        background: { color: '#181b21' },
+        textColor: '#e1e3e6',
+        fontFamily: 'Inter, system-ui, sans-serif',
+      },
+      grid: {
+        vertLines: { color: '#1f242d' },
+        horzLines: { color: '#1f242d' },
+      },
+      rightPriceScale: { borderColor: '#2d333b' },
+      timeScale: { timeVisible: true },
+      crosshair: { mode: lib.CrosshairMode.Normal },
+    });
+
+    chartRefs.current.rsiSeries = chartRefs.current.rsiChart.addLineSeries({
+      color: '#9b74ff',
+      lineWidth: 2,
+      priceLineVisible: false,
+    });
+
+    chartRefs.current.rsiChart.priceScale('right').applyOptions({ minValue: 0, maxValue: 100 });
+    chartRefs.current.rsiSeries.createPriceLine({
+      price: 70,
+      color: '#4f9cf7',
+      lineWidth: 1,
+      lineStyle: lib.LineStyle.Dashed,
+    });
+    chartRefs.current.rsiSeries.createPriceLine({
+      price: 30,
+      color: '#ff4d4d',
+      lineWidth: 1,
+      lineStyle: lib.LineStyle.Dashed,
+    });
+
+    chartRefs.current.chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (range && chartRefs.current.rsiChart) {
+        chartRefs.current.rsiChart.timeScale().setVisibleLogicalRange(range);
+      }
+    });
+
+    resizeCharts();
+    return true;
+  };
+
+  const applyChartData = (data) => {
+    if (!data) return;
+    const { candleSeries, volumeSeries, smaSeries, emaSeries, rsiSeries, chart, rsiChart } = chartRefs.current;
+    if (candleSeries) {
+      candleSeries.setData(data.candles || []);
+    }
+    if (volumeSeries) {
+      volumeSeries.setData(data.volume || []);
+    }
+    if (smaSeries) {
+      smaSeries.setData(data.indicators?.sma20 || []);
+    }
+    if (emaSeries) {
+      emaSeries.setData(data.indicators?.ema20 || []);
+    }
+    if (rsiSeries) {
+      rsiSeries.setData(data.indicators?.rsi14 || []);
+    }
+    if (chart) {
+      chart.timeScale().fitContent();
+    }
+    if (rsiChart) {
+      rsiChart.timeScale().fitContent();
+    }
+  };
+
+  const loadChartData = async (symbol, interval, period) => {
+    if (!symbol) return;
+    updateChartStatus(true, '');
+    try {
+      const url = `${API_BASE_URL}/market-data/candles?symbol=${encodeURIComponent(symbol)}&interval=${interval}&period=${period}`;
+      const data = await authApi(url);
+      applyChartData(data);
+      updateChartStatus(false, '');
+    } catch (err) {
+      updateChartStatus(false, err.message || 'Failed to load chart');
+    }
   };
 
   // Fetch all stocks (with fallback to top gainers + losers)
@@ -101,6 +311,33 @@ const VirtualTrading = () => {
   useEffect(() => {
     fetchStocks();
     fetchPortfolio();
+  }, []);
+
+  useEffect(() => {
+    if (!isChartOpen || !selectedStock) return;
+    const ready = ensureCharts();
+    if (!ready) return;
+    loadChartData(selectedStock.symbol, chartRange.interval, chartRange.period);
+  }, [isChartOpen, selectedStock, chartRange]);
+
+  useEffect(() => {
+    if (!isChartOpen) {
+      document.body.style.overflow = '';
+      return;
+    }
+    document.body.style.overflow = 'hidden';
+    const handleResize = () => resizeCharts();
+    window.addEventListener('resize', handleResize);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isChartOpen]);
+
+  useEffect(() => {
+    return () => {
+      clearCharts();
+    };
   }, []);
 
   // Select a stock
@@ -304,6 +541,13 @@ const VirtualTrading = () => {
                   >
                     {loading.trade ? 'Processing...' : 'SELL'}
                   </button>
+                  <button
+                    className="chart-btn"
+                    onClick={openChart}
+                    disabled={chartStatus.loading}
+                  >
+                    View chart
+                  </button>
                 </div>
               </div>
             )}
@@ -377,6 +621,49 @@ const VirtualTrading = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {isChartOpen && selectedStock && (
+        <div className="chart-modal" onClick={closeChart}>
+          <div className="chart-shell" onClick={(event) => event.stopPropagation()}>
+            <div className="chart-header">
+              <div>
+                <h3>{selectedStock.symbol} Chart</h3>
+                <span className="muted">
+                  {chartRange.interval.toUpperCase()} • {chartRange.period}
+                </span>
+              </div>
+              <button className="icon-button" onClick={closeChart}>X</button>
+            </div>
+            <div className="chart-controls">
+              <div className="chart-ranges">
+                {CHART_RANGES.map((range) => (
+                  <button
+                    key={`${range.interval}-${range.period}`}
+                    className={`chart-range ${chartRange.interval === range.interval && chartRange.period === range.period ? 'active' : ''}`}
+                    onClick={() => setChartRange({ interval: range.interval, period: range.period })}
+                  >
+                    {range.label}
+                  </button>
+                ))}
+              </div>
+              <div className="chart-legend">
+                <span className="legend-item sma">SMA 20</span>
+                <span className="legend-item ema">EMA 20</span>
+                <span className="legend-item rsi">RSI 14</span>
+              </div>
+            </div>
+            {(chartStatus.loading || chartStatus.error) && (
+              <div className="loading">
+                {chartStatus.error || 'Loading chart...'}
+              </div>
+            )}
+            <div className={`chart-content ${chartStatus.loading ? 'is-loading' : ''}`}>
+              <div ref={candleContainerRef} className="chart-canvas"></div>
+              <div ref={rsiContainerRef} className="chart-canvas small"></div>
+            </div>
           </div>
         </div>
       )}
