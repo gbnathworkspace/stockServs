@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Card from './components/Card.jsx';
 import TabCard from './components/TabCard.jsx';
 import PortfolioCard from './components/PortfolioCard.jsx';
+import VirtualTrading from './components/VirtualTrading.jsx';
 import { authApi } from './lib/api.js';
 
 const API_BASE_URL = window.location.origin;
@@ -107,8 +108,11 @@ function App() {
         >
           Market Movers
         </button>
-        <button className="view-tab disabled" disabled>
-          Virtual Trading (coming)
+        <button
+          className={`view-tab ${activeView === 'trading' ? 'active' : ''}`}
+          onClick={() => setActiveView('trading')}
+        >
+          Virtual Trading
         </button>
       </div>
 
@@ -225,12 +229,8 @@ function App() {
         </div>
       )}
 
-      {activeView !== 'market' && (
-        <div className="card" style={{ padding: '1rem' }}>
-          <div className="card-body">
-            <p className="muted">More views coming soon.</p>
-          </div>
-        </div>
+      {activeView === 'trading' && (
+        <VirtualTrading />
       )}
     </div>
   );

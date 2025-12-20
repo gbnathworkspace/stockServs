@@ -7,6 +7,7 @@ let displayedStocks = [];
 let selectedStock = null;
 let priceMap = {};
 let portfolioHoldings = [];
+let fiiDiiHistoryRecords = [];
 let sectionLoaded = {
     gainers: false,
     losers: false,
@@ -109,6 +110,7 @@ function hideDataSections() {
     const selectors = [
         '#gainers-content',
         '#losers-content',
+        '.fii-dii-timeline',
         '.fii-dii-container',
         '#most-active-table',
         '#week-52-high-table',
@@ -135,6 +137,11 @@ function revealSection(key) {
     if (!sel) return;
     const el = document.querySelector(sel);
     if (el) el.classList.remove('hidden');
+
+    if (key === 'fii') {
+        const timeline = document.querySelector('.fii-dii-timeline');
+        if (timeline) timeline.classList.remove('hidden');
+    }
 }
 
 function loadSection(key) {
@@ -358,6 +365,15 @@ async function fetchFIIDII(force = false) {
         if (dateEl) dateEl.textContent = 'Loading...';
         revealSection('fii');
 
+        const historyResponse = await authFetch(`${API_BASE_URL}/nse_data/fii-dii-history?limit=30`);
+        const historyData = await historyResponse.json();
+        if (historyData.records && historyData.records.length) {
+            fiiDiiHistoryRecords = historyData.records;
+            renderFIIDIIHistory(historyData.records);
+            sectionLoaded.fii = true;
+            return;
+        }
+
         const response = await authFetch(`${API_BASE_URL}/nse_data/fii-dii-activity`);
         const data = await response.json();
         renderFIIDII(data);
@@ -396,6 +412,96 @@ function renderFIIDII(data) {
         diiNetElement.textContent = `${diiNet > 0 ? '+' : ''}₹${diiNet.toFixed(2)} Cr`;
         diiNetElement.className = `stat-value ${diiNet > 0 ? 'positive' : 'negative'}`;
     }
+}
+
+function renderFIIDIIHistory(records) {
+    const scroll = document.getElementById('fii-dii-scroll');
+    if (!scroll) return;
+
+    if (!records || !records.length) {
+        scroll.innerHTML = '<div class="loading">No dates available</div>';
+        return;
+    }
+
+    scroll.innerHTML = records.map((record, idx) => {
+        const label = formatDateChip(record.trade_date);
+        const activeClass = idx === 0 ? 'active' : '';
+        return `<button class="date-chip ${activeClass}" data-index="${idx}">${label}</button>`;
+    }).join('');
+
+    const buttons = scroll.querySelectorAll('.date-chip');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const index = Number(btn.dataset.index);
+            setActiveDateChip(scroll, btn);
+            const record = fiiDiiHistoryRecords[index];
+            if (record) {
+                renderFIIDIIRecord(record);
+            }
+        });
+    });
+
+    renderFIIDIIRecord(records[0]);
+}
+
+function renderFIIDIIRecord(record) {
+    if (!record) return;
+    const dateLabel = formatDateLabel(record.trade_date, record.source_date_str);
+    const dateEl = document.getElementById('fii-dii-date');
+    if (dateEl) dateEl.textContent = dateLabel;
+
+    setValueWithPrefix('fii-buy', record.fii_buy_value);
+    setValueWithPrefix('fii-sell', record.fii_sell_value);
+    setNetValue('fii-net', record.fii_net_value);
+    setValueWithPrefix('dii-buy', record.dii_buy_value);
+    setValueWithPrefix('dii-sell', record.dii_sell_value);
+    setNetValue('dii-net', record.dii_net_value);
+}
+
+function setValueWithPrefix(elementId, value) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        el.textContent = '--';
+        el.className = 'stat-value';
+        return;
+    }
+    el.textContent = `₹${Number(value).toFixed(2)} Cr`;
+    el.className = 'stat-value';
+}
+
+function setNetValue(elementId, value) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        el.textContent = '--';
+        el.className = 'stat-value';
+        return;
+    }
+    const num = Number(value);
+    el.textContent = `${num > 0 ? '+' : ''}₹${num.toFixed(2)} Cr`;
+    el.className = `stat-value ${num > 0 ? 'positive' : 'negative'}`;
+}
+
+function setActiveDateChip(container, activeButton) {
+    const chips = container.querySelectorAll('.date-chip');
+    chips.forEach(chip => chip.classList.remove('active'));
+    activeButton.classList.add('active');
+}
+
+function formatDateChip(dateStr) {
+    if (!dateStr) return '--';
+    const date = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+
+function formatDateLabel(dateStr, fallback) {
+    if (fallback) return fallback;
+    if (!dateStr) return '--';
+    const date = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 

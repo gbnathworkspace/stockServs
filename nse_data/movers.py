@@ -85,9 +85,28 @@ async def fetch_all_equities():
 
 @router.get("/all-stocks")
 async def get_all_stocks():
-    """Return the full list of stocks for the virtual trading tab (complete NSE equity list)."""
-    data = await fetch_all_equities()
-    return {"stocks": data}
+    """Return the full list of NIFTY 100 stocks with current prices for virtual trading."""
+    try:
+        # Fetch NIFTY 100 which includes price data
+        data = await fetch_index_data("NIFTY 100")
+        stocks = []
+        for item in data:
+            if item.get("symbol"):
+                stocks.append({
+                    "symbol": item.get("symbol", ""),
+                    "lastPrice": item.get("lastPrice", 0),
+                    "pChange": item.get("pChange", 0),
+                    "dayHigh": item.get("dayHigh", 0),
+                    "dayLow": item.get("dayLow", 0),
+                    "open": item.get("open", 0),
+                    "previousClose": item.get("previousClose", 0),
+                })
+        return {"stocks": sorted(stocks, key=lambda x: x["symbol"])}
+    except Exception as e:
+        # Fallback to equity list if NIFTY 100 fails
+        data = await fetch_all_equities()
+        return {"stocks": data}
+
 
 @router.get("/top-gainers")
 async def get_top_gainers():

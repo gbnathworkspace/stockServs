@@ -61,6 +61,38 @@ async def get_fii_dii_activity(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/fii-dii-history")
+async def get_fii_dii_history(
+    limit: int = 30,
+    db: Session = Depends(get_db),
+):
+    records = (
+        db.query(FiiDiiActivity)
+        .order_by(FiiDiiActivity.trade_date.desc())
+        .limit(limit)
+        .all()
+    )
+    return {"records": [serialize_activity(record) for record in records]}
+
+
+@router.get("/fii-dii-history/date")
+async def get_fii_dii_by_date(
+    date: str,
+    db: Session = Depends(get_db),
+):
+    trade_date = parse_trade_date(date)
+    if not trade_date:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+    record = (
+        db.query(FiiDiiActivity)
+        .filter(FiiDiiActivity.trade_date == trade_date)
+        .first()
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="No activity for that date")
+    return {"record": serialize_activity(record)}
+
+
 def parse_numeric(value):
     if value is None:
         return None
@@ -76,7 +108,7 @@ def parse_trade_date(value):
     if not value:
         return None
     text = str(value).strip()
-    for fmt in ("%d-%b-%Y", "%d-%b-%Y %H:%M:%S", "%d-%m-%Y"):
+    for fmt in ("%d-%b-%Y", "%d-%b-%Y %H:%M:%S", "%d-%m-%Y", "%Y-%m-%d"):
         try:
             return datetime.strptime(text, fmt).date()
         except ValueError:
@@ -119,3 +151,17 @@ def store_daily_activity(db: Session, fii_data, dii_data):
         db.commit()
     except Exception:
         db.rollback()
+
+
+def serialize_activity(record: FiiDiiActivity) -> dict:
+    return {
+        "trade_date": record.trade_date.isoformat() if record.trade_date else None,
+        "fii_buy_value": record.fii_buy_value,
+        "fii_sell_value": record.fii_sell_value,
+        "fii_net_value": record.fii_net_value,
+        "dii_buy_value": record.dii_buy_value,
+        "dii_sell_value": record.dii_sell_value,
+        "dii_net_value": record.dii_net_value,
+        "source_date_str": record.source_date_str,
+        "created_at": record.created_at.isoformat() if record.created_at else None,
+    }

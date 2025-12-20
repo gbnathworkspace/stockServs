@@ -416,6 +416,59 @@ tr:hover td {
     grid-column: 1 / -1;
 }
 
+.fii-dii-timeline {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0 1.5rem 1rem;
+}
+
+.timeline-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.fii-dii-scroll {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    scrollbar-width: thin;
+}
+
+.fii-dii-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+.fii-dii-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: 999px;
+}
+
+.date-chip {
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    color: var(--text-secondary);
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.date-chip:hover {
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+}
+
+.date-chip.active {
+    background: var(--accent-green);
+    color: #0b1315;
+    border-color: var(--accent-green);
+}
+
 .card-header {
     display: flex;
     justify-content: space-between;
