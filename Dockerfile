@@ -1,11 +1,28 @@
-# Use an official Python runtime as a parent image
+# Stage 1: Build React frontend
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /build
+
+# Copy frontend package files
+COPY frontend/package*.json ./frontend/
+
+# Install dependencies
+WORKDIR /build/frontend
+RUN npm ci
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build the React app (outputs to ../static/app which is /build/static/app)
+RUN npm run build
+
+# Stage 2: Python backend
 FROM python:3.10-slim
 
 # Set the working directory in the container
 WORKDIR /app
 
 # Install system dependencies
-# psycopg2-binary usually works fine on slim, but sometimes build-essential or libpq-dev is needed if compiling
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
@@ -17,8 +34,11 @@ COPY requirements.txt .
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
+# Copy the rest of the application code (excluding frontend node_modules via .dockerignore)
 COPY . .
+
+# Copy built React app from frontend-builder stage
+COPY --from=frontend-builder /build/static/app ./static/app
 
 # Expose port 8000
 EXPOSE 8000
@@ -26,5 +46,5 @@ EXPOSE 8000
 # Define environment variable
 ENV PYTHONUNBUFFERED=1
 
-# Run app.py when the container launches
+# Run the app when the container launches
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
