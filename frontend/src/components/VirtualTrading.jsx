@@ -30,6 +30,7 @@ const VirtualTrading = () => {
       if (stockList.length > 0) {
         setStocks(stockList);
         setFilteredStocks(stockList);
+        setLoading((l) => ({ ...l, stocks: false }));
         return;
       }
     } catch (err) {
@@ -59,7 +60,9 @@ const VirtualTrading = () => {
       
       setStocks(unique);
       setFilteredStocks(unique);
-      showToast('Loaded stocks from market movers', 'info');
+      if (unique.length > 0) {
+        showToast('Loaded stocks from market movers', 'info');
+      }
     } catch (err) {
       console.error('Failed to load stocks', err);
       showToast('Failed to load stocks', 'error');
@@ -67,6 +70,7 @@ const VirtualTrading = () => {
       setLoading((l) => ({ ...l, stocks: false }));
     }
   };
+
 
 
   // Fetch portfolio
