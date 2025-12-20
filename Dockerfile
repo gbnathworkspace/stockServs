@@ -14,7 +14,9 @@ RUN npm ci
 COPY frontend/ ./
 
 # Build the React app (outputs to ../static/app which is /build/static/app)
-RUN npm run build
+RUN npm run build && \
+    ls -la /build/static/app && \
+    echo "React build complete!"
 
 # Stage 2: Python backend
 FROM python:3.10-slim
@@ -39,6 +41,10 @@ COPY . .
 
 # Copy built React app from frontend-builder stage
 COPY --from=frontend-builder /build/static/app ./static/app
+
+# Verify the React app was copied
+RUN ls -la ./static/app && \
+    echo "Static app files copied successfully!"
 
 # Expose port 8000
 EXPOSE 8000
