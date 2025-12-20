@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from './components/Card.jsx';
 import TabCard from './components/TabCard.jsx';
 import PortfolioCard from './components/PortfolioCard.jsx';
@@ -7,13 +8,21 @@ import { authApi } from './lib/api.js';
 const API_BASE_URL = window.location.origin;
 
 function App() {
+  const navigate = useNavigate();
   const isAuthed = Boolean(localStorage.getItem('access_token'));
+  const userEmail = localStorage.getItem('user_email') || 'User';
   const [status, setStatus] = useState('Idle');
   const [activeView, setActiveView] = useState('market');
   const [gainers, setGainers] = useState([]);
   const [losers, setLosers] = useState([]);
   const [bulkDeals, setBulkDeals] = useState([]);
   const [weekly, setWeekly] = useState(null);
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_email');
+    navigate('/login');
+  };
 
   const [loading, setLoading] = useState({
     gainers: false,
@@ -79,11 +88,16 @@ function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">Stock Servs</p>
-          <h1>React Dashboard (lazy-loaded)</h1>
-          <p className="muted">Click a card header or tab to fetch data on demand.</p>
-          {!isAuthed && <p className="muted">No token found. Log in first to use the API.</p>}
+          <h1>Market Dashboard</h1>
+          <p className="muted">Real-time market data and portfolio tracking</p>
         </div>
-        <div className="chip">{status}</div>
+        <div className="topbar-right">
+          <span className="user-email">{userEmail}</span>
+          <div className="chip">{status}</div>
+          <button className="logout-btn" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
       </header>
 
       <div className="view-tabs">
