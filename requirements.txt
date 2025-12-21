@@ -12,8 +12,10 @@ python-jose[cryptography]==3.3.0
 # Authentication - bcrypt 4.0.1 is compatible with passlib on Python 3.14
 bcrypt==4.0.1
 
-# Zerodha API
+# Zerodha & Fyers API
 kiteconnect==5.0.1
+fyers-apiv3==3.0.4
+
 
 # Environment variables
 python-dotenv==1.1.1

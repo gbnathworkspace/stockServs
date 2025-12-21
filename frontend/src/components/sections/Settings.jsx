@@ -5,6 +5,63 @@ export default function Settings({ subSection }) {
   const navigate = useNavigate();
   const userEmail = localStorage.getItem('user_email') || 'User';
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [fyersConnected, setFyersConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  // Check connection status on mount
+  React.useEffect(() => {
+    checkFyersStatus();
+  }, []);
+
+  const checkFyersStatus = async () => {
+    try {
+      const response = await fetch('/fyers/status', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+      });
+      const data = await response.json();
+      setFyersConnected(data.connected);
+    } catch (error) {
+      console.error('Error checking Fyers status:', error);
+    }
+  };
+
+  const handleFyersConnect = async () => {
+    setIsConnecting(true);
+    try {
+      const response = await fetch('/fyers/auth-url', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+      });
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error('Error getting Fyers auth URL:', error);
+      alert('Failed to connect to Fyers. Please try again later.');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleFyersDisconnect = async () => {
+    if (!confirm('Are you sure you want to disconnect your Fyers account?')) return;
+    
+    try {
+      await fetch('/fyers/disconnect', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+      });
+      setFyersConnected(false);
+    } catch (error) {
+      console.error('Error disconnecting Fyers:', error);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -121,7 +178,48 @@ export default function Settings({ subSection }) {
       </div>
 
       <div className="settings-card">
+        <h3>Broker Connections</h3>
+        <p className="settings-desc">Connect your real broker accounts to view holdings and place real trades.</p>
+        <div className="settings-list">
+          <div className="settings-item">
+            <div className="settings-item-info">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>🦊</span>
+                <div>
+                  <span className="settings-item-label">Fyers</span>
+                  <span className="settings-item-desc">Trade with your Fyers account</span>
+                </div>
+              </div>
+            </div>
+            {fyersConnected ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span className="badge-connected">Connected</span>
+                <button className="settings-action-link danger" onClick={handleFyersDisconnect}>Disconnect</button>
+              </div>
+            ) : (
+              <button className="settings-action-link primary" onClick={handleFyersConnect} disabled={isConnecting}>
+                {isConnecting ? 'Connecting...' : 'Connect'}
+              </button>
+            )}
+          </div>
+
+          <div className="settings-item disabled">
+            <div className="settings-item-info">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>🦅</span>
+                <div>
+                  <span className="settings-item-label">Zerodha</span>
+                  <span className="settings-item-desc">Coming Soon</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-card">
         <h3>Account Information</h3>
+
         <div className="settings-list">
           <div className="settings-item">
             <div className="settings-item-info">

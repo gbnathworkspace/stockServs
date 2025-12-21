@@ -18,13 +18,44 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [appVersion, setAppVersion] = useState('');
 
-  // Fetch version on mount
+  // Fetch version and handle Fyers callback on mount
   useEffect(() => {
     fetch('/static/version.json?t=' + Date.now())
       .then(res => res.json())
       .then(data => setAppVersion(`v${data.version}`))
       .catch(() => setAppVersion('v1.0.0'));
+
+    // Handle Fyers callback
+    const urlParams = new URLSearchParams(window.location.search);
+    const s = urlParams.get('s');
+    const code = urlParams.get('code');
+    const id = urlParams.get('id');
+
+    if (s === 'ok' && code) {
+      handleFyersCallback(s, code, id);
+    }
   }, []);
+
+  const handleFyersCallback = async (s, code, id) => {
+    try {
+      const response = await fetch(`/fyers/callback?s=${s}&code=${code}&id=${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        alert('Fyers connected successfully!');
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setActiveSection('settings.profile');
+      } else {
+        alert('Failed to connect Fyers: ' + data.detail);
+      }
+    } catch (error) {
+      console.error('Error handling Fyers callback:', error);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
