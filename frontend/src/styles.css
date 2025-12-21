@@ -253,12 +253,22 @@
   box-sizing: border-box;
 }
 
+html {
+  background: var(--bg-gradient);
+  min-height: 100%;
+}
+
 body {
   margin: 0;
   background: var(--bg-gradient);
   min-height: 100vh;
   color: var(--text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow-x: hidden;
+}
+
+body.modal-open {
+  overflow: hidden;
 }
 
 /* ===== AUTH PAGES ===== */
@@ -886,6 +896,7 @@ td.stock-link {
 /* ===== VIRTUAL TRADING ===== */
 .virtual-trading {
   position: relative;
+  overflow-x: hidden;
 }
 
 .virtual-toast {
@@ -924,6 +935,7 @@ td.stock-link {
 
 .virtual-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
   background: var(--card-bg);
@@ -934,6 +946,7 @@ td.stock-link {
 
 .virtual-tab {
   flex: 1;
+  min-width: 0;
   padding: 0.875rem 1.5rem;
   border: none;
   background: transparent;
@@ -943,6 +956,8 @@ td.stock-link {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
+  text-align: center;
+  white-space: normal;
 }
 
 .virtual-tab:hover {
@@ -1485,6 +1500,9 @@ td.stock-link {
   z-index: 2000;
   padding: 1.5rem;
   animation: fadeIn 0.15s ease-out;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 @keyframes fadeIn {
@@ -1514,6 +1532,10 @@ td.stock-link {
   gap: 1.25rem;
   box-shadow: 0 25px 70px rgba(0, 0, 0, 0.5);
   animation: slideUp 0.2s ease-out;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .stock-trade-header {
@@ -1748,6 +1770,8 @@ td.stock-link {
 .app-layout {
   display: flex;
   min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .sidebar {
@@ -1961,11 +1985,13 @@ td.stock-link {
   margin-left: 260px;
   min-height: 100vh;
   transition: margin-left 0.2s ease;
+  width: calc(100% - 260px);
 }
 
 .sidebar.collapsed + .main-content,
 .main-content.sidebar-collapsed {
   margin-left: 70px;
+  width: calc(100% - 70px);
 }
 
 /* ===== DASHBOARD SECTION ===== */
@@ -2392,6 +2418,8 @@ td.stock-link {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .quick-action-btn:hover {
@@ -2402,6 +2430,11 @@ td.stock-link {
 
 .quick-action-icon {
   font-size: 1.25rem;
+}
+
+.quick-action-btn span:last-child {
+  flex: 1;
+  min-width: 0;
 }
 
 .dashboard-market-grid {
@@ -3059,6 +3092,11 @@ td.stock-link {
     padding: 1.25rem;
   }
 
+  .stock-trade-modal {
+    align-items: flex-start;
+    padding: 1rem;
+  }
+
   .stock-trade-price {
     font-size: 1.5rem;
   }
@@ -3182,6 +3220,10 @@ td.stock-link {
   .stock-change {
     font-size: 0.85rem;
   }
+
+  .quick-actions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* Extra small devices */
@@ -3280,6 +3322,10 @@ td.stock-link {
   .buy-btn, .sell-btn, .chart-btn {
     padding: 0.85rem;
     font-size: 0.9rem;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
   }
   
   /* Table extra small */

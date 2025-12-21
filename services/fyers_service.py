@@ -1,5 +1,4 @@
 from fyers_apiv3 import fyersModel
-from fyers_apiv3.FyersAuthenticate import session
 import os
 from dotenv import load_dotenv
 
@@ -14,9 +13,14 @@ def get_fyers_auth_url():
     Step 1: Generate Fyers auth URL for user to authorize
     """
     if not all([FYERS_CLIENT_ID, FYERS_SECRET_KEY, FYERS_REDIRECT_URI]):
+        missing = []
+        if not FYERS_CLIENT_ID: missing.append("FYERS_CLIENT_ID")
+        if not FYERS_SECRET_KEY: missing.append("FYERS_SECRET_KEY")
+        if not FYERS_REDIRECT_URI: missing.append("FYERS_REDIRECT_URI")
+        print(f"Fyers configuration missing: {', '.join(missing)}")
         return None
         
-    fyers_session = session.SessionModel(
+    fyers_session = fyersModel.SessionModel(
         client_id=FYERS_CLIENT_ID,
         secret_key=FYERS_SECRET_KEY,
         redirect_uri=FYERS_REDIRECT_URI,
@@ -24,14 +28,14 @@ def get_fyers_auth_url():
         grant_type="authorization_code"
     )
     
-    return fyers_session.generate_auth_code()
+    return fyers_session.generate_authcode()
 
 def generate_fyers_access_token(auth_code: str):
     """
     Step 2: Exchange auth code for access token
     """
     try:
-        fyers_session = session.SessionModel(
+        fyers_session = fyersModel.SessionModel(
             client_id=FYERS_CLIENT_ID,
             secret_key=FYERS_SECRET_KEY,
             redirect_uri=FYERS_REDIRECT_URI,

@@ -68,6 +68,9 @@ jobs:
           docker run -d --name stock_servs -p 8000:8000 \
             -e DB_SSM_PARAM_NAME='DB_SSM_PARAM_NAME' \
             -e AWS_REGION='us-east-1' \
+            -e FYERS_CLIENT_ID='${{ secrets.FYERS_CLIENT_ID }}' \
+            -e FYERS_SECRET_KEY='${{ secrets.FYERS_SECRET_KEY }}' \
+            -e FYERS_REDIRECT_URI='${{ secrets.FYERS_REDIRECT_URI }}' \
             --restart unless-stopped \
             ${DOCKER_USER}/stock_servs:latest
           

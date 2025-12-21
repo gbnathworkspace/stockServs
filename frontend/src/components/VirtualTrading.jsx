@@ -48,6 +48,13 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     rsiSeries: null,
   });
 
+  const isModalOpen = Boolean(selectedStock) || isChartOpen;
+
+  useEffect(() => {
+    document.body.classList.toggle('modal-open', isModalOpen);
+    return () => document.body.classList.remove('modal-open');
+  }, [isModalOpen]);
+
   // Show toast notification
   const showToast = (message, type = 'info') => {
     setToast({ message, type, show: true });
