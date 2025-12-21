@@ -1,6 +1,6 @@
 // Use dynamic API URL based on current origin for network access
 const API_BASE_URL = window.location.origin;
-const RELEASE_VERSION = "2024-12-21.v1";
+let RELEASE_VERSION = "Loading...";
 
 let allStocks = [];
 let displayedStocks = [];
@@ -85,10 +85,24 @@ function logout() {
     redirectToLogin();
 }
 
+async function fetchAndSetVersion() {
+    try {
+        const res = await fetch('/static/version.json?t=' + Date.now());
+        const data = await res.json();
+        RELEASE_VERSION = `v${data.version}`;
+        setReleaseTag();
+    } catch (err) {
+        console.error('Failed to load version:', err);
+        RELEASE_VERSION = 'v1.0.0';
+        setReleaseTag();
+    }
+}
+
 function setReleaseTag() {
     const el = document.getElementById("release-tag");
     if (el) {
         el.textContent = RELEASE_VERSION;
+        el.title = `Release: ${RELEASE_VERSION}`;
     }
 }
 
@@ -1534,7 +1548,7 @@ function renderTrackedStockList() {
 // Initial load
 document.addEventListener('DOMContentLoaded', () => {
     if (!ensureAuthenticated()) return;
-    setReleaseTag();
+    fetchAndSetVersion();
     setInitialPlaceholders();
     fetchProfile();
     attachStockListHandler();

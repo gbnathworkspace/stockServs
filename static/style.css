@@ -156,11 +156,14 @@ h1 {
 }
 
 .release-tag {
-    padding: 0.2rem 0.6rem;
+    padding: 0.25rem 0.65rem;
     border-radius: 999px;
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    font-size: 0.85rem;
+    border: 1px solid var(--accent-green);
+    background: rgba(0, 208, 156, 0.1);
+    color: var(--accent-green);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: default;
 }
 
 .header-controls {
