@@ -8,6 +8,19 @@ const menuItems = [
     subsections: []
   },
   {
+    id: 'products',
+    label: 'TradeFinder Products',
+    icon: '🎯',
+    subsections: [
+      { id: 'option-clock', label: 'Option Clock', icon: '🕐' },
+      { id: 'option-apex', label: 'Option Apex', icon: '⚡' },
+      { id: 'market-pulse', label: 'Market Pulse', icon: '💓' },
+      { id: 'insider-strategy', label: 'Insider Strategy', icon: '🎯' },
+      { id: 'sector-scope', label: 'Sector Scope', icon: '🔍' },
+      { id: 'swing-spectrum', label: 'Swing Spectrum', icon: '📐' },
+    ]
+  },
+  {
     id: 'trading',
     label: 'Virtual Trading',
     icon: '💹',
@@ -26,15 +39,6 @@ const menuItems = [
       { id: 'losers', label: 'Top Losers' },
       { id: 'weekly', label: 'Weekly Movers' },
       { id: 'bulk', label: 'Bulk Deals' },
-    ]
-  },
-  {
-    id: 'charts',
-    label: 'Charts & Analysis',
-    icon: '📉',
-    subsections: [
-      { id: 'candles', label: 'Candlestick Charts' },
-      { id: 'indicators', label: 'Technical Indicators' },
     ]
   },
   {
@@ -64,7 +68,8 @@ const menuItems = [
 ];
 
 export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse, mobileOpen, onMobileClose }) {
-  const [expandedMenus, setExpandedMenus] = useState(['trading', 'market']);
+  const [expandedMenus, setExpandedMenus] = useState(['products', 'trading', 'market']);
+
 
   const toggleMenu = (menuId) => {
     setExpandedMenus(prev =>
@@ -92,7 +97,7 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
               <span className="brand-icon">📈</span>
               <span className="brand-text">StockServs</span>
             </div>
-            <p className="sidebar-tagline">Virtual Trading Platform</p>
+            <p className="sidebar-tagline">Smart Trading Intelligence</p>
           </>
         )}
         <button className="sidebar-toggle" onClick={onToggleCollapse}>

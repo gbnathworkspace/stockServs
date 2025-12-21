@@ -8,6 +8,12 @@ import OrderHistory from './components/sections/OrderHistory.jsx';
 import Wallet from './components/sections/Wallet.jsx';
 import Watchlist from './components/sections/Watchlist.jsx';
 import Settings from './components/sections/Settings.jsx';
+import OptionClock from './components/sections/OptionClock.jsx';
+import OptionApex from './components/sections/OptionApex.jsx';
+import MarketPulse from './components/sections/MarketPulse.jsx';
+import InsiderStrategy from './components/sections/InsiderStrategy.jsx';
+import SectorScope from './components/sections/SectorScope.jsx';
+import SwingSpectrum from './components/sections/SwingSpectrum.jsx';
 
 function App() {
   const navigate = useNavigate();
@@ -76,6 +82,25 @@ function App() {
       case 'dashboard':
         return <Dashboard onNavigate={handleSectionChange} />;
 
+      case 'products':
+        // Handle TradeFinder Products subsections
+        switch (subSection) {
+          case 'option-clock':
+            return <OptionClock />;
+          case 'option-apex':
+            return <OptionApex />;
+          case 'market-pulse':
+            return <MarketPulse />;
+          case 'insider-strategy':
+            return <InsiderStrategy />;
+          case 'sector-scope':
+            return <SectorScope />;
+          case 'swing-spectrum':
+            return <SwingSpectrum />;
+          default:
+            return <OptionClock />; // Default to first product
+        }
+
       case 'trading':
         if (subSection === 'portfolio' || subSection === 'orders') {
           return (
@@ -88,23 +113,6 @@ function App() {
 
       case 'market':
         return <MarketData subSection={subSection || 'gainers'} />;
-
-      case 'charts':
-        return (
-          <div className="coming-soon-section">
-            <div className="empty-state">
-              <div className="empty-state-icon">📉</div>
-              <div className="empty-state-title">Charts & Analysis</div>
-              <div className="empty-state-text">
-                Advanced charting features are available when you trade stocks.
-                Select a stock to view detailed candlestick charts with technical indicators.
-              </div>
-              <button className="primary-btn" onClick={() => handleSectionChange('trading.trade')}>
-                Go to Trading
-              </button>
-            </div>
-          </div>
-        );
 
       case 'wallet':
         return <Wallet subSection={subSection || 'balance'} onNavigate={handleSectionChange} />;
@@ -123,6 +131,13 @@ function App() {
   const getSectionTitle = () => {
     const titles = {
       'dashboard': 'Dashboard',
+      'products': 'TradeFinder Products',
+      'products.option-clock': 'Option Clock',
+      'products.option-apex': 'Option Apex',
+      'products.market-pulse': 'Market Pulse',
+      'products.insider-strategy': 'Insider Strategy',
+      'products.sector-scope': 'Sector Scope',
+      'products.swing-spectrum': 'Swing Spectrum',
       'trading': 'Virtual Trading',
       'trading.trade': 'Trade Stocks',
       'trading.portfolio': 'My Portfolio',
@@ -132,9 +147,6 @@ function App() {
       'market.losers': 'Top Losers',
       'market.weekly': 'Weekly Movers',
       'market.bulk': 'Bulk Deals',
-      'charts': 'Charts & Analysis',
-      'charts.candles': 'Candlestick Charts',
-      'charts.indicators': 'Technical Indicators',
       'wallet': 'Wallet',
       'wallet.balance': 'Balance',
       'wallet.transactions': 'Transactions',
