@@ -1364,13 +1364,38 @@ tr:hover td {
     gap: 1rem;
   }
   
+  .topbar h1 {
+    font-size: 1.25rem;
+  }
+  
   .topbar-right {
     width: 100%;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .user-email {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+  }
+  
+  .chip {
+    font-size: 0.7rem;
+    padding: 0.4rem 0.65rem;
   }
   
   .grid {
     grid-template-columns: 1fr;
+  }
+  
+  .view-tabs {
+    gap: 0.35rem;
+  }
+  
+  .view-tab {
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
   }
   
   .auth-card {
@@ -1391,6 +1416,7 @@ tr:hover td {
 
   .chart-shell {
     padding: 1rem;
+    max-height: 85vh;
   }
 
   .chart-content {
@@ -1441,6 +1467,268 @@ tr:hover td {
 
   .stock-trade-actions .chart-btn {
     grid-column: 1 / -1;
+  }
+  
+  /* FII/DII Mobile */
+  .fii-dii-row {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .fii-dii-block {
+    padding: 0.875rem;
+  }
+  
+  .fii-dii-title {
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.4rem;
+  }
+  
+  .fii-dii-stat {
+    padding: 0.35rem 0;
+  }
+  
+  .fii-dii-stat .label {
+    font-size: 0.8rem;
+  }
+  
+  .fii-dii-stat .value {
+    font-size: 0.9rem;
+  }
+  
+  .fii-dii-stat.net .value {
+    font-size: 1rem;
+  }
+  
+  .fii-dii-date {
+    font-size: 0.75rem;
+    padding-top: 0.4rem;
+  }
+  
+  /* Weekly container mobile */
+  .weekly-container {
+    gap: 0.5rem;
+  }
+  
+  .weekly-column {
+    min-width: 160px;
+  }
+  
+  /* Card mobile */
+  .card-header {
+    padding: 0.875rem 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .card-header h3 {
+    font-size: 0.9rem;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+  
+  /* Virtual trading tabs mobile */
+  .virtual-tabs {
+    padding: 0.35rem;
+  }
+  
+  .virtual-tab {
+    padding: 0.7rem 1rem;
+    font-size: 0.85rem;
+  }
+  
+  /* Table mobile */
+  th, td {
+    padding: 0.6rem 0.4rem;
+    font-size: 0.8rem;
+  }
+  
+  th {
+    font-size: 0.7rem;
+  }
+  
+  /* Stock items mobile */
+  .stock-item {
+    padding: 0.75rem 0.875rem;
+  }
+  
+  .stock-symbol {
+    font-size: 0.9rem;
+  }
+  
+  .stock-price {
+    font-size: 0.8rem;
+  }
+  
+  .stock-change {
+    font-size: 0.85rem;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 480px) {
+  .page {
+    padding: 0.75rem;
+  }
+  
+  .topbar h1 {
+    font-size: 1.1rem;
+  }
+  
+  .topbar-right {
+    gap: 0.35rem;
+  }
+  
+  .user-email {
+    font-size: 0.7rem;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .logout-btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+  }
+  
+  .version-badge {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
+  }
+  
+  .view-tab {
+    padding: 0.55rem 0.75rem;
+    font-size: 0.8rem;
+  }
+  
+  .card-header {
+    padding: 0.75rem 0.875rem;
+  }
+  
+  .card-body {
+    padding: 0.875rem;
+  }
+  
+  /* FII/DII extra small */
+  .fii-dii-block {
+    padding: 0.75rem;
+  }
+  
+  .fii-dii-stats {
+    gap: 0.25rem;
+  }
+  
+  .fii-dii-stat .value {
+    font-size: 0.85rem;
+  }
+  
+  .fii-dii-stat.net .value {
+    font-size: 0.95rem;
+  }
+  
+  /* Stock trade modal extra small */
+  .stock-trade-shell {
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  .stock-trade-header h3 {
+    font-size: 1.25rem;
+  }
+  
+  .stock-trade-price {
+    font-size: 1.35rem;
+  }
+  
+  .stock-trade-stats {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.35rem;
+  }
+  
+  .stock-trade-stat {
+    padding: 0.5rem;
+  }
+  
+  .stock-trade-stat-label {
+    font-size: 0.65rem;
+  }
+  
+  .stock-trade-stat-value {
+    font-size: 0.8rem;
+  }
+  
+  .buy-btn, .sell-btn, .chart-btn {
+    padding: 0.85rem;
+    font-size: 0.9rem;
+  }
+  
+  /* Table extra small */
+  th, td {
+    padding: 0.5rem 0.3rem;
+    font-size: 0.75rem;
+  }
+  
+  th {
+    font-size: 0.65rem;
+  }
+  
+  /* Weekly column extra small */
+  .weekly-column {
+    min-width: 140px;
+  }
+  
+  .weekly-header {
+    padding: 0.6rem;
+  }
+  
+  .weekly-block {
+    padding: 0.6rem;
+  }
+  
+  .mini-row {
+    font-size: 0.8rem;
+    padding: 0.3rem 0;
+  }
+  
+  .section-label {
+    font-size: 0.65rem;
+  }
+  
+  /* Summary cards extra small */
+  .summary-card {
+    padding: 1rem;
+  }
+  
+  .summary-card .label {
+    font-size: 0.8rem;
+  }
+  
+  .summary-card .value {
+    font-size: 1.25rem;
+  }
+  
+  /* Portfolio header extra small */
+  .portfolio-header h2 {
+    font-size: 1.1rem;
+  }
+  
+  /* Virtual stocks header */
+  .virtual-stocks-header h2 {
+    font-size: 1.1rem;
+  }
+  
+  .virtual-stocks-header {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .ghost-btn {
+    width: 100%;
+    text-align: center;
   }
 }
 
@@ -1517,10 +1805,4 @@ tr:hover td {
   font-size: 0.8rem;
   padding-top: 0.5rem;
   border-top: 1px solid var(--border-color);
-}
-
-@media (max-width: 600px) {
-  .fii-dii-row {
-    grid-template-columns: 1fr;
-  }
 }
