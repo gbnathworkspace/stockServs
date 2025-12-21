@@ -13,6 +13,11 @@ def get_fyers_auth_url():
     Step 1: Generate Fyers auth URL for user to authorize
     """
     if not all([FYERS_CLIENT_ID, FYERS_SECRET_KEY, FYERS_REDIRECT_URI]):
+        missing = []
+        if not FYERS_CLIENT_ID: missing.append("FYERS_CLIENT_ID")
+        if not FYERS_SECRET_KEY: missing.append("FYERS_SECRET_KEY")
+        if not FYERS_REDIRECT_URI: missing.append("FYERS_REDIRECT_URI")
+        print(f"Fyers configuration missing: {', '.join(missing)}")
         return None
         
     fyers_session = fyersModel.SessionModel(
