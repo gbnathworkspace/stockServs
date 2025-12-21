@@ -34,11 +34,11 @@ function App() {
     // Handle Fyers callback
     const urlParams = new URLSearchParams(window.location.search);
     const s = urlParams.get('s');
-    const code = urlParams.get('code');
+    const authCode = urlParams.get('auth_code') || urlParams.get('code');
     const id = urlParams.get('id');
 
-    if (s === 'ok' && code) {
-      handleFyersCallback(s, code, id);
+    if (s === 'ok' && authCode) {
+      handleFyersCallback(s, authCode, id);
     }
   }, []);
 

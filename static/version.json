@@ -1,5 +1,5 @@
 {
-  "version": "2.0.7",
+  "version": "2.0.8",
   "release_date": "2025-12-21",
-  "release_notes": "Fix Fyers API method name generate_authcode for v3.x"
+  "release_notes": "Preserve query params on redirect and fix Fyers auth_code parameter handling"
 }

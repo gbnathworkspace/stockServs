@@ -99,11 +99,13 @@ async def log_requests(request: Request, call_next):
 
 
 @app.get("/")
-async def root():
-    """Redirect to React app (if built) or legacy frontend"""
-    if os.path.exists(REACT_INDEX):
-        return RedirectResponse(url="/app/")
-    return RedirectResponse(url="/static/index.html")
+async def root(request: Request):
+    """Redirect to React app (if built) or legacy frontend with query params preserved"""
+    query_params = str(request.query_params)
+    target = "/app/" if os.path.exists(REACT_INDEX) else "/static/index.html"
+    if query_params:
+        target = f"{target}?{query_params}"
+    return RedirectResponse(url=target)
 
 
 def serve_react():

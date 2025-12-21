@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from database.connection import get_db
 from database.models import FyersToken, User
@@ -41,8 +41,10 @@ async def get_fyers_status(
 
 @router.get("/callback")
 async def fyers_callback(
+    request: Request,
     s: str = Query(...),  # status (ok/error)
-    code: str = Query(None), # auth code
+    code: str = Query(None), # auth code (standard)
+    auth_code: str = Query(None), # auth code (sometimes sent as auth_code)
     id: str = Query(None),   # fyers_id
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -50,12 +52,25 @@ async def fyers_callback(
     """
     Handle Fyers OAuth callback
     """
-    if s != "ok" or not code:
-        raise HTTPException(status_code=400, detail="Fyers login failed")
+    # Prefer auth_code if provided, otherwise fallback to code
+    actual_code = auth_code or code
     
-    token_data = generate_fyers_access_token(code)
+    print(f"Fyers Callback: status={s}, code={code}, auth_code={auth_code}, id={id}")
+    
+    if s != "ok" or not actual_code:
+        raise HTTPException(status_code=400, detail="Fyers login failed: missing code")
+    
+    # Check if code is just a status code (like 200)
+    if actual_code == "200" and not auth_code:
+         # This means auth_code was probably missing in the initial assignment
+         pass
+
+    token_data = generate_fyers_access_token(actual_code)
     if not token_data or token_data.get("s") != "ok":
-        raise HTTPException(status_code=400, detail=f"Failed to generate access token: {token_data.get('message') if token_data else 'Unknown error'}")
+        error_msg = token_data.get('message') if token_data else 'Unknown error'
+        print(f"Fyers Token Error: {error_msg}")
+        raise HTTPException(status_code=400, detail=f"Failed to generate access token: {error_msg}")
+
 
     access_token = token_data.get("access_token")
     refresh_token = token_data.get("refresh_token")
