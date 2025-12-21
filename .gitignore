@@ -1,19 +1,162 @@
-# Environment variables (secrets!)
+# ===========================
+# Environment & Secrets
+# ===========================
 .env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets.json
+credentials.json
 
-# Database file
-*.db
-
-# Python cache
+# ===========================
+# Python
+# ===========================
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Virtual environment
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+pytest_cache/
+
+# Virtual environments
 venv/
 .venv/
 env/
+ENV/
+.virtualenv/
 
-# IDE
+# ===========================
+# Database
+# ===========================
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ===========================
+# IDE & Editors
+# ===========================
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# ===========================
+# Node.js / Frontend
+# ===========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ===========================
+# Build Outputs
+# ===========================
+dist/
+build/
+static/app/assets/
+*.bundle.js
+*.bundle.css
+
+# ===========================
+# OS Generated
+# ===========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+nul
+
+# ===========================
+# Logs & Temp Files
+# ===========================
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# ===========================
+# Test & Debug Files (Development Only)
+# ===========================
+test_*.py
+check_*.py
+debug_*.py
+*_test_results.txt
+api_responses.json
+
+# ===========================
+# Claude/AI Assistant Files
+# ===========================
+.claude/
+
+# ===========================
+# Docker
+# ===========================
+*.tar
+docker-compose.override.yml
+
+# ===========================
+# Jupyter Notebooks Checkpoints
+# ===========================
+.ipynb_checkpoints/
+
+# ===========================
+# Local Development Scripts
+# ===========================
+scripts/fetch_*.py
+init_db.py

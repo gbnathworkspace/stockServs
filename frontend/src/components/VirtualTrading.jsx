@@ -8,14 +8,25 @@ const CHART_RANGES = [
   { label: '1D', interval: '1d', period: '6mo' },
 ];
 
-const VirtualTrading = () => {
-  const [activeTab, setActiveTab] = useState('stocks');
+const VirtualTrading = ({ initialTab = 'trade' }) => {
+  // Map initialTab prop to internal tab names
+  const getInitialTab = () => {
+    switch (initialTab) {
+      case 'trade': return 'stocks';
+      case 'portfolio': return 'portfolio';
+      case 'orders': return 'orders';
+      default: return 'stocks';
+    }
+  };
+  const [activeTab, setActiveTab] = useState(getInitialTab());
   const [stocks, setStocks] = useState([]);
   const [filteredStocks, setFilteredStocks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStock, setSelectedStock] = useState(null);
   const [portfolio, setPortfolio] = useState([]);
-  const [loading, setLoading] = useState({ stocks: false, portfolio: false, trade: false });
+  const [walletBalance, setWalletBalance] = useState(100000);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState({ stocks: false, portfolio: false, trade: false, wallet: false });
   const [tradeForm, setTradeForm] = useState({ quantity: 1, price: '' });
   const [toast, setToast] = useState({ message: '', type: '', show: false });
   const [isChartOpen, setIsChartOpen] = useState(false);
@@ -278,17 +289,34 @@ const VirtualTrading = () => {
     }
   };
 
-  // Fetch portfolio
+  // Fetch portfolio summary (includes wallet balance)
   const fetchPortfolio = async () => {
     setLoading((l) => ({ ...l, portfolio: true }));
     try {
-      const res = await authApi(`${API_BASE_URL}/portfolio`);
+      const res = await authApi(`${API_BASE_URL}/portfolio/summary`);
       setPortfolio(res.holdings || []);
+      setWalletBalance(res.wallet_balance || 100000);
     } catch (err) {
       console.error('Failed to load portfolio', err);
-      showToast('Failed to load portfolio', 'error');
+      // Fallback to basic portfolio endpoint
+      try {
+        const fallback = await authApi(`${API_BASE_URL}/portfolio`);
+        setPortfolio(fallback.holdings || []);
+      } catch (e) {
+        showToast('Failed to load portfolio', 'error');
+      }
     } finally {
       setLoading((l) => ({ ...l, portfolio: false }));
+    }
+  };
+
+  // Fetch order history
+  const fetchOrders = async () => {
+    try {
+      const res = await authApi(`${API_BASE_URL}/portfolio/orders?limit=20`);
+      setOrders(res.orders || []);
+    } catch (err) {
+      console.error('Failed to load orders', err);
     }
   };
 
@@ -372,6 +400,9 @@ const VirtualTrading = () => {
         body: JSON.stringify(payload),
       });
       setPortfolio(res.holdings || []);
+      if (res.wallet_balance !== undefined) {
+        setWalletBalance(res.wallet_balance);
+      }
       showToast(`${side} ${tradeForm.quantity} ${selectedStock.symbol} @ ₹${parseFloat(tradeForm.price).toFixed(2)}`, 'success');
       // Close modal after successful trade
       setTimeout(() => closeTradeModal(), 1200);
@@ -400,13 +431,19 @@ const VirtualTrading = () => {
           className={`virtual-tab ${activeTab === 'stocks' ? 'active' : ''}`}
           onClick={() => setActiveTab('stocks')}
         >
-          Stocks & Trading
+          Trade Stocks
         </button>
         <button
           className={`virtual-tab ${activeTab === 'portfolio' ? 'active' : ''}`}
           onClick={() => { setActiveTab('portfolio'); fetchPortfolio(); }}
         >
           Portfolio
+        </button>
+        <button
+          className={`virtual-tab ${activeTab === 'orders' ? 'active' : ''}`}
+          onClick={() => { setActiveTab('orders'); fetchOrders(); }}
+        >
+          Order History
         </button>
       </div>
 
@@ -526,11 +563,19 @@ const VirtualTrading = () => {
                 </div>
               </div>
 
+              {/* Wallet Balance */}
+              <div className="stock-trade-wallet">
+                <span>Available Balance</span>
+                <span className="stock-trade-wallet-value">
+                  ₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+
               {/* Total */}
               <div className="stock-trade-total">
-                <span>Total Value</span>
-                <span className={`stock-trade-total-value ${selectedStock.pChange >= 0 ? 'positive' : 'negative'}`}>
-                  ₹{((tradeForm.quantity || 0) * (parseFloat(tradeForm.price) || 0)).toFixed(2)}
+                <span>Order Value</span>
+                <span className={`stock-trade-total-value ${((tradeForm.quantity || 0) * (parseFloat(tradeForm.price) || 0)) > walletBalance ? 'negative' : 'positive'}`}>
+                  ₹{((tradeForm.quantity || 0) * (parseFloat(tradeForm.price) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
               </div>
 
@@ -577,15 +622,23 @@ const VirtualTrading = () => {
           </div>
 
           <div className="portfolio-summary">
+            <div className="summary-card wallet">
+              <span className="label">Wallet Balance</span>
+              <span className="value">₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </div>
             <div className="summary-card">
-              <span className="label">Total Value</span>
-              <span className="value">₹{totalValue.toFixed(2)}</span>
+              <span className="label">Holdings Value</span>
+              <span className="value">₹{totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className={`summary-card ${totalPnL >= 0 ? 'positive' : 'negative'}`}>
               <span className="label">Total P&L</span>
               <span className="value">
-                {totalPnL >= 0 ? '+' : ''}₹{totalPnL.toFixed(2)}
+                {totalPnL >= 0 ? '+' : ''}₹{totalPnL.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
+            </div>
+            <div className="summary-card highlight">
+              <span className="label">Net Worth</span>
+              <span className="value">₹{(walletBalance + totalValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
 
@@ -623,6 +676,66 @@ const VirtualTrading = () => {
                         <td className={`text-right ${pnlClass}`}>
                           {h.pnl != null ? `${h.pnl >= 0 ? '+' : ''}₹${Number(h.pnl).toFixed(2)}` : '--'}
                         </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Orders Tab */}
+      {activeTab === 'orders' && (
+        <div className="portfolio-section">
+          <div className="portfolio-header">
+            <div>
+              <h2>Order History</h2>
+              <p className="muted">View all your virtual trades</p>
+            </div>
+            <button className="ghost-btn" onClick={fetchOrders}>
+              Refresh
+            </button>
+          </div>
+
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date & Time</th>
+                  <th>Symbol</th>
+                  <th>Type</th>
+                  <th className="text-right">Qty</th>
+                  <th className="text-right">Price</th>
+                  <th className="text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="loading">No orders yet. Start trading!</td>
+                  </tr>
+                ) : (
+                  orders.map((order, idx) => {
+                    const date = order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN', {
+                      day: '2-digit',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }) : '-';
+                    return (
+                      <tr key={order.id || idx}>
+                        <td>{date}</td>
+                        <td>{order.symbol}</td>
+                        <td>
+                          <span className={`order-side ${order.side?.toLowerCase()}`}>
+                            {order.side}
+                          </span>
+                        </td>
+                        <td className="text-right">{order.quantity}</td>
+                        <td className="text-right">₹{Number(order.price || 0).toFixed(2)}</td>
+                        <td className="text-right">₹{Number(order.total_value || 0).toLocaleString()}</td>
                       </tr>
                     );
                   })

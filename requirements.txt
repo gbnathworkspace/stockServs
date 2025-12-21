@@ -1,14 +1,15 @@
 # Core framework
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
-python-multipart==0.0.9
+python-multipart>=0.0.9
 
 # Database
 sqlalchemy==2.0.43
-psycopg2-binary==2.9.10
-passlib[bcrypt]==1.7.4
+psycopg[binary]>=3.1.0
 python-jose[cryptography]==3.3.0
-bcrypt==4.2.0
+
+# Authentication - bcrypt 4.0.1 is compatible with passlib on Python 3.14
+bcrypt==4.0.1
 
 # Zerodha API
 kiteconnect==5.0.1

@@ -4,6 +4,8 @@ import asyncio
 import csv
 import io
 
+from services.cache import cache, stock_list_key, TTL_STOCK_LIST
+
 router = APIRouter()
 
 BASE_API_URL = "https://www.nseindia.com/api/equity-stockIndices?index="
@@ -86,6 +88,12 @@ async def fetch_all_equities():
 @router.get("/all-stocks")
 async def get_all_stocks():
     """Return the full list of NIFTY 100 stocks with current prices for virtual trading."""
+    # Check cache first
+    cache_key = stock_list_key()
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         # Fetch NIFTY 100 which includes price data
         data = await fetch_index_data("NIFTY 100")
@@ -101,11 +109,16 @@ async def get_all_stocks():
                     "open": item.get("open", 0),
                     "previousClose": item.get("previousClose", 0),
                 })
-        return {"stocks": sorted(stocks, key=lambda x: x["symbol"])}
+        result = {"stocks": sorted(stocks, key=lambda x: x["symbol"])}
+        # Cache for 60 seconds
+        cache.set(cache_key, result, TTL_STOCK_LIST)
+        return result
     except Exception as e:
         # Fallback to equity list if NIFTY 100 fails
         data = await fetch_all_equities()
-        return {"stocks": data}
+        result = {"stocks": data}
+        cache.set(cache_key, result, TTL_STOCK_LIST)
+        return result
 
 
 @router.get("/top-gainers")

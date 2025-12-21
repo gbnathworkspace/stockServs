@@ -42,6 +42,17 @@ class LocalCredential(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class VirtualWallet(Base):
+    """Virtual wallet for paper trading - tracks user's virtual cash balance."""
+    __tablename__ = "virtual_wallets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    balance = Column(Float, nullable=False, default=100000.00)  # Starting balance: ₹1,00,000
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class VirtualHolding(Base):
     __tablename__ = "virtual_holdings"
 
@@ -53,6 +64,22 @@ class VirtualHolding(Base):
     average_price = Column(Float, nullable=False, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class VirtualOrder(Base):
+    """Order history for virtual trades."""
+    __tablename__ = "virtual_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    symbol = Column(String(50), nullable=False)
+    side = Column(String(4), nullable=False)  # BUY or SELL
+    quantity = Column(Integer, nullable=False)
+    price = Column(Float, nullable=False)
+    total_value = Column(Float, nullable=False)
+    order_type = Column(String(10), nullable=False, default="MARKET")  # MARKET, LIMIT, STOP
+    status = Column(String(10), nullable=False, default="FILLED")  # PENDING, FILLED, CANCELLED
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
 class ApiLog(Base):

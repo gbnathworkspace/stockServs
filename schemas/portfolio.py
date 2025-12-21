@@ -32,7 +32,17 @@ class PortfolioResponse(BaseModel):
     holdings: List[HoldingOut]
 
 
+class OrderInfo(BaseModel):
+    symbol: str
+    side: str
+    quantity: int
+    price: float
+    total_value: float
+
+
 class TradeResponse(BaseModel):
     holding: Optional[HoldingOut] = None
     holdings: List[HoldingOut]
     side: str
+    wallet_balance: Optional[float] = None
+    order: Optional[OrderInfo] = None

@@ -12,9 +12,14 @@ from routes.market_data import router as market_data_router
 from routes.logs import router as logs_router
 from routes.deps import get_current_user
 from services.request_logger import RequestLogger
+from database.connection import engine, Base
+from database import models  # Import models to register them
 import os
 import time
 import uuid
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Stock Services API", version="1.0.0")
 request_logger = RequestLogger()
