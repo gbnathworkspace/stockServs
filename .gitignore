@@ -103,7 +103,7 @@ frontend/.vite/
 # ===========================
 dist/
 build/
-static/app/assets/
+# Note: static/app/assets/ is NOT ignored - needed for production
 *.bundle.js
 *.bundle.css
 
