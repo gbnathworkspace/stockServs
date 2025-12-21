@@ -1,5 +1,5 @@
 {
-  "version": "2.0.6",
+  "version": "2.0.7",
   "release_date": "2025-12-21",
-  "release_notes": "Add Fyers config debugging and update deployment"
+  "release_notes": "Fix Fyers API method name generate_authcode for v3.x"
 }

@@ -28,7 +28,7 @@ def get_fyers_auth_url():
         grant_type="authorization_code"
     )
     
-    return fyers_session.generate_auth_code()
+    return fyers_session.generate_authcode()
 
 def generate_fyers_access_token(auth_code: str):
     """
