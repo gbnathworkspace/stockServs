@@ -26,9 +26,13 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const [portfolio, setPortfolio] = useState([]);
   const [walletBalance, setWalletBalance] = useState(100000);
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState({ stocks: false, portfolio: false, trade: false, wallet: false });
-  const [tradeForm, setTradeForm] = useState({ quantity: 1, price: '', orderType: 'market' });
+  const [loading, setLoading] = useState({ stocks: false, portfolio: false, trade: false, wallet: false, fyers: false });
+  const [tradeForm, setTradeForm] = useState({ quantity: 1, price: '', orderType: 'market', broker: 'virtual' });
+  const [fyersConnected, setFyersConnected] = useState(false);
+  const [fyersHoldings, setFyersHoldings] = useState([]);
+  const [showFyersPortfolio, setShowFyersPortfolio] = useState(false);
   const [toast, setToast] = useState({ message: '', type: '', show: false });
+
   const [isChartOpen, setIsChartOpen] = useState(false);
   const [chartRange, setChartRange] = useState({ interval: '5m', period: '5d' });
   const [chartStatus, setChartStatus] = useState({ loading: false, error: '' });
@@ -320,6 +324,24 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     }
   };
 
+  // Fetch Fyers status and holdings
+  const fetchFyersData = async () => {
+    try {
+      const statusRes = await authApi(`${API_BASE_URL}/fyers/status`);
+      setFyersConnected(statusRes.connected);
+      
+      if (statusRes.connected) {
+        setLoading(l => ({ ...l, fyers: true }));
+        const holdingsRes = await authApi(`${API_BASE_URL}/fyers/holdings`);
+        setFyersHoldings(holdingsRes.holdings || []);
+        setLoading(l => ({ ...l, fyers: false }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch Fyers data', err);
+      setLoading(l => ({ ...l, fyers: false }));
+    }
+  };
+
   // Filter stocks by search
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -330,10 +352,11 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     }
   }, [searchQuery, stocks]);
 
-  // Load stocks on mount
+  // Load data on mount
   useEffect(() => {
     fetchStocks();
     fetchPortfolio();
+    fetchFyersData();
   }, []);
 
   useEffect(() => {
@@ -405,22 +428,48 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
 
     setLoading((l) => ({ ...l, trade: true }));
     try {
-      const payload = {
-        symbol: selectedStock.symbol,
-        quantity: parseInt(tradeForm.quantity),
-        price: parseFloat(tradeForm.price),
-        side: side,
-      };
-      const res = await authApi(`${API_BASE_URL}/portfolio/trade`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      setPortfolio(res.holdings || []);
-      if (res.wallet_balance !== undefined) {
-        setWalletBalance(res.wallet_balance);
+      if (tradeForm.broker === 'fyers') {
+        const payload = {
+          symbol: `NSE:${selectedStock.symbol}-EQ`,
+          qty: parseInt(tradeForm.quantity),
+          type: tradeForm.orderType === 'market' ? 2 : 1, // 1 for Limit, 2 for Market
+          side: side === 'BUY' ? 1 : -1,
+          productType: 'CNC',
+          limitPrice: tradeForm.orderType === 'limit' ? parseFloat(tradeForm.price) : 0,
+          stopPrice: 0,
+          validity: 'DAY',
+          disclosedQty: 0,
+          offlineOrder: false,
+        };
+        const res = await authApi(`${API_BASE_URL}/fyers/order`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res && res.s === 'ok') {
+          showToast(`Live ${side} Order Placed on Fyers: ${res.id}`, 'success');
+        } else {
+          showToast(`Fyers Error: ${res?.message || 'Order failed'}`, 'error');
+        }
+      } else {
+        const payload = {
+          symbol: selectedStock.symbol,
+          quantity: parseInt(tradeForm.quantity),
+          price: parseFloat(tradeForm.price),
+          side: side,
+        };
+        const res = await authApi(`${API_BASE_URL}/portfolio/trade`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        setPortfolio(res.holdings || []);
+        if (res.wallet_balance !== undefined) {
+          setWalletBalance(res.wallet_balance);
+        }
+        showToast(`Virtual ${side} ${tradeForm.quantity} ${selectedStock.symbol} @ ₹${parseFloat(tradeForm.price).toFixed(2)}`, 'success');
       }
-      showToast(`${side} ${tradeForm.quantity} ${selectedStock.symbol} @ ₹${parseFloat(tradeForm.price).toFixed(2)}`, 'success');
+      
       // Close modal after successful trade
       setTimeout(() => closeTradeModal(), 1200);
     } catch (err) {
@@ -522,12 +571,28 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
         <div className="stock-trade-modal" onClick={closeTradeModal}>
           <div className="stock-trade-shell" onClick={(e) => e.stopPropagation()}>
             <div className="stock-trade-header">
-              <div>
-                <h3>{selectedStock.symbol}</h3>
-                <span className="trade-badge">VIRTUAL TRADING</span>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <h3 style={{ margin: 0 }}>{selectedStock.symbol}</h3>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                  <button 
+                    className={`broker-toggle ${tradeForm.broker === 'virtual' ? 'active' : ''}`}
+                    onClick={() => setTradeForm({ ...tradeForm, broker: 'virtual' })}
+                  >
+                    Virtual
+                  </button>
+                  {fyersConnected && (
+                    <button 
+                      className={`broker-toggle ${tradeForm.broker === 'fyers' ? 'active' : ''}`}
+                      onClick={() => setTradeForm({ ...tradeForm, broker: 'fyers' })}
+                    >
+                      Fyers
+                    </button>
+                  )}
+                </div>
               </div>
               <button className="icon-button" onClick={closeTradeModal}>×</button>
             </div>
+
 
             <div className="stock-trade-content">
               {/* Price Row */}
@@ -665,82 +730,156 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
         <div className="portfolio-section">
           <div className="portfolio-header">
             <div>
-              <h2>Your Virtual Portfolio</h2>
-              <p className="muted">Track your simulated investments and P&L</p>
+              <h2>Portfolio</h2>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                <button 
+                  className={`virtual-tab mini ${!showFyersPortfolio ? 'active' : ''}`}
+                  onClick={() => setShowFyersPortfolio(false)}
+                >
+                  Virtual
+                </button>
+                {fyersConnected && (
+                  <button 
+                    className={`virtual-tab mini ${showFyersPortfolio ? 'active' : ''}`}
+                    onClick={() => { setShowFyersPortfolio(true); fetchFyersData(); }}
+                  >
+                    Fyers Real
+                  </button>
+                )}
+              </div>
             </div>
-            <button className="ghost-btn" onClick={fetchPortfolio} disabled={loading.portfolio}>
-              {loading.portfolio ? 'Loading...' : 'Refresh'}
+            <button className="ghost-btn" onClick={() => showFyersPortfolio ? fetchFyersData() : fetchPortfolio()} disabled={loading.portfolio || loading.fyers}>
+              {(loading.portfolio || loading.fyers) ? 'Loading...' : 'Refresh'}
             </button>
           </div>
 
-          <div className="portfolio-summary">
-            <div className="summary-card wallet">
-              <span className="label">Wallet Balance</span>
-              <span className="value">₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-            </div>
-            <div className="summary-card">
-              <span className="label">Holdings Value</span>
-              <span className="value">₹{totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-            </div>
-            <div className={`summary-card ${totalPnL >= 0 ? 'positive' : 'negative'}`}>
-              <span className="label">Total P&L</span>
-              <span className="value">
-                {totalPnL >= 0 ? '+' : ''}₹{totalPnL.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="summary-card highlight">
-              <span className="label">Net Worth</span>
-              <span className="value">₹{(walletBalance + totalValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-            </div>
-          </div>
+          {!showFyersPortfolio ? (
+            <>
+              <div className="portfolio-summary">
+                <div className="summary-card wallet">
+                  <span className="label">Wallet Balance</span>
+                  <span className="value">₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="summary-card">
+                  <span className="label">Holdings Value</span>
+                  <span className="value">₹{totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className={`summary-card ${totalPnL >= 0 ? 'positive' : 'negative'}`}>
+                  <span className="label">Total P&L</span>
+                  <span className="value">
+                    {totalPnL >= 0 ? '+' : ''}₹{totalPnL.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="summary-card highlight">
+                  <span className="label">Net Worth</span>
+                  <span className="value">₹{(walletBalance + totalValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
 
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Symbol</th>
-                  <th className="text-right">Qty</th>
-                  <th className="text-right">Avg Price</th>
-                  <th className="text-right">LTP</th>
-                  <th className="text-right">P&L</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading.portfolio ? (
-                  <tr>
-                    <td colSpan="5" className="loading">Loading portfolio...</td>
-                  </tr>
-                ) : portfolio.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="loading">No holdings yet. Start trading!</td>
-                  </tr>
-                ) : (
-                  portfolio.map((h) => {
-                    const pnlClass = h.pnl > 0 ? 'positive' : h.pnl < 0 ? 'negative' : '';
-                    return (
-                      <tr
-                        key={h.symbol}
-                        className="clickable-row"
-                        onClick={() => handleSelectHolding(h)}
-                      >
-                        <td className="stock-link">{h.symbol}</td>
-                        <td className="text-right">{h.quantity}</td>
-                        <td className="text-right">₹{Number(h.average_price).toFixed(2)}</td>
-                        <td className="text-right">
-                          {h.ltp != null ? `₹${Number(h.ltp).toFixed(2)}` : '--'}
-                        </td>
-                        <td className={`text-right ${pnlClass}`}>
-                          {h.pnl != null ? `${h.pnl >= 0 ? '+' : ''}₹${Number(h.pnl).toFixed(2)}` : '--'}
-                        </td>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Symbol</th>
+                      <th className="text-right">Qty</th>
+                      <th className="text-right">Avg Price</th>
+                      <th className="text-right">LTP</th>
+                      <th className="text-right">P&L</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading.portfolio ? (
+                      <tr>
+                        <td colSpan="5" className="loading">Loading portfolio...</td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                    ) : portfolio.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="loading">No holdings yet. Start trading!</td>
+                      </tr>
+                    ) : (
+                      portfolio.map((h) => {
+                        const pnlClass = h.pnl > 0 ? 'positive' : h.pnl < 0 ? 'negative' : '';
+                        return (
+                          <tr
+                            key={h.symbol}
+                            className="clickable-row"
+                            onClick={() => handleSelectHolding(h)}
+                          >
+                            <td className="stock-link">{h.symbol}</td>
+                            <td className="text-right">{h.quantity}</td>
+                            <td className="text-right">₹{Number(h.average_price).toFixed(2)}</td>
+                            <td className="text-right">
+                              {h.ltp != null ? `₹${Number(h.ltp).toFixed(2)}` : '--'}
+                            </td>
+                            <td className={`text-right ${pnlClass}`}>
+                              {h.pnl != null ? `${h.pnl >= 0 ? '+' : ''}₹${Number(h.pnl).toFixed(2)}` : '--'}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="portfolio-summary">
+                <div className="summary-card highlight">
+                  <span className="label">Fyers Balance</span>
+                  <span className="value">₹--</span>
+                </div>
+                <div className="summary-card">
+                  <span className="label">Live Holdings</span>
+                  <span className="value">{fyersHoldings.length} Positions</span>
+                </div>
+              </div>
+
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Symbol</th>
+                      <th className="text-right">Qty</th>
+                      <th className="text-right">Avg Price</th>
+                      <th className="text-right">LTP</th>
+                      <th className="text-right">P&L</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading.fyers ? (
+                      <tr>
+                        <td colSpan="5" className="loading">Fetching data from Fyers...</td>
+                      </tr>
+                    ) : fyersHoldings.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="loading">No holdings found in your Fyers account.</td>
+                      </tr>
+                    ) : (
+                      fyersHoldings.map((h, idx) => {
+                        const pnl = (h.lp - h.costPrice) * h.quantity;
+                        const pnlClass = pnl > 0 ? 'positive' : pnl < 0 ? 'negative' : '';
+                        return (
+                          <tr key={h.symbol + idx}>
+                            <td>{h.symbol.replace('NSE:', '').replace('-EQ', '')}</td>
+                            <td className="text-right">{h.quantity}</td>
+                            <td className="text-right">₹{Number(h.costPrice).toFixed(2)}</td>
+                            <td className="text-right">₹{Number(h.lp).toFixed(2)}</td>
+                            <td className={`text-right ${pnlClass}`}>
+                              {pnl >= 0 ? '+' : ''}₹{Number(pnl).toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       )}
+
 
       {/* Orders Tab */}
       {activeTab === 'orders' && (

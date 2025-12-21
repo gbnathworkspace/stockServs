@@ -67,9 +67,10 @@ const menuItems = [
   },
 ];
 
-export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse }) {
-  // Accordion behavior: Only one menu expanded at a time
+export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse, mobileOpen, onMobileClose }) {
+  // Accordion behavior: Only one menu expanded at a time (desktop focus)
   const [expandedMenus, setExpandedMenus] = useState(['products']);
+
 
   const toggleMenu = (menuId) => {
     setExpandedMenus(prev => {
@@ -88,11 +89,15 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
     } else {
       const sectionId = subsection ? `${item.id}.${subsection.id}` : item.id;
       onSectionChange(sectionId);
+      // Close mobile menu on navigation
+      if (mobileOpen && onMobileClose) {
+        onMobileClose();
+      }
     }
   };
 
   return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
         {!collapsed && (
           <>

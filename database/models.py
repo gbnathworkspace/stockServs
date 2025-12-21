@@ -20,6 +20,18 @@ class ZerodhaToken(Base):
     created_at = Column(DateTime, default=datetime.utcnow)  
     zerodha_user_id = Column(String(50), nullable=False, unique=True)
 
+class FyersToken(Base):
+    __tablename__ = "fyers_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    access_token = Column(String(1000), nullable=False)
+    refresh_token = Column(String(1000), nullable=True)
+    fyers_id = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+
+
 class UserProfile(Base):
     __tablename__ = "user_profiles"
 

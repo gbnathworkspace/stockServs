@@ -21,15 +21,47 @@ function App() {
   const userEmail = localStorage.getItem('user_email') || 'User';
   const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [appVersion, setAppVersion] = useState('');
 
-  // Fetch version on mount
+  // Fetch version and handle Fyers callback on mount
   useEffect(() => {
     fetch('/static/version.json?t=' + Date.now())
       .then(res => res.json())
       .then(data => setAppVersion(`v${data.version}`))
       .catch(() => setAppVersion('v1.0.0'));
+
+    // Handle Fyers callback
+    const urlParams = new URLSearchParams(window.location.search);
+    const s = urlParams.get('s');
+    const code = urlParams.get('code');
+    const id = urlParams.get('id');
+
+    if (s === 'ok' && code) {
+      handleFyersCallback(s, code, id);
+    }
   }, []);
+
+  const handleFyersCallback = async (s, code, id) => {
+    try {
+      const response = await fetch(`/fyers/callback?s=${s}&code=${code}&id=${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        alert('Fyers connected successfully!');
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setActiveSection('settings.profile');
+      } else {
+        alert('Failed to connect Fyers: ' + data.detail);
+      }
+    } catch (error) {
+      console.error('Error handling Fyers callback:', error);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -39,6 +71,7 @@ function App() {
 
   const handleSectionChange = (sectionId) => {
     setActiveSection(sectionId);
+    setMobileMenuOpen(false); // Close mobile menu on navigation
   };
 
   // Parse section and subsection
@@ -127,16 +160,36 @@ function App() {
 
   return (
     <div className="app-layout">
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="mobile-overlay" 
+          onClick={() => setMobileMenuOpen(false)} 
+        />
+      )}
+
       <Sidebar
         activeSection={activeSection}
         onSectionChange={handleSectionChange}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
       />
 
       <main className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <header className="main-header">
           <div className="header-left">
+            {/* Mobile Hamburger Button */}
+            <button 
+              className="mobile-menu-btn"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              <span className="hamburger-line"></span>
+              <span className="hamburger-line"></span>
+              <span className="hamburger-line"></span>
+            </button>
             <h1 className="page-title">{getSectionTitle()}</h1>
             {appVersion && <span className="version-badge">{appVersion}</span>}
           </div>

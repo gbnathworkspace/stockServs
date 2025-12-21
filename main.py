@@ -10,7 +10,9 @@ from routes.profile import router as profile_router
 from routes.portfolio import router as portfolio_router
 from routes.market_data import router as market_data_router
 from routes.logs import router as logs_router
+# from routes.fyers import router as fyers_router  # Temporarily disabled - requires fyers_apiv3
 from routes.deps import get_current_user
+
 from services.request_logger import RequestLogger
 from database.connection import engine, Base
 from database import models  # Import models to register them
@@ -64,6 +66,8 @@ app.include_router(portfolio_router, dependencies=protected)
 app.include_router(nse_data_router, dependencies=protected)
 app.include_router(market_data_router, dependencies=protected)
 app.include_router(logs_router, dependencies=protected)
+# app.include_router(fyers_router, dependencies=protected)  # Temporarily disabled
+
 
 
 @app.middleware("http")
