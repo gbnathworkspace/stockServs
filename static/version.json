@@ -1,5 +1,5 @@
 {
-  "version": "2.0.8",
+  "version": "2.0.9",
   "release_date": "2025-12-21",
-  "release_notes": "Preserve query params on redirect and fix Fyers auth_code parameter handling"
+  "release_notes": "Sync all branches and finalize Fyers connection stability"
 }
