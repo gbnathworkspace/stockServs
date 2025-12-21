@@ -14,7 +14,7 @@ bcrypt==4.0.1
 
 # Zerodha & Fyers API
 kiteconnect==5.0.1
-fyers-apiv3==3.0.4
+fyers-apiv3>=3.1.7
 
 
 # Environment variables
