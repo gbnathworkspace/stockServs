@@ -1,6 +1,6 @@
 // Use dynamic API URL based on current origin for network access
 const API_BASE_URL = window.location.origin;
-const RELEASE_VERSION = "2024-12-18.v1";
+const RELEASE_VERSION = "2024-12-21.v1";
 
 let allStocks = [];
 let displayedStocks = [];
@@ -733,8 +733,150 @@ function selectStock(symbol) {
     if (!stock) return;
 
     selectedStock = stock;
-    renderSelectedStock(stock);
+    openStockTradeModal(stock);
     renderAllStocksList(displayedStocks);
+}
+
+function openStockTradeModal(stock) {
+    const modal = document.getElementById('stock-trade-modal');
+    const titleEl = document.getElementById('stock-trade-title');
+    const contentEl = document.getElementById('stock-trade-content');
+    
+    if (!modal || !contentEl) return;
+
+    const priceVal = parseFloat(stock.lastPrice || stock.last_price || 0);
+    const changeVal = parseFloat(stock.pChange || 0);
+    const openVal = parseFloat(stock.open || stock.openPrice || 0);
+    const highVal = parseFloat(stock.dayHigh || stock.high || 0);
+    const lowVal = parseFloat(stock.dayLow || stock.low || 0);
+
+    const changeText = Number.isFinite(changeVal) ? `${changeVal >= 0 ? '+' : ''}${changeVal.toFixed(2)}%` : '--';
+    const priceText = Number.isFinite(priceVal) ? `₹${priceVal.toFixed(2)}` : '--';
+    const changeClass = Number.isFinite(changeVal) ? (changeVal >= 0 ? 'positive' : 'negative') : '';
+
+    titleEl.textContent = stock.symbol;
+
+    contentEl.innerHTML = `
+        <div class="stock-trade-price-row">
+            <div class="stock-trade-price-block">
+                <span class="stock-trade-label">Current Price</span>
+                <span class="stock-trade-price">${priceText}</span>
+            </div>
+            <div class="chip large ${changeClass}">${changeText}</div>
+        </div>
+        <div class="stock-trade-stats">
+            <div class="stock-trade-stat">
+                <span class="stock-trade-stat-label">High</span>
+                <span class="stock-trade-stat-value">₹${Number.isFinite(highVal) ? highVal.toFixed(2) : '--'}</span>
+            </div>
+            <div class="stock-trade-stat">
+                <span class="stock-trade-stat-label">Low</span>
+                <span class="stock-trade-stat-value">₹${Number.isFinite(lowVal) ? lowVal.toFixed(2) : '--'}</span>
+            </div>
+            <div class="stock-trade-stat">
+                <span class="stock-trade-stat-label">Open</span>
+                <span class="stock-trade-stat-value">₹${Number.isFinite(openVal) ? openVal.toFixed(2) : '--'}</span>
+            </div>
+        </div>
+        <div class="stock-trade-input-row">
+            <div class="stock-trade-input-group">
+                <label>Quantity</label>
+                <input type="number" id="trade-qty-input" value="1" min="1">
+            </div>
+            <div class="stock-trade-input-group">
+                <label>Price (₹)</label>
+                <input type="number" id="trade-price-input" value="${priceVal.toFixed(2)}" step="0.01">
+            </div>
+        </div>
+        <div class="stock-trade-total">
+            <span>Total Value</span>
+            <span class="stock-trade-total-value ${changeClass}" id="trade-total-value">₹${priceVal.toFixed(2)}</span>
+        </div>
+        <div class="stock-trade-actions">
+            <button class="trade-btn buy" onclick="executeModalTrade('BUY')">BUY</button>
+            <button class="trade-btn sell" onclick="executeModalTrade('SELL')">SELL</button>
+            <button class="trade-btn outline" onclick="closeStockTradeModal(); openChartModal();">View chart</button>
+        </div>
+        <div id="stock-trade-toast" class="stock-trade-toast hidden"></div>
+    `;
+
+    // Attach input listeners for live total calculation
+    const qtyInput = document.getElementById('trade-qty-input');
+    const priceInput = document.getElementById('trade-price-input');
+    const totalEl = document.getElementById('trade-total-value');
+
+    const updateTotal = () => {
+        const qty = parseInt(qtyInput.value) || 0;
+        const prc = parseFloat(priceInput.value) || 0;
+        totalEl.textContent = `₹${(qty * prc).toFixed(2)}`;
+    };
+
+    qtyInput.addEventListener('input', updateTotal);
+    priceInput.addEventListener('input', updateTotal);
+
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeStockTradeModal() {
+    const modal = document.getElementById('stock-trade-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+}
+
+async function executeModalTrade(action) {
+    const toast = document.getElementById('stock-trade-toast');
+    if (!toast || !selectedStock) return;
+
+    const qtyInput = document.getElementById('trade-qty-input');
+    const priceInput = document.getElementById('trade-price-input');
+    
+    const qty = parseInt(qtyInput?.value) || 1;
+    const price = parseFloat(priceInput?.value) || parseFloat(selectedStock.lastPrice || selectedStock.last_price || 0);
+
+    const side = action.toUpperCase();
+
+    try {
+        const res = await authFetch(`${API_BASE_URL}/portfolio/trade`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                symbol: selectedStock.symbol,
+                quantity: qty,
+                price: price || 1,
+                side,
+            })
+        });
+
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(body.detail || `Failed to ${side}`);
+        }
+
+        toast.textContent = `${side} ${qty} ${selectedStock.symbol} @ ₹${price.toFixed(2)}`;
+        toast.className = 'stock-trade-toast success show';
+        
+        if (body?.holdings) {
+            portfolioHoldings = body.holdings;
+            renderPortfolio(portfolioHoldings);
+        } else {
+            fetchPortfolio();
+        }
+
+        // Close modal after successful trade
+        setTimeout(() => {
+            closeStockTradeModal();
+        }, 1200);
+    } catch (err) {
+        toast.textContent = err?.message || `Failed to ${side}`;
+        toast.className = 'stock-trade-toast error show';
+    }
+
+    setTimeout(() => {
+        toast.className = 'stock-trade-toast hidden';
+    }, 2500);
 }
 
 function renderSelectedStock(stock) {
@@ -1397,4 +1539,17 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchProfile();
     attachStockListHandler();
     attachChartHandlers();
+    attachStockTradeModalHandler();
 });
+
+function attachStockTradeModalHandler() {
+    const modal = document.getElementById('stock-trade-modal');
+    if (modal) {
+        modal.addEventListener('click', event => {
+            if (event.target === modal) {
+                closeStockTradeModal();
+            }
+        });
+    }
+}
+
