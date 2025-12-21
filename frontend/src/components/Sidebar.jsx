@@ -68,14 +68,18 @@ const menuItems = [
 ];
 
 export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse }) {
-  const [expandedMenus, setExpandedMenus] = useState(['products', 'trading', 'market']);
+  // Accordion behavior: Only one menu expanded at a time
+  const [expandedMenus, setExpandedMenus] = useState(['products']);
 
   const toggleMenu = (menuId) => {
-    setExpandedMenus(prev =>
-      prev.includes(menuId)
-        ? prev.filter(id => id !== menuId)
-        : [...prev, menuId]
-    );
+    setExpandedMenus(prev => {
+      // If clicking the currently expanded menu, collapse it
+      if (prev.includes(menuId)) {
+        return [];
+      }
+      // Otherwise, collapse all others and expand only this one
+      return [menuId];
+    });
   };
 
   const handleItemClick = (item, subsection = null) => {

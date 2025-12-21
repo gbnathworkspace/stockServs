@@ -1,18 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap');
 
-/* ===== THEME: DARK (Default) ===== */
+/* ===== THEME: DARK (Default) - Trader Optimized ===== */
 :root,
 [data-theme="dark"] {
   --bg-color: #0a0b0e;
   --bg-gradient: linear-gradient(135deg, #0a0b0e 0%, #131620 50%, #0f1318 100%);
   --card-bg: #13161d;
   --card-bg-hover: #181c25;
-  --text-primary: #e8eaed;
-  --text-secondary: #8b949e;
-  --accent-green: #00d09c;
-  --accent-green-glow: rgba(0, 208, 156, 0.15);
-  --accent-red: #ff5252;
-  --accent-red-glow: rgba(255, 82, 82, 0.15);
+  --text-primary: #f0f2f5;  /* Higher contrast - was #e8eaed */
+  --text-secondary: #9ca3af;  /* Higher contrast - was #8b949e */
+  --accent-green: #10b981;  /* Standard trader green */
+  --accent-green-glow: rgba(16, 185, 129, 0.15);
+  --accent-red: #ef4444;  /* Standard trader red */
+  --accent-red-glow: rgba(239, 68, 68, 0.15);
   --accent-blue: #4dabf7;
   --border-color: #262b36;
   --hover-bg: #1c2029;
@@ -24,6 +25,9 @@
   --glass-bg: transparent;
   --card-backdrop: none;
   --reflection: none;
+
+  /* Trader-specific variables */
+  --font-mono: 'Roboto Mono', 'Courier New', monospace;
 }
 
 /* ===== THEME: LIGHT ===== */
@@ -3773,4 +3777,35 @@ td.stock-link {
   .sector-preview-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* ===== TRADER THEME: MONOSPACE NUMBERS ===== */
+.stat-card-value,
+.market-price,
+.market-change,
+.wallet-balance,
+.wallet-amount,
+.portfolio-value,
+.pnl-value,
+.order-price,
+.order-value,
+.stock-price,
+.holding-price,
+.holding-quantity,
+.sector-change,
+.ticker-price,
+.price-display,
+.quantity-display {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+/* Apply tabular nums to any element with class containing price/value/amount/balance */
+[class*="price"],
+[class*="value"],
+[class*="amount"],
+[class*="balance"],
+[class*="quantity"] {
+  font-variant-numeric: tabular-nums;
 }
