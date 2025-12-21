@@ -464,7 +464,7 @@ const VirtualTrading = () => {
       )}
 
       {/* Stock Trade Modal */}
-      {selectedStock && activeTab === 'stocks' && (
+      {selectedStock && activeTab === 'stocks' && !isChartOpen && (
         <div className="stock-trade-modal" onClick={closeTradeModal}>
           <div className="stock-trade-shell" onClick={(e) => e.stopPropagation()}>
             <div className="stock-trade-header">
