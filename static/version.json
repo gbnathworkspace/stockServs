@@ -1,5 +1,5 @@
 {
-  "version": "2.0.2",
+  "version": "2.0.3",
   "release_date": "2025-12-21",
-  "release_notes": "Implement Fyers Broker integration & merge latest from jack-changes"
+  "release_notes": "Fix dependency conflicts and finalize Fyers integration"
 }
