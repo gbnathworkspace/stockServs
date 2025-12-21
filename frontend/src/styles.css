@@ -452,6 +452,24 @@ tr:hover td {
   background: rgba(255, 255, 255, 0.02);
 }
 
+tr.clickable-row {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+tr.clickable-row:hover td {
+  background: var(--accent-green-glow);
+}
+
+tr.clickable-row:active td {
+  background: rgba(0, 208, 156, 0.2);
+}
+
+td.stock-link {
+  color: var(--accent-green);
+  font-weight: 600;
+}
+
 .text-right {
   text-align: right;
 }

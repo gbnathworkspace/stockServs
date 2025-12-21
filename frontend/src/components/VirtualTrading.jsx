@@ -341,6 +341,23 @@ const VirtualTrading = () => {
     setTradeForm({ quantity: 1, price: stock.lastPrice?.toFixed(2) || '' });
   };
 
+  // Select a portfolio holding - converts to stock format and opens trade modal
+  const handleSelectHolding = (holding) => {
+    const stockFromHolding = {
+      symbol: holding.symbol,
+      lastPrice: holding.ltp || holding.average_price,
+      pChange: holding.pnl_percent || 0,
+      dayHigh: holding.ltp || holding.average_price,
+      dayLow: holding.ltp || holding.average_price,
+      open: holding.average_price,
+      quantity: holding.quantity,
+      avgPrice: holding.average_price,
+      pnl: holding.pnl,
+    };
+    setSelectedStock(stockFromHolding);
+    setTradeForm({ quantity: holding.quantity, price: stockFromHolding.lastPrice?.toFixed(2) || '' });
+  };
+
   // Close trade modal
   const closeTradeModal = () => {
     setSelectedStock(null);
@@ -464,7 +481,7 @@ const VirtualTrading = () => {
       )}
 
       {/* Stock Trade Modal */}
-      {selectedStock && activeTab === 'stocks' && !isChartOpen && (
+      {selectedStock && (activeTab === 'stocks' || activeTab === 'portfolio') && !isChartOpen && (
         <div className="stock-trade-modal" onClick={closeTradeModal}>
           <div className="stock-trade-shell" onClick={(e) => e.stopPropagation()}>
             <div className="stock-trade-header">
@@ -613,8 +630,12 @@ const VirtualTrading = () => {
                   portfolio.map((h) => {
                     const pnlClass = h.pnl > 0 ? 'positive' : h.pnl < 0 ? 'negative' : '';
                     return (
-                      <tr key={h.symbol}>
-                        <td>{h.symbol}</td>
+                      <tr 
+                        key={h.symbol} 
+                        className="clickable-row"
+                        onClick={() => handleSelectHolding(h)}
+                      >
+                        <td className="stock-link">{h.symbol}</td>
                         <td className="text-right">{h.quantity}</td>
                         <td className="text-right">₹{Number(h.average_price).toFixed(2)}</td>
                         <td className="text-right">
