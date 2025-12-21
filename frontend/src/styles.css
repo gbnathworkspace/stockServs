@@ -1548,6 +1548,69 @@ td.stock-link {
   border-color: var(--accent-green);
 }
 
+.stock-trade-input-group input.price-disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background: var(--hover-bg);
+}
+
+.limit-hint {
+  font-size: 0.7rem;
+  color: var(--accent-blue);
+  margin-top: 0.25rem;
+}
+
+/* Order Type Selector */
+.order-type-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  background: var(--input-bg);
+  padding: 0.35rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.order-type-btn {
+  padding: 0.75rem 1rem;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.order-type-btn:hover {
+  color: var(--text-primary);
+  background: var(--hover-bg);
+}
+
+.order-type-btn.active {
+  background: var(--accent-green-glow);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+/* Limit Order Info */
+.limit-order-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(77, 171, 247, 0.1);
+  border: 1px solid rgba(77, 171, 247, 0.3);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--accent-blue);
+}
+
+.limit-order-info .info-icon {
+  font-size: 0.9rem;
+}
+
 .stock-trade-total {
   display: flex;
   align-items: center;

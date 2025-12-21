@@ -16,7 +16,7 @@ const VirtualTrading = () => {
   const [selectedStock, setSelectedStock] = useState(null);
   const [portfolio, setPortfolio] = useState([]);
   const [loading, setLoading] = useState({ stocks: false, portfolio: false, trade: false });
-  const [tradeForm, setTradeForm] = useState({ quantity: 1, price: '' });
+  const [tradeForm, setTradeForm] = useState({ quantity: 1, price: '', orderType: 'market' });
   const [toast, setToast] = useState({ message: '', type: '', show: false });
   const [isChartOpen, setIsChartOpen] = useState(false);
   const [chartRange, setChartRange] = useState({ interval: '5m', period: '5d' });
@@ -338,7 +338,7 @@ const VirtualTrading = () => {
   // Select a stock - opens the trade modal
   const handleSelectStock = (stock) => {
     setSelectedStock(stock);
-    setTradeForm({ quantity: 1, price: stock.lastPrice?.toFixed(2) || '' });
+    setTradeForm({ quantity: 1, price: stock.lastPrice?.toFixed(2) || '', orderType: 'market' });
   };
 
   // Select a portfolio holding - converts to stock format and opens trade modal
@@ -355,7 +355,7 @@ const VirtualTrading = () => {
       pnl: holding.pnl,
     };
     setSelectedStock(stockFromHolding);
-    setTradeForm({ quantity: holding.quantity, price: stockFromHolding.lastPrice?.toFixed(2) || '' });
+    setTradeForm({ quantity: holding.quantity, price: stockFromHolding.lastPrice?.toFixed(2) || '', orderType: 'market' });
   };
 
   // Close trade modal
@@ -520,6 +520,26 @@ const VirtualTrading = () => {
                 </div>
               </div>
 
+              {/* Order Type Selector */}
+              <div className="order-type-selector">
+                <button
+                  className={`order-type-btn ${tradeForm.orderType === 'market' ? 'active' : ''}`}
+                  onClick={() => setTradeForm({ 
+                    ...tradeForm, 
+                    orderType: 'market',
+                    price: selectedStock.lastPrice?.toFixed(2) || ''
+                  })}
+                >
+                  Market Order
+                </button>
+                <button
+                  className={`order-type-btn ${tradeForm.orderType === 'limit' ? 'active' : ''}`}
+                  onClick={() => setTradeForm({ ...tradeForm, orderType: 'limit' })}
+                >
+                  Limit Order
+                </button>
+              </div>
+
               {/* Trade Form */}
               <div className="stock-trade-input-row">
                 <div className="stock-trade-input-group">
@@ -532,16 +552,31 @@ const VirtualTrading = () => {
                   />
                 </div>
                 <div className="stock-trade-input-group">
-                  <label>Price (₹)</label>
+                  <label>
+                    {tradeForm.orderType === 'market' ? 'Market Price (₹)' : 'Limit Price (₹)'}
+                  </label>
                   <input
                     type="number"
                     step="0.01"
                     min="0.01"
                     value={tradeForm.price}
                     onChange={(e) => setTradeForm({ ...tradeForm, price: e.target.value })}
+                    disabled={tradeForm.orderType === 'market'}
+                    className={tradeForm.orderType === 'market' ? 'price-disabled' : ''}
                   />
+                  {tradeForm.orderType === 'limit' && (
+                    <span className="limit-hint">Enter your desired price</span>
+                  )}
                 </div>
               </div>
+
+              {/* Order Info */}
+              {tradeForm.orderType === 'limit' && (
+                <div className="limit-order-info">
+                  <span className="info-icon">ℹ️</span>
+                  <span>Limit order will execute at ₹{tradeForm.price || '0.00'} or better</span>
+                </div>
+              )}
 
               {/* Total */}
               <div className="stock-trade-total">
