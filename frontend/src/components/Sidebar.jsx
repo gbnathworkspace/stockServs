@@ -63,7 +63,7 @@ const menuItems = [
   },
 ];
 
-export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse }) {
+export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse, mobileOpen, onMobileClose }) {
   const [expandedMenus, setExpandedMenus] = useState(['trading', 'market']);
 
   const toggleMenu = (menuId) => {
@@ -84,7 +84,7 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
   };
 
   return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
         {!collapsed && (
           <>

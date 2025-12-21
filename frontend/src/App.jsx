@@ -15,6 +15,7 @@ function App() {
   const userEmail = localStorage.getItem('user_email') || 'User';
   const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [appVersion, setAppVersion] = useState('');
 
   // Fetch version on mount
@@ -33,6 +34,7 @@ function App() {
 
   const handleSectionChange = (sectionId) => {
     setActiveSection(sectionId);
+    setMobileMenuOpen(false); // Close mobile menu on navigation
   };
 
   // Parse section and subsection
@@ -115,16 +117,36 @@ function App() {
 
   return (
     <div className="app-layout">
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="mobile-overlay" 
+          onClick={() => setMobileMenuOpen(false)} 
+        />
+      )}
+
       <Sidebar
         activeSection={activeSection}
         onSectionChange={handleSectionChange}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
       />
 
       <main className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <header className="main-header">
           <div className="header-left">
+            {/* Mobile Hamburger Button */}
+            <button 
+              className="mobile-menu-btn"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              <span className="hamburger-line"></span>
+              <span className="hamburger-line"></span>
+              <span className="hamburger-line"></span>
+            </button>
             <h1 className="page-title">{getSectionTitle()}</h1>
             {appVersion && <span className="version-badge">{appVersion}</span>}
           </div>
