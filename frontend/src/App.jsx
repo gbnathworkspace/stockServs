@@ -18,6 +18,7 @@ function App() {
   const [losers, setLosers] = useState([]);
   const [bulkDeals, setBulkDeals] = useState([]);
   const [weekly, setWeekly] = useState(null);
+  const [fiiDii, setFiiDii] = useState(null);
   const [appVersion, setAppVersion] = useState('');
 
   // Fetch version on mount
@@ -39,6 +40,7 @@ function App() {
     losers: false,
     bulkDeals: false,
     weekly: false,
+    fiiDii: false,
   });
 
   const [loaded, setLoaded] = useState({
@@ -46,6 +48,7 @@ function App() {
     losers: false,
     bulkDeals: false,
     weekly: false,
+    fiiDii: false,
   });
 
   const handleFetch = async (key, fn) => {
@@ -91,6 +94,12 @@ function App() {
     handleFetch('weekly', async () => {
       const res = await authApi(`${API_BASE_URL}/nse_data/weekly-gainers?days=5`);
       setWeekly(res);
+    });
+
+  const loadFiiDii = () =>
+    handleFetch('fiiDii', async () => {
+      const res = await authApi(`${API_BASE_URL}/nse_data/fii-dii-activity`);
+      setFiiDii(res);
     });
 
   return (
@@ -235,6 +244,62 @@ function App() {
                 <div className="loading">{loaded.weekly ? 'No weekly data' : 'Click load to fetch weekly movers'}</div>
               )}
             </div>
+          </Card>
+
+          <Card
+            title="FII/DII Activity"
+            actionLabel={loaded.fiiDii ? 'Refresh' : 'Load'}
+            onAction={loadFiiDii}
+            isLoading={loading.fiiDii}
+            disabled={!isAuthed}
+          >
+            {fiiDii ? (
+              <div className="fii-dii-container">
+                <div className="fii-dii-row">
+                  <div className="fii-dii-block">
+                    <div className="fii-dii-title">FII (Foreign)</div>
+                    <div className="fii-dii-stats">
+                      <div className="fii-dii-stat">
+                        <span className="label">Buy</span>
+                        <span className="value positive">₹{((fiiDii.fii?.buyValue || 0) / 100).toFixed(0)} Cr</span>
+                      </div>
+                      <div className="fii-dii-stat">
+                        <span className="label">Sell</span>
+                        <span className="value negative">₹{((fiiDii.fii?.sellValue || 0) / 100).toFixed(0)} Cr</span>
+                      </div>
+                      <div className="fii-dii-stat net">
+                        <span className="label">Net</span>
+                        <span className={`value ${(fiiDii.fii?.netValue || 0) >= 0 ? 'positive' : 'negative'}`}>
+                          {(fiiDii.fii?.netValue || 0) >= 0 ? '+' : ''}₹{((fiiDii.fii?.netValue || 0) / 100).toFixed(0)} Cr
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="fii-dii-block">
+                    <div className="fii-dii-title">DII (Domestic)</div>
+                    <div className="fii-dii-stats">
+                      <div className="fii-dii-stat">
+                        <span className="label">Buy</span>
+                        <span className="value positive">₹{((fiiDii.dii?.buyValue || 0) / 100).toFixed(0)} Cr</span>
+                      </div>
+                      <div className="fii-dii-stat">
+                        <span className="label">Sell</span>
+                        <span className="value negative">₹{((fiiDii.dii?.sellValue || 0) / 100).toFixed(0)} Cr</span>
+                      </div>
+                      <div className="fii-dii-stat net">
+                        <span className="label">Net</span>
+                        <span className={`value ${(fiiDii.dii?.netValue || 0) >= 0 ? 'positive' : 'negative'}`}>
+                          {(fiiDii.dii?.netValue || 0) >= 0 ? '+' : ''}₹{((fiiDii.dii?.netValue || 0) / 100).toFixed(0)} Cr
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {fiiDii.date && <div className="fii-dii-date muted">Data as of: {fiiDii.date}</div>}
+              </div>
+            ) : (
+              <div className="loading">{loaded.fiiDii ? 'No data available' : 'Click load to fetch FII/DII activity'}</div>
+            )}
           </Card>
 
           <PortfolioCard disabled={!isAuthed} />
