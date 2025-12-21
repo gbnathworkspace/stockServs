@@ -234,7 +234,6 @@ const VirtualTrading = () => {
   const fetchStocks = async () => {
     setLoading((l) => ({ ...l, stocks: true }));
     try {
-      // Try all-stocks first
       const res = await authApi(`${API_BASE_URL}/nse_data/all-stocks`);
       const stockList = res.stocks || [];
       if (stockList.length > 0) {
@@ -256,7 +255,6 @@ const VirtualTrading = () => {
       const gainers = gainersRes.top_gainers || [];
       const losers = losersRes.top_losers || [];
       
-      // Combine and deduplicate
       const combined = [...gainers, ...losers];
       const seen = new Set();
       const unique = combined.filter((s) => {
@@ -265,7 +263,6 @@ const VirtualTrading = () => {
         return true;
       });
       
-      // Sort alphabetically
       unique.sort((a, b) => a.symbol.localeCompare(b.symbol));
       
       setStocks(unique);
@@ -280,8 +277,6 @@ const VirtualTrading = () => {
       setLoading((l) => ({ ...l, stocks: false }));
     }
   };
-
-
 
   // Fetch portfolio
   const fetchPortfolio = async () => {
@@ -340,10 +335,15 @@ const VirtualTrading = () => {
     };
   }, []);
 
-  // Select a stock
+  // Select a stock - opens the trade modal
   const handleSelectStock = (stock) => {
     setSelectedStock(stock);
     setTradeForm({ quantity: 1, price: stock.lastPrice?.toFixed(2) || '' });
+  };
+
+  // Close trade modal
+  const closeTradeModal = () => {
+    setSelectedStock(null);
   };
 
   // Execute trade
@@ -372,7 +372,9 @@ const VirtualTrading = () => {
         body: JSON.stringify(payload),
       });
       setPortfolio(res.holdings || []);
-      showToast(`${side} order executed for ${selectedStock.symbol}`, 'success');
+      showToast(`${side} ${tradeForm.quantity} ${selectedStock.symbol} @ ₹${parseFloat(tradeForm.price).toFixed(2)}`, 'success');
+      // Close modal after successful trade
+      setTimeout(() => closeTradeModal(), 1200);
     } catch (err) {
       console.error('Trade failed', err);
       showToast(err.message || 'Trade failed', 'error');
@@ -410,147 +412,153 @@ const VirtualTrading = () => {
 
       {/* Stocks & Trading Tab */}
       {activeTab === 'stocks' && (
-        <div className="virtual-grid">
-          {/* Left panel - Stock list */}
-          <div className="virtual-left">
-            <div className="virtual-left-header">
-              <div>
-                <p className="eyebrow">NSE Stocks</p>
-                <h2>Pick a stock to trade</h2>
-                <p className="muted">Search and select a stock to simulate trades</p>
-              </div>
-              <button className="ghost-btn" onClick={fetchStocks} disabled={loading.stocks}>
-                {loading.stocks ? 'Loading...' : 'Refresh'}
-              </button>
+        <div className="virtual-stocks-container">
+          {/* Header */}
+          <div className="virtual-stocks-header">
+            <div>
+              <p className="eyebrow">NSE STOCKS</p>
+              <h2>Pick a stock to trade</h2>
+              <p className="muted">Search and select a stock to simulate trades</p>
             </div>
-
-            <div className="search-row">
-              <input
-                type="text"
-                placeholder="Search symbol..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="search-input"
-              />
-            </div>
-
-            <div className="stock-list">
-              {loading.stocks ? (
-                <div className="loading">Loading stocks...</div>
-              ) : filteredStocks.length === 0 ? (
-                <div className="loading">No stocks found</div>
-              ) : (
-                filteredStocks.map((stock) => (
-                  <div
-                    key={stock.symbol}
-                    className={`stock-item ${selectedStock?.symbol === stock.symbol ? 'selected' : ''}`}
-                    onClick={() => handleSelectStock(stock)}
-                  >
-                    <div className="stock-info">
-                      <span className="stock-symbol">{stock.symbol}</span>
-                      <span className="stock-price">₹{Number(stock.lastPrice || 0).toFixed(2)}</span>
-                    </div>
-                    <span className={`stock-change ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
-                      {stock.pChange >= 0 ? '+' : ''}{Number(stock.pChange || 0).toFixed(2)}%
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
+            <button className="ghost-btn" onClick={fetchStocks} disabled={loading.stocks}>
+              {loading.stocks ? 'Loading...' : 'Refresh'}
+            </button>
           </div>
 
-          {/* Right panel - Trade panel */}
-          <div className="virtual-right">
-            {!selectedStock ? (
-              <div className="trade-panel empty">
-                <h3>Select a Stock</h3>
-                <p className="muted">Choose a stock from the list to view details and trade</p>
-              </div>
+          {/* Search */}
+          <div className="search-row">
+            <input
+              type="text"
+              placeholder="Search symbol..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          {/* Stock Grid */}
+          <div className="stock-grid">
+            {loading.stocks ? (
+              <div className="loading">Loading stocks...</div>
+            ) : filteredStocks.length === 0 ? (
+              <div className="loading">No stocks found</div>
             ) : (
-              <div className="trade-panel">
-                <div className="trade-header">
-                  <h3>{selectedStock.symbol}</h3>
-                  <span className="trade-badge">Virtual Trading</span>
+              filteredStocks.map((stock) => (
+                <div
+                  key={stock.symbol}
+                  className="stock-item"
+                  onClick={() => handleSelectStock(stock)}
+                >
+                  <div className="stock-info">
+                    <span className="stock-symbol">{stock.symbol}</span>
+                    <span className="stock-price">₹{Number(stock.lastPrice || 0).toFixed(2)}</span>
+                  </div>
+                  <span className={`stock-change ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
+                    {stock.pChange >= 0 ? '+' : ''}{Number(stock.pChange || 0).toFixed(2)}%
+                  </span>
                 </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
-                <div className="trade-price-section">
-                  <div className="current-price">
-                    <span className="label">Current Price</span>
-                    <span className="price">₹{Number(selectedStock.lastPrice || 0).toFixed(2)}</span>
-                  </div>
-                  <div className={`price-change ${selectedStock.pChange >= 0 ? 'positive' : 'negative'}`}>
-                    {selectedStock.pChange >= 0 ? '+' : ''}{Number(selectedStock.pChange || 0).toFixed(2)}%
-                  </div>
+      {/* Stock Trade Modal */}
+      {selectedStock && activeTab === 'stocks' && (
+        <div className="stock-trade-modal" onClick={closeTradeModal}>
+          <div className="stock-trade-shell" onClick={(e) => e.stopPropagation()}>
+            <div className="stock-trade-header">
+              <div>
+                <h3>{selectedStock.symbol}</h3>
+                <span className="trade-badge">VIRTUAL TRADING</span>
+              </div>
+              <button className="icon-button" onClick={closeTradeModal}>×</button>
+            </div>
+
+            <div className="stock-trade-content">
+              {/* Price Row */}
+              <div className="stock-trade-price-row">
+                <div className="stock-trade-price-block">
+                  <span className="stock-trade-label">Current Price</span>
+                  <span className="stock-trade-price">₹{Number(selectedStock.lastPrice || 0).toFixed(2)}</span>
                 </div>
-
-                <div className="trade-stats">
-                  <div className="stat">
-                    <span className="label">High</span>
-                    <span className="value">₹{Number(selectedStock.dayHigh || selectedStock.lastPrice || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="stat">
-                    <span className="label">Low</span>
-                    <span className="value">₹{Number(selectedStock.dayLow || selectedStock.lastPrice || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="stat">
-                    <span className="label">Open</span>
-                    <span className="value">₹{Number(selectedStock.open || selectedStock.lastPrice || 0).toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <div className="trade-form">
-                  <div className="form-row">
-                    <label>Quantity</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={tradeForm.quantity}
-                      onChange={(e) => setTradeForm({ ...tradeForm, quantity: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-row">
-                    <label>Price (₹)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={tradeForm.price}
-                      onChange={(e) => setTradeForm({ ...tradeForm, price: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-row total">
-                    <span>Total Value</span>
-                    <span className="total-value">
-                      ₹{((tradeForm.quantity || 0) * (parseFloat(tradeForm.price) || 0)).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="trade-buttons">
-                  <button
-                    className="buy-btn"
-                    onClick={() => executeTrade('BUY')}
-                    disabled={loading.trade}
-                  >
-                    {loading.trade ? 'Processing...' : 'BUY'}
-                  </button>
-                  <button
-                    className="sell-btn"
-                    onClick={() => executeTrade('SELL')}
-                    disabled={loading.trade}
-                  >
-                    {loading.trade ? 'Processing...' : 'SELL'}
-                  </button>
-                  <button
-                    className="chart-btn"
-                    onClick={openChart}
-                    disabled={chartStatus.loading}
-                  >
-                    View chart
-                  </button>
+                <div className={`chip large ${selectedStock.pChange >= 0 ? 'positive' : 'negative'}`}>
+                  {selectedStock.pChange >= 0 ? '+' : ''}{Number(selectedStock.pChange || 0).toFixed(2)}%
                 </div>
               </div>
-            )}
+
+              {/* Stats */}
+              <div className="stock-trade-stats">
+                <div className="stock-trade-stat">
+                  <span className="stock-trade-stat-label">High</span>
+                  <span className="stock-trade-stat-value">₹{Number(selectedStock.dayHigh || selectedStock.lastPrice || 0).toFixed(2)}</span>
+                </div>
+                <div className="stock-trade-stat">
+                  <span className="stock-trade-stat-label">Low</span>
+                  <span className="stock-trade-stat-value">₹{Number(selectedStock.dayLow || selectedStock.lastPrice || 0).toFixed(2)}</span>
+                </div>
+                <div className="stock-trade-stat">
+                  <span className="stock-trade-stat-label">Open</span>
+                  <span className="stock-trade-stat-value">₹{Number(selectedStock.open || selectedStock.lastPrice || 0).toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Trade Form */}
+              <div className="stock-trade-input-row">
+                <div className="stock-trade-input-group">
+                  <label>Quantity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={tradeForm.quantity}
+                    onChange={(e) => setTradeForm({ ...tradeForm, quantity: e.target.value })}
+                  />
+                </div>
+                <div className="stock-trade-input-group">
+                  <label>Price (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={tradeForm.price}
+                    onChange={(e) => setTradeForm({ ...tradeForm, price: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Total */}
+              <div className="stock-trade-total">
+                <span>Total Value</span>
+                <span className={`stock-trade-total-value ${selectedStock.pChange >= 0 ? 'positive' : 'negative'}`}>
+                  ₹{((tradeForm.quantity || 0) * (parseFloat(tradeForm.price) || 0)).toFixed(2)}
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="stock-trade-actions">
+                <button
+                  className="buy-btn"
+                  onClick={() => executeTrade('BUY')}
+                  disabled={loading.trade}
+                >
+                  {loading.trade ? 'Processing...' : 'BUY'}
+                </button>
+                <button
+                  className="sell-btn"
+                  onClick={() => executeTrade('SELL')}
+                  disabled={loading.trade}
+                >
+                  {loading.trade ? 'Processing...' : 'SELL'}
+                </button>
+                <button
+                  className="chart-btn"
+                  onClick={openChart}
+                  disabled={chartStatus.loading}
+                >
+                  View chart
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -625,6 +633,7 @@ const VirtualTrading = () => {
         </div>
       )}
 
+      {/* Chart Modal */}
       {isChartOpen && selectedStock && (
         <div className="chart-modal" onClick={closeChart}>
           <div className="chart-shell" onClick={(event) => event.stopPropagation()}>
@@ -635,7 +644,7 @@ const VirtualTrading = () => {
                   {chartRange.interval.toUpperCase()} • {chartRange.period}
                 </span>
               </div>
-              <button className="icon-button" onClick={closeChart}>X</button>
+              <button className="icon-button" onClick={closeChart}>×</button>
             </div>
             <div className="chart-controls">
               <div className="chart-ranges">

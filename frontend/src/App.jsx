@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from './components/Card.jsx';
 import TabCard from './components/TabCard.jsx';
@@ -18,6 +18,15 @@ function App() {
   const [losers, setLosers] = useState([]);
   const [bulkDeals, setBulkDeals] = useState([]);
   const [weekly, setWeekly] = useState(null);
+  const [appVersion, setAppVersion] = useState('');
+
+  // Fetch version on mount
+  useEffect(() => {
+    fetch('/static/version.json?t=' + Date.now())
+      .then(res => res.json())
+      .then(data => setAppVersion(`v${data.version}`))
+      .catch(() => setAppVersion('v1.0.0'));
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -88,7 +97,10 @@ function App() {
     <div className="page">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Stock Servs</p>
+          <div className="title-row">
+            <p className="eyebrow">Stock Servs</p>
+            {appVersion && <span className="version-badge">{appVersion}</span>}
+          </div>
           <h1>Market Dashboard</h1>
           <p className="muted">Real-time market data and portfolio tracking</p>
         </div>
