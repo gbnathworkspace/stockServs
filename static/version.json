@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "2.0.1",
   "release_date": "2025-12-21",
-  "release_notes": "Major UI overhaul: Added left-side navigation with sections for Dashboard, Virtual Trading, Market Data, Wallet, Watchlist, and Settings"
+  "release_notes": "Fix deployment - include build assets, sidebar navigation"
 }
