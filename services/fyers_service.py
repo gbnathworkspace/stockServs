@@ -1,5 +1,4 @@
 from fyers_apiv3 import fyersModel
-from fyers_apiv3.FyersAuthenticate import session
 import os
 from dotenv import load_dotenv
 
@@ -16,7 +15,7 @@ def get_fyers_auth_url():
     if not all([FYERS_CLIENT_ID, FYERS_SECRET_KEY, FYERS_REDIRECT_URI]):
         return None
         
-    fyers_session = session.SessionModel(
+    fyers_session = fyersModel.SessionModel(
         client_id=FYERS_CLIENT_ID,
         secret_key=FYERS_SECRET_KEY,
         redirect_uri=FYERS_REDIRECT_URI,
@@ -31,7 +30,7 @@ def generate_fyers_access_token(auth_code: str):
     Step 2: Exchange auth code for access token
     """
     try:
-        fyers_session = session.SessionModel(
+        fyers_session = fyersModel.SessionModel(
             client_id=FYERS_CLIENT_ID,
             secret_key=FYERS_SECRET_KEY,
             redirect_uri=FYERS_REDIRECT_URI,
