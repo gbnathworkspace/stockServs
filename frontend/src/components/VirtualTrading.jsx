@@ -27,7 +27,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const [walletBalance, setWalletBalance] = useState(100000);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState({ stocks: false, portfolio: false, trade: false, wallet: false });
-  const [tradeForm, setTradeForm] = useState({ quantity: 1, price: '' });
+  const [tradeForm, setTradeForm] = useState({ quantity: 1, price: '', orderType: 'market' });
   const [toast, setToast] = useState({ message: '', type: '', show: false });
   const [isChartOpen, setIsChartOpen] = useState(false);
   const [chartRange, setChartRange] = useState({ interval: '5m', period: '5d' });
@@ -265,7 +265,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       ]);
       const gainers = gainersRes.top_gainers || [];
       const losers = losersRes.top_losers || [];
-      
+
       const combined = [...gainers, ...losers];
       const seen = new Set();
       const unique = combined.filter((s) => {
@@ -273,9 +273,9 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
         seen.add(s.symbol);
         return true;
       });
-      
+
       unique.sort((a, b) => a.symbol.localeCompare(b.symbol));
-      
+
       setStocks(unique);
       setFilteredStocks(unique);
       if (unique.length > 0) {
@@ -366,7 +366,24 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   // Select a stock - opens the trade modal
   const handleSelectStock = (stock) => {
     setSelectedStock(stock);
-    setTradeForm({ quantity: 1, price: stock.lastPrice?.toFixed(2) || '' });
+    setTradeForm({ quantity: 1, price: stock.lastPrice?.toFixed(2) || '', orderType: 'market' });
+  };
+
+  // Select a portfolio holding - converts to stock format and opens trade modal
+  const handleSelectHolding = (holding) => {
+    const stockFromHolding = {
+      symbol: holding.symbol,
+      lastPrice: holding.ltp || holding.average_price,
+      pChange: holding.pnl_percent || 0,
+      dayHigh: holding.ltp || holding.average_price,
+      dayLow: holding.ltp || holding.average_price,
+      open: holding.average_price,
+      quantity: holding.quantity,
+      avgPrice: holding.average_price,
+      pnl: holding.pnl,
+    };
+    setSelectedStock(stockFromHolding);
+    setTradeForm({ quantity: holding.quantity, price: stockFromHolding.lastPrice?.toFixed(2) || '', orderType: 'market' });
   };
 
   // Close trade modal
@@ -501,7 +518,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       )}
 
       {/* Stock Trade Modal */}
-      {selectedStock && activeTab === 'stocks' && (
+      {selectedStock && (activeTab === 'stocks' || activeTab === 'portfolio') && !isChartOpen && (
         <div className="stock-trade-modal" onClick={closeTradeModal}>
           <div className="stock-trade-shell" onClick={(e) => e.stopPropagation()}>
             <div className="stock-trade-header">
@@ -540,6 +557,26 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
                 </div>
               </div>
 
+              {/* Order Type Selector */}
+              <div className="order-type-selector">
+                <button
+                  className={`order-type-btn ${tradeForm.orderType === 'market' ? 'active' : ''}`}
+                  onClick={() => setTradeForm({
+                    ...tradeForm,
+                    orderType: 'market',
+                    price: selectedStock.lastPrice?.toFixed(2) || ''
+                  })}
+                >
+                  Market Order
+                </button>
+                <button
+                  className={`order-type-btn ${tradeForm.orderType === 'limit' ? 'active' : ''}`}
+                  onClick={() => setTradeForm({ ...tradeForm, orderType: 'limit' })}
+                >
+                  Limit Order
+                </button>
+              </div>
+
               {/* Trade Form */}
               <div className="stock-trade-input-row">
                 <div className="stock-trade-input-group">
@@ -552,14 +589,21 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
                   />
                 </div>
                 <div className="stock-trade-input-group">
-                  <label>Price (₹)</label>
+                  <label>
+                    {tradeForm.orderType === 'market' ? 'Market Price (₹)' : 'Limit Price (₹)'}
+                  </label>
                   <input
                     type="number"
                     step="0.01"
                     min="0.01"
                     value={tradeForm.price}
                     onChange={(e) => setTradeForm({ ...tradeForm, price: e.target.value })}
+                    disabled={tradeForm.orderType === 'market'}
+                    className={tradeForm.orderType === 'market' ? 'price-disabled' : ''}
                   />
+                  {tradeForm.orderType === 'limit' && (
+                    <span className="limit-hint">Enter your desired price</span>
+                  )}
                 </div>
               </div>
 
@@ -570,6 +614,14 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
                   ₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
               </div>
+
+              {/* Order Info for Limit Orders */}
+              {tradeForm.orderType === 'limit' && (
+                <div className="limit-order-info">
+                  <span className="info-icon">ℹ️</span>
+                  <span>Limit order will execute at ₹{tradeForm.price || '0.00'} or better</span>
+                </div>
+              )}
 
               {/* Total */}
               <div className="stock-trade-total">
@@ -666,8 +718,12 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
                   portfolio.map((h) => {
                     const pnlClass = h.pnl > 0 ? 'positive' : h.pnl < 0 ? 'negative' : '';
                     return (
-                      <tr key={h.symbol}>
-                        <td>{h.symbol}</td>
+                      <tr
+                        key={h.symbol}
+                        className="clickable-row"
+                        onClick={() => handleSelectHolding(h)}
+                      >
+                        <td className="stock-link">{h.symbol}</td>
                         <td className="text-right">{h.quantity}</td>
                         <td className="text-right">₹{Number(h.average_price).toFixed(2)}</td>
                         <td className="text-right">
