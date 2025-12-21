@@ -1,5 +1,5 @@
 {
-  "version": "2.0.9",
+  "version": "2.1.0",
   "release_date": "2025-12-21",
-  "release_notes": "Sync all branches and finalize Fyers connection stability"
+  "release_notes": "Fix Fyers connection state persistence and sync latest branch changes"
 }
