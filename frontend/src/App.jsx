@@ -4,6 +4,7 @@ import Card from './components/Card.jsx';
 import TabCard from './components/TabCard.jsx';
 import PortfolioCard from './components/PortfolioCard.jsx';
 import VirtualTrading from './components/VirtualTrading.jsx';
+import Settings from './components/Settings.jsx';
 import { authApi } from './lib/api.js';
 
 const API_BASE_URL = window.location.origin;
@@ -14,6 +15,7 @@ function App() {
   const userEmail = localStorage.getItem('user_email') || 'User';
   const [status, setStatus] = useState('Idle');
   const [activeView, setActiveView] = useState('market');
+  const [showSettings, setShowSettings] = useState(false);
   const [gainers, setGainers] = useState([]);
   const [losers, setLosers] = useState([]);
   const [bulkDeals, setBulkDeals] = useState([]);
@@ -116,6 +118,13 @@ function App() {
         <div className="topbar-right">
           <span className="user-email">{userEmail}</span>
           <div className="chip">{status}</div>
+          <button 
+            className="settings-btn" 
+            onClick={() => setShowSettings(true)}
+            title="Settings"
+          >
+            ⚙️
+          </button>
           <button className="logout-btn" onClick={handleLogout}>
             Logout
           </button>
@@ -308,6 +317,11 @@ function App() {
 
       {activeView === 'trading' && (
         <VirtualTrading />
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <Settings onClose={() => setShowSettings(false)} />
       )}
     </div>
   );
