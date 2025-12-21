@@ -500,13 +500,95 @@ body {
   gap: 1rem;
 }
 
-.user-email {
+.user-email,
+.user-name {
   color: var(--text-secondary);
   font-size: 0.875rem;
   padding: 0.5rem 0.75rem;
   background: var(--card-bg);
   border-radius: 8px;
   border: 1px solid var(--border-color);
+}
+
+.user-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* ===== INDICES TICKER ===== */
+.indices-ticker {
+  display: flex;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.indices-ticker::-webkit-scrollbar {
+  height: 4px;
+}
+
+.indices-ticker::-webkit-scrollbar-track {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.indices-ticker::-webkit-scrollbar-thumb {
+  background: var(--accent-green);
+  border-radius: 4px;
+}
+
+.index-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 1rem;
+  background: var(--hover-bg);
+  border-radius: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.index-item:hover {
+  border-color: var(--accent-green);
+  background: var(--card-bg);
+}
+
+.index-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.index-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.index-change {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.index-change.positive {
+  background: var(--accent-green-glow);
+  color: var(--accent-green);
+}
+
+.index-change.negative {
+  background: var(--accent-red-glow);
+  color: var(--accent-red);
 }
 
 .logout-btn {

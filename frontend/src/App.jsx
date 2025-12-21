@@ -9,10 +9,22 @@ import { authApi } from './lib/api.js';
 
 const API_BASE_URL = window.location.origin;
 
+// Helper to extract name from email
+const getNameFromEmail = (email) => {
+  if (!email) return 'User';
+  const localPart = email.split('@')[0];
+  // Capitalize first letter and handle dots/underscores
+  return localPart
+    .split(/[._]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 function App() {
   const navigate = useNavigate();
   const isAuthed = Boolean(localStorage.getItem('access_token'));
   const userEmail = localStorage.getItem('user_email') || 'User';
+  const userName = getNameFromEmail(userEmail);
   const [status, setStatus] = useState('Idle');
   const [activeView, setActiveView] = useState('market');
   const [showSettings, setShowSettings] = useState(false);
@@ -21,6 +33,7 @@ function App() {
   const [bulkDeals, setBulkDeals] = useState([]);
   const [weekly, setWeekly] = useState(null);
   const [fiiDii, setFiiDii] = useState(null);
+  const [indices, setIndices] = useState([]);
   const [appVersion, setAppVersion] = useState('');
 
   // Fetch version on mount
@@ -30,6 +43,24 @@ function App() {
       .then(data => setAppVersion(`v${data.version}`))
       .catch(() => setAppVersion('v1.0.0'));
   }, []);
+
+  // Fetch market indices on mount
+  useEffect(() => {
+    if (!isAuthed) return;
+    const fetchIndices = async () => {
+      try {
+        const res = await authApi(`${API_BASE_URL}/nse_data/indices`);
+        setIndices(res.indices || []);
+      } catch (err) {
+        console.log('Failed to fetch indices', err);
+        // Fallback with empty or cached data
+      }
+    };
+    fetchIndices();
+    // Refresh indices every 30 seconds
+    const interval = setInterval(fetchIndices, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthed]);
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -106,6 +137,21 @@ function App() {
 
   return (
     <div className="page">
+      {/* Market Indices Ticker */}
+      {indices.length > 0 && (
+        <div className="indices-ticker">
+          {indices.map((idx) => (
+            <div key={idx.index} className="index-item">
+              <span className="index-name">{idx.index}</span>
+              <span className="index-value">₹{Number(idx.last || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+              <span className={`index-change ${(idx.percentChange || 0) >= 0 ? 'positive' : 'negative'}`}>
+                {(idx.percentChange || 0) >= 0 ? '▲' : '▼'} {Math.abs(idx.percentChange || 0).toFixed(2)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <header className="topbar">
         <div>
           <div className="title-row">
@@ -116,7 +162,7 @@ function App() {
           <p className="muted">Real-time market data and portfolio tracking</p>
         </div>
         <div className="topbar-right">
-          <span className="user-email">{userEmail}</span>
+          <span className="user-name" title={userEmail}>👤 {userName}</span>
           <div className="chip">{status}</div>
           <button 
             className="settings-btn" 
