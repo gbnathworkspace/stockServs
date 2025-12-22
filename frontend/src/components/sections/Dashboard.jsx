@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authApi } from '../../lib/api.js';
+import useAutoRefresh, { useRelativeTime } from '../../hooks/useAutoRefresh';
 
 const API_BASE_URL = window.location.origin;
 
@@ -8,26 +9,46 @@ export default function Dashboard({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [marketData, setMarketData] = useState({ gainers: [], losers: [] });
 
+  // Auto-refresh: Portfolio every 15s, Market data every 15s
+  const { lastUpdate: portfolioUpdate } = useAutoRefresh('dashboard-portfolio', () => loadPortfolioSummary(), 15000);
+  const { lastUpdate: marketUpdate } = useAutoRefresh('dashboard-market', () => loadMarketData(), 15000);
+  const portfolioTime = useRelativeTime(portfolioUpdate);
+  const marketTime = useRelativeTime(marketUpdate);
+
   useEffect(() => {
     loadDashboardData();
   }, []);
 
-  const loadDashboardData = async () => {
-    setLoading(true);
+  const loadPortfolioSummary = async () => {
     try {
-      const [summaryRes, gainersRes, losersRes] = await Promise.all([
-        authApi(`${API_BASE_URL}/portfolio/summary`).catch(() => null),
-        authApi(`${API_BASE_URL}/nse_data/top-gainers`).catch(() => ({ top_gainers: [] })),
-        authApi(`${API_BASE_URL}/nse_data/top-losers`).catch(() => ({ top_losers: [] })),
-      ]);
-
+      const summaryRes = await authApi(`${API_BASE_URL}/portfolio/summary`).catch(() => null);
       if (summaryRes) {
         setSummary(summaryRes);
       }
+    } catch (error) {
+      console.error('Failed to load portfolio summary:', error);
+    }
+  };
+
+  const loadMarketData = async () => {
+    try {
+      const [gainersRes, losersRes] = await Promise.all([
+        authApi(`${API_BASE_URL}/nse_data/top-gainers`).catch(() => ({ top_gainers: [] })),
+        authApi(`${API_BASE_URL}/nse_data/top-losers`).catch(() => ({ top_losers: [] })),
+      ]);
       setMarketData({
         gainers: gainersRes?.top_gainers || [],
         losers: losersRes?.top_losers || [],
       });
+    } catch (error) {
+      console.error('Failed to load market data:', error);
+    }
+  };
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([loadPortfolioSummary(), loadMarketData()]);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -62,6 +83,13 @@ export default function Dashboard({ onNavigate }) {
       </div>
 
       {/* Stats Cards */}
+      <div className="last-updated">
+        <svg className="last-updated-icon" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+          <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+        </svg>
+        <span className="last-updated-text">Portfolio updated {portfolioTime}</span>
+      </div>
       <div className="dashboard-grid">
         <div className="stat-card">
           <div className="stat-card-header">
@@ -125,6 +153,13 @@ export default function Dashboard({ onNavigate }) {
       </div>
 
       {/* Market Overview */}
+      <div className="last-updated">
+        <svg className="last-updated-icon" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+          <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+        </svg>
+        <span className="last-updated-text">Market data updated {marketTime}</span>
+      </div>
       <div className="dashboard-market-grid">
         <div className="market-card">
           <div className="market-card-header">

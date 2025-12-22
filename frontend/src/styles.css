@@ -3855,3 +3855,185 @@ td.stock-link {
 [class*="quantity"] {
   font-variant-numeric: tabular-nums;
 }
+
+/* ===== AUTO-REFRESH & LIVE UPDATES ===== */
+
+/* Price Flash Animations */
+@keyframes flash-green {
+  0% { background-color: var(--accent-green-glow); }
+  50% { background-color: rgba(16, 185, 129, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-red {
+  0% { background-color: var(--accent-red-glow); }
+  50% { background-color: rgba(239, 68, 68, 0.3); }
+  100% { background-color: transparent; }
+}
+
+.price-flash-up {
+  animation: flash-green 0.6s ease-out;
+}
+
+.price-flash-down {
+  animation: flash-red 0.6s ease-out;
+}
+
+/* Last Updated Timestamp */
+.last-updated {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.last-updated-icon {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
+}
+
+.last-updated-text {
+  opacity: 0.8;
+}
+
+/* Refresh Control Component */
+.refresh-control {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.market-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.market-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.market-status-indicator.open {
+  color: var(--accent-green);
+}
+
+.market-status-indicator.closed {
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.market-status-indicator.open .status-dot {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.market-countdown {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.refresh-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refresh-toggle-btn:hover {
+  background: var(--hover-bg);
+  border-color: var(--accent-blue);
+}
+
+.refresh-toggle-btn.active {
+  background: rgba(77, 171, 247, 0.1);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.refresh-toggle-btn.paused {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.refresh-toggle-text {
+  font-size: 0.8rem;
+}
+
+/* Responsive adjustments for refresh control */
+@media (max-width: 768px) {
+  .refresh-control {
+    gap: 0.5rem;
+  }
+
+  .market-status {
+    padding: 0.4rem 0.6rem;
+  }
+
+  .market-countdown {
+    display: none;
+  }
+
+  .refresh-toggle-btn {
+    padding: 0.4rem 0.7rem;
+  }
+
+  .refresh-toggle-text {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .market-status-indicator {
+    font-size: 0.75rem;
+  }
+}
+
+/* Section with auto-refresh indicator */
+.section-header-with-refresh {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.section-refresh-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
