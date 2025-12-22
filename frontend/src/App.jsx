@@ -14,6 +14,7 @@ import MarketPulse from './components/sections/MarketPulse.jsx';
 import InsiderStrategy from './components/sections/InsiderStrategy.jsx';
 import SectorScope from './components/sections/SectorScope.jsx';
 import SwingSpectrum from './components/sections/SwingSpectrum.jsx';
+import RefreshControl from './components/RefreshControl.jsx';
 
 function App() {
   const navigate = useNavigate();
@@ -194,6 +195,7 @@ function App() {
             {appVersion && <span className="version-badge">{appVersion}</span>}
           </div>
           <div className="header-right">
+            <RefreshControl />
             <span className="user-email">{userEmail}</span>
             <button className="logout-btn" onClick={handleLogout}>
               Logout
