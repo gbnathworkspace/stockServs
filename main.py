@@ -102,10 +102,22 @@ async def log_requests(request: Request, call_next):
 async def root(request: Request):
     """Redirect to React app (if built) or legacy frontend with query params preserved"""
     query_params = str(request.query_params)
+    
+    # Check if this is a Fyers OAuth callback (redirect from Fyers login)
+    # Fyers sends: ?s=ok&auth_code=xxx&state=jwt_token
+    s_param = request.query_params.get("s")
+    auth_code = request.query_params.get("auth_code") or request.query_params.get("code")
+    state = request.query_params.get("state")
+    
+    if s_param and auth_code and state:
+        # This is a Fyers callback - forward to the callback endpoint
+        return RedirectResponse(url=f"/fyers/callback?{query_params}")
+    
     target = "/app/" if os.path.exists(REACT_INDEX) else "/static/index.html"
     if query_params:
         target = f"{target}?{query_params}"
     return RedirectResponse(url=target)
+
 
 
 def serve_react():

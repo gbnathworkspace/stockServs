@@ -37,8 +37,19 @@ function App() {
     const s = urlParams.get('s');
     const authCode = urlParams.get('auth_code') || urlParams.get('code');
     const id = urlParams.get('id');
+    const fyersConnected = urlParams.get('fyers_connected');
+    const fyersError = urlParams.get('fyers_error');
 
-    if (s === 'ok' && authCode) {
+    if (fyersConnected === 'true') {
+      alert('Fyers connected successfully!');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setActiveSection('settings.profile');
+    } else if (fyersError) {
+      alert('Fyers connection failed: ' + fyersError);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setActiveSection('settings.profile');
+    } else if (s === 'ok' && authCode) {
+      // Legacy handling for direct redirects to /app/
       handleFyersCallback(s, authCode, id);
     }
   }, []);

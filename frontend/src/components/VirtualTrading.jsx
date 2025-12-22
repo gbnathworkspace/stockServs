@@ -382,9 +382,21 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
 
   useEffect(() => {
     if (!isChartOpen || !selectedStock) return;
+    
+    // Initial load
     const ready = ensureCharts();
-    if (!ready) return;
-    loadChartData(selectedStock.symbol, chartRange.interval, chartRange.period);
+    if (ready) {
+      loadChartData(selectedStock.symbol, chartRange.interval, chartRange.period);
+    }
+
+    // Auto-refresh chart every 60 seconds
+    const interval = setInterval(() => {
+      if (ready) {
+        loadChartData(selectedStock.symbol, chartRange.interval, chartRange.period);
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, [isChartOpen, selectedStock, chartRange]);
 
   useEffect(() => {

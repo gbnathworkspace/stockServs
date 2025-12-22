@@ -8,10 +8,14 @@ export default function Settings({ subSection }) {
   const [fyersConnected, setFyersConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Check connection status when subsection changes
+  // Check connection status on mount and when subsection changes
   React.useEffect(() => {
     checkFyersStatus();
-  }, [subSection]);
+  }, []); // Run on mount
+  
+  React.useEffect(() => {
+    checkFyersStatus();
+  }, [subSection]); // Also run when subsection changes
 
   const checkFyersStatus = async () => {
     try {

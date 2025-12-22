@@ -8,7 +8,7 @@ FYERS_CLIENT_ID = os.getenv("FYERS_CLIENT_ID")
 FYERS_SECRET_KEY = os.getenv("FYERS_SECRET_KEY")
 FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI")
 
-def get_fyers_auth_url():
+def get_fyers_auth_url(state: str = None):
     """
     Step 1: Generate Fyers auth URL for user to authorize
     """
@@ -25,7 +25,8 @@ def get_fyers_auth_url():
         secret_key=FYERS_SECRET_KEY,
         redirect_uri=FYERS_REDIRECT_URI,
         response_type="code",
-        grant_type="authorization_code"
+        grant_type="authorization_code",
+        state=state
     )
     
     return fyers_session.generate_authcode()
