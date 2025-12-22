@@ -93,7 +93,7 @@ def bulk_deals_key() -> str:
 
 
 # TTL constants (in seconds)
-TTL_STOCK_LIST = 60        # 1 minute - stock list changes slowly
+TTL_STOCK_LIST = 20        # 20 seconds - for a more "live" virtual trading feel
 TTL_STOCK_PRICE = 30       # 30 seconds - prices change frequently
 TTL_CANDLE_5M = 60         # 1 minute for 5-minute candles
 TTL_CANDLE_15M = 120       # 2 minutes for 15-minute candles
