@@ -28,11 +28,14 @@ async def get_auth_url(
     token = None
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
-        
+    
+    # Store token in response for callback verification
     url = get_fyers_auth_url(state=token)
     if not url:
         raise HTTPException(status_code=500, detail="Fyers API not configured on server")
-    return {"url": url}
+    
+    # Return URL and token - frontend will store token before redirect
+    return {"url": url, "token": token}
 
 @router.get("/status")
 async def get_fyers_status(
@@ -56,36 +59,64 @@ async def fyers_callback(
     code: str = Query(None), # auth code (standard)
     auth_code: str = Query(None), # auth code (sometimes sent as auth_code)
     id: str = Query(None),   # fyers_id
-    state: str = Query(None), # access token we passed
+    state: str = Query(None), # access token we passed (may not be returned by Fyers)
     db: Session = Depends(get_db)
 ):
     """
     Handle Fyers OAuth callback.
-    We don't use Depends(get_current_user) here because headers aren't sent in GET redirects.
-    Instead, we verify the user via the JWT token passed in the 'state' parameter.
+    Fyers may not return state param, so we try multiple auth methods.
     """
-    from routes.deps import get_current_user
-    from fastapi.security import HTTPAuthorizationCredentials
+    from routes.deps import SECRET_KEY, ALGORITHM
+    from jose import JWTError, jwt
     
-    if not state:
-         # Fallback for when state is missing (old flow or direct hits)
-         return RedirectResponse(url="/app/?fyers_error=missing_state")
-
-    # Manually verify the user from the state token
-    try:
-        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=state)
-        current_user = get_current_user(credentials=credentials, db=db)
-    except Exception as e:
-        print(f"Fyers Callback Auth Error: {e}")
+    print(f"Fyers Callback received: s={s}, code={code}, auth_code={auth_code is not None}, state={state is not None}")
+    
+    # Try to get user from state parameter first
+    current_user = None
+    fyers_auth_code = None
+    
+    if state:
+        try:
+            payload = jwt.decode(state, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = int(payload.get("sub"))
+            current_user = db.query(User).filter(User.id == user_id).first()
+            print(f"User from state: {current_user.email if current_user else 'None'}")
+        except Exception as e:
+            print(f"State decode failed: {e}")
+    
+    # If state didn't work, check if auth_code looks like a JWT (it might be our state)
+    if not current_user and auth_code and auth_code.startswith('eyJ'):
+        try:
+            payload = jwt.decode(auth_code, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = int(payload.get("sub"))
+            current_user = db.query(User).filter(User.id == user_id).first()
+            print(f"User from auth_code JWT: {current_user.email if current_user else 'None'}")
+            # auth_code was actually our state, so the real auth code might be in 'code'
+            # Don't use auth_code as the Fyers auth code
+        except Exception as e:
+            print(f"auth_code is not our JWT, treating as Fyers auth code: {e}")
+            fyers_auth_code = auth_code
+    else:
+        fyers_auth_code = auth_code
+    
+    if not current_user:
+        print("No user found from state or auth_code")
         return RedirectResponse(url="/app/?fyers_error=auth_failed")
 
-    # Prefer auth_code if provided, otherwise fallback to code
-    actual_code = auth_code or code
+    # Determine the actual Fyers auth code
+    # Note: code=200 is a status code from Fyers, not an auth code
+    actual_code = fyers_auth_code if fyers_auth_code else (code if code and code != '200' else None)
     
-    print(f"Fyers Callback: status={s}, user={current_user.email}, code={code}")
+    print(f"Fyers Callback Final: status={s}, user={current_user.email}, actual_code={'present' if actual_code else 'missing'}")
     
-    if s != "ok" or not actual_code:
-        return RedirectResponse(url="/app/?fyers_error=missing_code")
+    if s != "ok":
+        return RedirectResponse(url="/app/?fyers_error=status_not_ok")
+        
+    if not actual_code:
+        # No auth code found - check all params for debugging
+        all_params = dict(request.query_params)
+        print(f"All callback params: {all_params}")
+        return RedirectResponse(url="/app/?fyers_error=missing_auth_code")
     
     token_data = generate_fyers_access_token(actual_code)
     if not token_data or token_data.get("s") != "ok":
