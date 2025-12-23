@@ -109,6 +109,25 @@ class ApiLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
+class ErrorLog(Base):
+    """Error log table to track non-200 API responses and exceptions."""
+    __tablename__ = "error_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    endpoint = Column(String(255), nullable=False, index=True)
+    method = Column(String(10), nullable=False)
+    status_code = Column(Integer, nullable=False, index=True)
+    error_type = Column(String(100), nullable=True)  # e.g., "HTTPException", "ValueError"
+    error_message = Column(Text, nullable=True)
+    request_body = Column(Text, nullable=True)
+    query_params = Column(Text, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    client_ip = Column(String(64), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    extra_data = Column(Text, nullable=True)  # JSON for additional context
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 class FiiDiiActivity(Base):
     __tablename__ = "fii_dii_daily"
 
@@ -122,3 +141,4 @@ class FiiDiiActivity(Base):
     dii_net_value = Column(Float, nullable=True)
     source_date_str = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
