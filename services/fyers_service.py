@@ -53,7 +53,8 @@ def generate_fyers_access_token(auth_code: str):
             grant_type="authorization_code"
         )
         fyers_session.set_token(auth_code)
-        response = fyers_session.generate_access_token()
+        # Note: Method is generate_token() not generate_access_token()
+        response = fyers_session.generate_token()
         print(f"[FYERS_TOKEN] Response: {response}")
         return response
     except Exception as e:
