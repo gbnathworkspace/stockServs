@@ -380,11 +380,37 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     fetchFyersData();
   }, []);
 
+  // Auto-refresh data every 20 seconds for "Live" experience
+  useEffect(() => {
+    let interval;
+    const updateData = () => {
+      if (activeTab === 'stocks' && !loading.stocks) fetchStocks();
+      if (activeTab === 'portfolio' && !loading.portfolio) fetchPortfolio();
+    };
+
+    interval = setInterval(updateData, 20000);
+    
+    return () => clearInterval(interval);
+  }, [activeTab, loading.stocks, loading.portfolio]);
+
+
   useEffect(() => {
     if (!isChartOpen || !selectedStock) return;
+    
+    // Initial load
     const ready = ensureCharts();
-    if (!ready) return;
-    loadChartData(selectedStock.symbol, chartRange.interval, chartRange.period);
+    if (ready) {
+      loadChartData(selectedStock.symbol, chartRange.interval, chartRange.period);
+    }
+
+    // Auto-refresh chart every 60 seconds
+    const interval = setInterval(() => {
+      if (ready) {
+        loadChartData(selectedStock.symbol, chartRange.interval, chartRange.period);
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, [isChartOpen, selectedStock, chartRange]);
 
   useEffect(() => {
@@ -540,10 +566,17 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
           {/* Header */}
           <div className="virtual-stocks-header">
             <div>
-              <p className="eyebrow">NSE STOCKS</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <p className="eyebrow">NSE STOCKS</p>
+                <div className="live-badge">
+                  <span className="pulse-dot"></span>
+                  LIVE
+                </div>
+              </div>
               <h2>Pick a stock to trade</h2>
               <p className="muted">Search and select a stock to simulate trades</p>
             </div>
+
             <button className="ghost-btn" onClick={fetchStocks} disabled={loading.stocks}>
               {loading.stocks ? 'Loading...' : 'Refresh'}
             </button>

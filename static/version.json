@@ -1,5 +1,5 @@
 {
-  "version": "2.0.7",
+  "version": "2.1.0",
   "release_date": "2025-12-21",
-  "release_notes": "Fix Fyers API method name generate_authcode for v3.x"
+  "release_notes": "Fix Fyers connection state persistence and sync latest branch changes"
 }
