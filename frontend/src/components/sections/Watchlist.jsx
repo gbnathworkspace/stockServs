@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { authApi } from '../../lib/api.js';
+import { authApi, fastAuthApi } from '../../lib/api.js';
+import useAutoRefresh, { useRelativeTime } from '../../hooks/useAutoRefresh';
 
 const API_BASE_URL = window.location.origin;
 
@@ -9,6 +10,10 @@ export default function Watchlist({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Auto-refresh: Watchlist prices every 5s (prevents DB pool exhaustion)
+  const { lastUpdate } = useAutoRefresh('watchlist-prices', () => refreshPricesSilent(), 5000);
+  const lastUpdateTime = useRelativeTime(lastUpdate);
 
   useEffect(() => {
     loadWatchlist();
@@ -32,6 +37,24 @@ export default function Watchlist({ onNavigate }) {
       console.error('Failed to load stocks:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Silent refresh with fast timeout (2s max, prevents cascade)
+  const refreshPricesSilent = async () => {
+    const res = await fastAuthApi(`${API_BASE_URL}/nse_data/all-stocks`);
+    if (res?.stocks?.length > 0) {
+      setStocks(res.stocks);
+      // Update watchlist with latest prices
+      const saved = localStorage.getItem('watchlist');
+      if (saved) {
+        const savedWatchlist = JSON.parse(saved);
+        const updatedWatchlist = savedWatchlist.map(w => {
+          const updated = res.stocks.find(s => s.symbol === w.symbol);
+          return updated || w;
+        });
+        setWatchlist(updatedWatchlist);
+      }
     }
   };
 

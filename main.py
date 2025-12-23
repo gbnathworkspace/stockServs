@@ -26,12 +26,30 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Stock Services API", version="1.0.0")
 request_logger = RequestLogger()
 
+# CORS Configuration - secure defaults with environment override
+# In production, set ALLOWED_ORIGINS env var to your frontend domain(s)
+# Example: ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+cors_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+if cors_origins_env:
+    # Production: use specific origins from environment
+    allowed_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    # Development: allow common localhost origins
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8000",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-Id", "Accept"],
 )
 
 # Paths - use absolute path

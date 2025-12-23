@@ -1,7 +1,7 @@
 /**
  * Global Auto-Refresh Hook
  * Manages automatic data refresh for all components with market hours awareness
- * Fast mode: 10-20s intervals (Zerodha Kite-style)
+ * Only refreshes during market hours (9:15 AM - 3:30 PM IST, Mon-Fri)
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -14,36 +14,74 @@ class RefreshManager {
   constructor() {
     this.subscriptions = new Map();
     this.timers = new Map();
+    this.inFlight = new Map();  // Track pending requests to prevent cascade
     this.isPaused = false;
     this.isTabVisible = true;
+    this.isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
     this.listeners = new Set();
 
     // Listen for visibility changes
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => {
         this.isTabVisible = !document.hidden;
-        if (this.isTabVisible && !this.isPaused) {
-          this.resumeAll();
-        } else {
-          this.pauseAll();
-        }
+        this.handleStateChange();
       });
     }
+
+    // Listen for online/offline
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        this.isOnline = true;
+        this.handleStateChange();
+      });
+      window.addEventListener('offline', () => {
+        this.isOnline = false;
+        this.handleStateChange();
+      });
+    }
+  }
+
+  /**
+   * Handle state changes (visibility, online status, market hours)
+   */
+  handleStateChange() {
+    if (this.shouldRefresh()) {
+      this.resumeAll();
+    } else {
+      this.pauseAll();
+    }
+    this.notifyListeners();
+  }
+
+  /**
+   * Check if refreshing should be active
+   * Only refresh when: not paused, tab visible, online, AND market is open
+   */
+  shouldRefresh() {
+    return !this.isPaused && this.isTabVisible && this.isOnline && isMarketOpen();
+  }
+
+  /**
+   * Check if market is currently open
+   * @returns {boolean}
+   */
+  isMarketOpen() {
+    return isMarketOpen();
   }
 
   /**
    * Subscribe to auto-refresh
    * @param {string} key - Unique identifier for this subscription
    * @param {Function} callback - Function to call on refresh
-   * @param {number} interval - Refresh interval in milliseconds
+   * @param {number} interval - Refresh interval in milliseconds (default 1000ms = 1 second)
    * @returns {string} Subscription key
    */
-  subscribe(key, callback, interval) {
+  subscribe(key, callback, interval = 1000) {
     // Store subscription
     this.subscriptions.set(key, { callback, interval });
 
-    // Start timer if not paused and market is open
-    if (!this.isPaused && this.isTabVisible && isMarketOpen()) {
+    // Start timer if conditions are met
+    if (this.shouldRefresh()) {
       this.startTimer(key);
     }
 
@@ -72,17 +110,25 @@ class RefreshManager {
     // Clear existing timer if any
     this.stopTimer(key);
 
-    // Start new timer
-    const timerId = setInterval(() => {
-      // Check market hours before each refresh
-      if (isMarketOpen() && !this.isPaused && this.isTabVisible) {
+    // Start new timer with request deduplication
+    const timerId = setInterval(async () => {
+      // Skip if previous request still in flight (prevents cascade)
+      if (this.inFlight.get(key)) {
+        return;
+      }
+
+      // Check conditions before each refresh
+      if (this.shouldRefresh()) {
         try {
-          subscription.callback();
+          this.inFlight.set(key, true);
+          await subscription.callback();
         } catch (error) {
           console.error(`Error in auto-refresh callback for ${key}:`, error);
+        } finally {
+          this.inFlight.delete(key);
         }
-      } else if (!isMarketOpen()) {
-        // Market closed, pause this timer
+      } else {
+        // Conditions no longer met, stop this timer
         this.stopTimer(key);
       }
     }, subscription.interval);
@@ -116,10 +162,12 @@ class RefreshManager {
    * Resume all auto-refresh timers
    */
   resumeAll() {
-    if (!isMarketOpen()) return; // Don't resume if market is closed
+    if (!this.shouldRefresh()) return;
 
     this.subscriptions.forEach((subscription, key) => {
-      this.startTimer(key);
+      if (!this.timers.has(key)) {
+        this.startTimer(key);
+      }
     });
   }
 
@@ -128,14 +176,7 @@ class RefreshManager {
    */
   togglePause() {
     this.isPaused = !this.isPaused;
-
-    if (this.isPaused) {
-      this.pauseAll();
-    } else if (this.isTabVisible && isMarketOpen()) {
-      this.resumeAll();
-    }
-
-    this.notifyListeners();
+    this.handleStateChange();
   }
 
   /**
@@ -144,7 +185,8 @@ class RefreshManager {
    */
   setPaused(paused) {
     if (this.isPaused === paused) return;
-    this.togglePause();
+    this.isPaused = paused;
+    this.handleStateChange();
   }
 
   /**
@@ -153,6 +195,14 @@ class RefreshManager {
    */
   getPaused() {
     return this.isPaused;
+  }
+
+  /**
+   * Get online status
+   * @returns {boolean}
+   */
+  getOnline() {
+    return this.isOnline;
   }
 
   /**
@@ -205,21 +255,7 @@ class RefreshManager {
    * Should be called periodically to handle market open/close
    */
   checkMarketHours() {
-    const marketOpen = isMarketOpen();
-
-    if (marketOpen && !this.isPaused && this.isTabVisible) {
-      // Market is open, ensure all subscriptions have active timers
-      this.subscriptions.forEach((subscription, key) => {
-        if (!this.timers.has(key)) {
-          this.startTimer(key);
-        }
-      });
-    } else if (!marketOpen) {
-      // Market is closed, stop all timers
-      this.pauseAll();
-    }
-
-    this.notifyListeners();
+    this.handleStateChange();
   }
 }
 
@@ -231,10 +267,10 @@ function getRefreshManager() {
   if (!globalRefreshManager) {
     globalRefreshManager = new RefreshManager();
 
-    // Check market hours every minute
+    // Check market hours every 30 seconds (faster for 1-second refresh mode)
     setInterval(() => {
       globalRefreshManager.checkMarketHours();
-    }, 60000); // 1 minute
+    }, 30000);
   }
   return globalRefreshManager;
 }
@@ -243,10 +279,10 @@ function getRefreshManager() {
  * Hook for components to use auto-refresh
  * @param {string} key - Unique key for this component's subscription
  * @param {Function} callback - Refresh callback
- * @param {number} interval - Refresh interval in milliseconds
+ * @param {number} interval - Refresh interval in milliseconds (default 1000ms)
  * @param {boolean} enabled - Whether auto-refresh is enabled
  */
-export function useAutoRefresh(key, callback, interval, enabled = true) {
+export function useAutoRefresh(key, callback, interval = 1000, enabled = true) {
   const manager = getRefreshManager();
   const callbackRef = useRef(callback);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
@@ -282,6 +318,8 @@ export function useRefreshControl() {
   const manager = getRefreshManager();
   const [state, setState] = useState({
     isPaused: manager.getPaused(),
+    isOnline: manager.getOnline(),
+    isMarketOpen: manager.isMarketOpen(),
     activeCount: manager.getActiveCount(),
     totalCount: manager.getTotalCount()
   });
@@ -290,13 +328,22 @@ export function useRefreshControl() {
     const updateState = () => {
       setState({
         isPaused: manager.getPaused(),
+        isOnline: manager.getOnline(),
+        isMarketOpen: manager.isMarketOpen(),
         activeCount: manager.getActiveCount(),
         totalCount: manager.getTotalCount()
       });
     };
 
     manager.addListener(updateState);
-    return () => manager.removeListener(updateState);
+
+    // Also check market status every minute
+    const marketCheckInterval = setInterval(updateState, 60000);
+
+    return () => {
+      manager.removeListener(updateState);
+      clearInterval(marketCheckInterval);
+    };
   }, []);
 
   const togglePause = useCallback(() => {
@@ -309,6 +356,8 @@ export function useRefreshControl() {
 
   return {
     isPaused: state.isPaused,
+    isOnline: state.isOnline,
+    isMarketOpen: state.isMarketOpen,
     activeCount: state.activeCount,
     totalCount: state.totalCount,
     togglePause,
@@ -328,7 +377,7 @@ export function useRelativeTime(timestamp) {
     const updateRelativeTime = () => {
       const seconds = Math.floor((Date.now() - timestamp) / 1000);
 
-      if (seconds < 5) {
+      if (seconds < 2) {
         setRelativeTime('Just now');
       } else if (seconds < 60) {
         setRelativeTime(`${seconds}s ago`);
@@ -348,6 +397,35 @@ export function useRelativeTime(timestamp) {
   }, [timestamp]);
 
   return relativeTime;
+}
+
+/**
+ * Hook to track price changes for flash animations
+ * @param {number} currentPrice - Current price value
+ * @param {string} key - Unique key for this price tracker
+ * @returns {string} CSS class for flash animation ('price-flash-up', 'price-flash-down', or '')
+ */
+export function usePriceFlash(currentPrice, key) {
+  const prevPriceRef = useRef(currentPrice);
+  const [flashClass, setFlashClass] = useState('');
+
+  useEffect(() => {
+    if (prevPriceRef.current !== currentPrice && currentPrice != null) {
+      if (currentPrice > prevPriceRef.current) {
+        setFlashClass('price-flash-up');
+      } else if (currentPrice < prevPriceRef.current) {
+        setFlashClass('price-flash-down');
+      }
+
+      prevPriceRef.current = currentPrice;
+
+      // Clear flash after animation
+      const timer = setTimeout(() => setFlashClass(''), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [currentPrice, key]);
+
+  return flashClass;
 }
 
 export default useAutoRefresh;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { authApi } from '../lib/api.js';
+import { authApi, fastAuthApi } from '../lib/api.js';
+import useAutoRefresh, { useRelativeTime } from '../hooks/useAutoRefresh';
 
 const API_BASE_URL = window.location.origin;
 const CHART_RANGES = [
@@ -49,6 +50,19 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   });
 
   const isModalOpen = Boolean(selectedStock) || isChartOpen;
+
+  // Auto-refresh: Only stock prices (NSE API) - no DB calls
+  // Portfolio is loaded on mount and when user makes trades or clicks refresh
+  const { lastUpdate: stocksUpdate } = useAutoRefresh('trading-stocks', () => refreshStocksSilent(), 5000);
+  const stocksTime = useRelativeTime(stocksUpdate);
+
+  // Silent refresh for stock prices only (no DB calls)
+  const refreshStocksSilent = async () => {
+    const res = await fastAuthApi(`${API_BASE_URL}/nse_data/all-stocks`);
+    if (res?.stocks?.length > 0) {
+      setStocks(res.stocks);
+    }
+  };
 
   useEffect(() => {
     document.body.classList.toggle('modal-open', isModalOpen);

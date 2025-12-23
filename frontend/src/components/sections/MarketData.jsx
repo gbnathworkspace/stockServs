@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { authApi } from '../../lib/api.js';
+import React, { useState, useEffect, useRef } from 'react';
+import { authApi, fastAuthApi } from '../../lib/api.js';
+import useAutoRefresh, { useRelativeTime } from '../../hooks/useAutoRefresh';
 
 const API_BASE_URL = window.location.origin;
 
@@ -7,32 +8,31 @@ export default function MarketData({ subSection }) {
   const [data, setData] = useState([]);
   const [weeklyData, setWeeklyData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const currentSubSection = useRef(subSection);
+
+  // Auto-refresh: Market data every 5s (prevents DB pool exhaustion)
+  const { lastUpdate } = useAutoRefresh('market-data', () => refreshDataSilent(), 5000);
+  const lastUpdateTime = useRelativeTime(lastUpdate);
 
   useEffect(() => {
+    currentSubSection.current = subSection;
     loadData();
   }, [subSection]);
+
+  const getEndpoint = (section) => {
+    switch (section) {
+      case 'gainers': return '/nse_data/top-gainers';
+      case 'losers': return '/nse_data/top-losers';
+      case 'bulk': return '/nse_data/bulk-deals';
+      case 'weekly': return '/nse_data/weekly-gainers?days=5';
+      default: return '/nse_data/top-gainers';
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
     try {
-      let endpoint = '';
-      switch (subSection) {
-        case 'gainers':
-          endpoint = '/nse_data/top-gainers';
-          break;
-        case 'losers':
-          endpoint = '/nse_data/top-losers';
-          break;
-        case 'bulk':
-          endpoint = '/nse_data/bulk-deals';
-          break;
-        case 'weekly':
-          endpoint = '/nse_data/weekly-gainers?days=5';
-          break;
-        default:
-          endpoint = '/nse_data/top-gainers';
-      }
-
+      const endpoint = getEndpoint(subSection);
       const res = await authApi(`${API_BASE_URL}${endpoint}`);
 
       if (subSection === 'weekly') {
@@ -46,6 +46,21 @@ export default function MarketData({ subSection }) {
       console.error('Failed to load market data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Silent refresh with fast timeout (2s max, prevents cascade)
+  const refreshDataSilent = async () => {
+    const endpoint = getEndpoint(currentSubSection.current);
+    const res = await fastAuthApi(`${API_BASE_URL}${endpoint}`);
+    if (!res) return;
+
+    if (currentSubSection.current === 'weekly') {
+      setWeeklyData(res);
+    } else if (currentSubSection.current === 'bulk') {
+      setData(res.bulk_deals || []);
+    } else {
+      setData(res.top_gainers || res.top_losers || []);
     }
   };
 
