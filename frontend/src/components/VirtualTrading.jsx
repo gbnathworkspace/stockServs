@@ -53,7 +53,8 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
 
   // Auto-refresh: Only stock prices (NSE API) - no DB calls
   // Portfolio is loaded on mount and when user makes trades or clicks refresh
-  const { lastUpdate: stocksUpdate } = useAutoRefresh('trading-stocks', () => refreshStocksSilent(), 5000);
+  // 10 second interval to prevent request overlap
+  const { lastUpdate: stocksUpdate } = useAutoRefresh('trading-stocks', () => refreshStocksSilent(), 10000);
   const stocksTime = useRelativeTime(stocksUpdate);
 
   // Silent refresh for stock prices only (no DB calls)
@@ -380,18 +381,9 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     fetchFyersData();
   }, []);
 
-  // Auto-refresh data every 20 seconds for "Live" experience
-  useEffect(() => {
-    let interval;
-    const updateData = () => {
-      if (activeTab === 'stocks' && !loading.stocks) fetchStocks();
-      if (activeTab === 'portfolio' && !loading.portfolio) fetchPortfolio();
-    };
-
-    interval = setInterval(updateData, 20000);
-    
-    return () => clearInterval(interval);
-  }, [activeTab, loading.stocks, loading.portfolio]);
+  // Note: Auto-refresh for stocks is handled by useAutoRefresh hook (line 56)
+  // Portfolio refresh only happens on user action (mount, trade, or manual refresh)
+  // This prevents unnecessary DB connections
 
 
   useEffect(() => {

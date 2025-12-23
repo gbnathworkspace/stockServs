@@ -16,7 +16,8 @@ export default function Dashboard({ onNavigate }) {
 
   // Auto-refresh: Only market data (NSE API) - no DB calls
   // Portfolio is loaded once on mount and refreshed manually by user
-  const { lastUpdate: marketUpdate } = useAutoRefresh('dashboard-market', () => loadMarketData(), 5000);
+  // 10 second interval to prevent request overlap
+  const { lastUpdate: marketUpdate } = useAutoRefresh('dashboard-market', () => loadMarketData(), 10000);
   const marketTime = useRelativeTime(marketUpdate);
 
   useEffect(() => {

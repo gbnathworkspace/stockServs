@@ -2,9 +2,12 @@
  * API Client with timeout, retry logic, and error recovery
  */
 
-const DEFAULT_TIMEOUT = 10000; // 10 seconds
+const DEFAULT_TIMEOUT = 15000; // 15 seconds (NSE API can be slow)
 const MAX_RETRIES = 3;
 const RETRY_DELAY_BASE = 1000; // 1 second base delay
+
+// Track pending requests to prevent duplicates
+const pendingRequests = new Map();
 
 /**
  * Sleep utility for retry delays
@@ -129,23 +132,40 @@ export const silentAuthApi = async (url, options = {}) => {
 };
 
 /**
- * Fast API call for auto-refresh (2 second timeout)
- * Prevents request cascade when refreshing every 1 second
- * Silent fail - returns null on error without throwing
+ * Fast API call for auto-refresh with request deduplication
+ * - Prevents duplicate requests for the same URL
+ * - Filters out abort errors (don't show toast for cancelled requests)
+ * - Silent fail - returns null on error without throwing
  * @param {string} url - API endpoint
  * @param {object} options - Fetch options
  * @param {function} onError - Optional error callback for toast notifications
  */
 export const fastAuthApi = async (url, options = {}, onError = null) => {
-  try {
-    return await authApi(url, { ...options, timeout: 8000 });
-  } catch (error) {
-    // Call error callback if provided (for toast notifications)
-    if (onError && typeof onError === 'function') {
-      onError(error.message || 'Request failed');
-    }
-    return null;
+  // If same request is already pending, return that promise (deduplication)
+  if (pendingRequests.has(url)) {
+    return pendingRequests.get(url);
   }
+
+  const promise = (async () => {
+    try {
+      return await authApi(url, options);
+    } catch (error) {
+      // Don't show error toast for aborted requests (user navigated away or request cancelled)
+      const isAbortError = error.name === 'AbortError' ||
+                           error.message?.includes('aborted') ||
+                           error.message?.includes('signal');
+
+      if (!isAbortError && onError && typeof onError === 'function') {
+        onError(error.message || 'Request failed');
+      }
+      return null;
+    } finally {
+      pendingRequests.delete(url);
+    }
+  })();
+
+  pendingRequests.set(url, promise);
+  return promise;
 };
 
 /**
