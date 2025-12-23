@@ -31,6 +31,14 @@ const menuItems = [
     ]
   },
   {
+    id: 'real-trading',
+    label: 'Real Trading',
+    icon: '🏦',
+    subsections: [
+      { id: 'fyers', label: 'Fyers', icon: '📈' },
+    ]
+  },
+  {
     id: 'market',
     label: 'Market Data',
     icon: '📈',

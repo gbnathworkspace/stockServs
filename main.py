@@ -66,7 +66,7 @@ app.include_router(portfolio_router, dependencies=protected)
 app.include_router(nse_data_router, dependencies=protected)
 app.include_router(market_data_router, dependencies=protected)
 app.include_router(logs_router, dependencies=protected)
-app.include_router(fyers_router, dependencies=protected)
+app.include_router(fyers_router)  # No global auth - fyers handles its own auth (callback needs to be public)
 
 
 
