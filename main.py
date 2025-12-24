@@ -84,7 +84,7 @@ app.include_router(portfolio_router, dependencies=protected)
 app.include_router(nse_data_router, dependencies=protected)
 app.include_router(market_data_router, dependencies=protected)
 app.include_router(logs_router, dependencies=protected)
-app.include_router(fyers_router, dependencies=protected)
+app.include_router(fyers_router)  # No global auth - fyers handles its own auth (callback needs to be public)
 
 
 
@@ -101,9 +101,77 @@ async def log_requests(request: Request, call_next):
     try:
         response = await call_next(request)
         status_code = response.status_code
+        
+        # Log non-2xx/3xx responses to error_logs table
+        if status_code >= 400:
+            try:
+                from database.connection import SessionLocal
+                from database.models import ErrorLog
+                import json
+                
+                db = SessionLocal()
+                try:
+                    error_log = ErrorLog(
+                        endpoint=str(request.url.path)[:255],
+                        method=request.method,
+                        status_code=status_code,
+                        error_type="HTTPError",
+                        error_message=f"HTTP {status_code} response",
+                        query_params=str(request.query_params)[:2000] if request.query_params else None,
+                        client_ip=request.client.host if request.client else None,
+                        user_agent=request.headers.get("user-agent", "")[:500],
+                        extra_data=json.dumps({
+                            "request_id": request_id,
+                            "headers": dict(request.headers),
+                            "path": str(request.url)
+                        })
+                    )
+                    db.add(error_log)
+                    db.commit()
+                except Exception as log_err:
+                    print(f"[ERROR_LOG] Failed to log error: {log_err}")
+                    db.rollback()
+                finally:
+                    db.close()
+            except Exception as e:
+                print(f"[ERROR_LOG] Error logging failed: {e}")
+        
         return response
     except Exception as exc:
         error_message = str(exc)
+        
+        # Log exceptions to error_logs table  
+        try:
+            from database.connection import SessionLocal
+            from database.models import ErrorLog
+            import json
+            
+            db = SessionLocal()
+            try:
+                error_log = ErrorLog(
+                    endpoint=str(request.url.path)[:255],
+                    method=request.method,
+                    status_code=500,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc)[:2000],
+                    query_params=str(request.query_params)[:2000] if request.query_params else None,
+                    client_ip=request.client.host if request.client else None,
+                    user_agent=request.headers.get("user-agent", "")[:500],
+                    extra_data=json.dumps({
+                        "request_id": request_id,
+                        "exception_type": type(exc).__name__
+                    })
+                )
+                db.add(error_log)
+                db.commit()
+            except Exception as log_err:
+                print(f"[ERROR_LOG] Failed to log exception: {log_err}")
+                db.rollback()
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"[ERROR_LOG] Exception logging failed: {e}")
+        
         raise
     finally:
         duration_ms = int((time.perf_counter() - start_time) * 1000)

@@ -56,78 +56,101 @@ async def get_fyers_status(
 async def fyers_callback(
     request: Request,
     s: str = Query(...),  # status (ok/error)
-    code: str = Query(None), # auth code (standard)
-    auth_code: str = Query(None), # auth code (sometimes sent as auth_code)
+    code: str = Query(None), # status code from Fyers (usually '200')
+    auth_code: str = Query(None), # the actual Fyers auth code
     id: str = Query(None),   # fyers_id
-    state: str = Query(None), # access token we passed (may not be returned by Fyers)
+    state: str = Query(None), # our JWT token passed as state
     db: Session = Depends(get_db)
 ):
     """
     Handle Fyers OAuth callback.
-    Fyers may not return state param, so we try multiple auth methods.
+    Fyers returns: ?s=ok&code=200&auth_code=<fyers_auth_jwt>&state=<our_jwt>
     """
     from routes.deps import SECRET_KEY, ALGORITHM
     from jose import JWTError, jwt
+    import urllib.parse
     
-    print(f"Fyers Callback received: s={s}, code={code}, auth_code={auth_code is not None}, state={state is not None}")
+    # Log all received params for debugging
+    all_params = dict(request.query_params)
+    print(f"[FYERS_CALLBACK] Received params: {all_params}")
+    print(f"[FYERS_CALLBACK] s={s}, code={code}, auth_code_len={len(auth_code) if auth_code else 0}, state_len={len(state) if state else 0}")
     
-    # Try to get user from state parameter first
-    current_user = None
+    # Step 1: Identify our JWT state and Fyers auth code
+    our_jwt = None
     fyers_auth_code = None
     
-    if state:
-        try:
-            payload = jwt.decode(state, SECRET_KEY, algorithms=[ALGORITHM])
-            user_id = int(payload.get("sub"))
-            current_user = db.query(User).filter(User.id == user_id).first()
-            print(f"User from state: {current_user.email if current_user else 'None'}")
-        except Exception as e:
-            print(f"State decode failed: {e}")
+    # The state parameter should be our JWT (starts with 'eyJ')
+    if state and state.startswith('eyJ'):
+        our_jwt = state
+        print(f"[FYERS_CALLBACK] Found our JWT in 'state' parameter")
     
-    # If state didn't work, check if auth_code looks like a JWT (it might be our state)
-    if not current_user and auth_code and auth_code.startswith('eyJ'):
+    # auth_code from Fyers is the authorization code we need
+    # It also starts with 'eyJ' but it's Fyers' format, not our JWT
+    if auth_code:
+        # If we already have our JWT from state, then auth_code is definitely the Fyers code
+        if our_jwt:
+            fyers_auth_code = auth_code
+            print(f"[FYERS_CALLBACK] auth_code is Fyers auth code (state found)")
+        else:
+            # No state found - try to decode auth_code as our JWT
+            try:
+                payload = jwt.decode(auth_code, SECRET_KEY, algorithms=[ALGORITHM])
+                # Successfully decoded - this is our JWT, but we don't have the Fyers code
+                our_jwt = auth_code
+                print(f"[FYERS_CALLBACK] auth_code is OUR JWT - no Fyers code found!")
+            except Exception as e:
+                # Not our JWT - treat as Fyers auth code
+                fyers_auth_code = auth_code
+                print(f"[FYERS_CALLBACK] auth_code is NOT our JWT, treating as Fyers code: {e}")
+    
+    # Step 2: Get user from our JWT
+    current_user = None
+    if our_jwt:
         try:
-            payload = jwt.decode(auth_code, SECRET_KEY, algorithms=[ALGORITHM])
+            payload = jwt.decode(our_jwt, SECRET_KEY, algorithms=[ALGORITHM])
             user_id = int(payload.get("sub"))
             current_user = db.query(User).filter(User.id == user_id).first()
-            print(f"User from auth_code JWT: {current_user.email if current_user else 'None'}")
-            # auth_code was actually our state, so the real auth code might be in 'code'
-            # Don't use auth_code as the Fyers auth code
+            print(f"[FYERS_CALLBACK] User found: {current_user.email if current_user else 'None'}")
         except Exception as e:
-            print(f"auth_code is not our JWT, treating as Fyers auth code: {e}")
-            fyers_auth_code = auth_code
-    else:
-        fyers_auth_code = auth_code
+            print(f"[FYERS_CALLBACK] JWT decode failed: {e}")
+            return RedirectResponse(url=f"/app/?fyers_error=jwt_decode_failed&detail={urllib.parse.quote(str(e))}")
     
     if not current_user:
-        print("No user found from state or auth_code")
-        return RedirectResponse(url="/app/?fyers_error=auth_failed")
-
-    # Determine the actual Fyers auth code
-    # Note: code=200 is a status code from Fyers, not an auth code
-    actual_code = fyers_auth_code if fyers_auth_code else (code if code and code != '200' else None)
+        print(f"[FYERS_CALLBACK] No user found from JWT")
+        return RedirectResponse(url="/app/?fyers_error=user_not_found")
     
-    print(f"Fyers Callback Final: status={s}, user={current_user.email}, actual_code={'present' if actual_code else 'missing'}")
-    
+    # Step 3: Validate status
     if s != "ok":
-        return RedirectResponse(url="/app/?fyers_error=status_not_ok")
-        
-    if not actual_code:
-        # No auth code found - check all params for debugging
-        all_params = dict(request.query_params)
-        print(f"All callback params: {all_params}")
-        return RedirectResponse(url="/app/?fyers_error=missing_auth_code")
+        print(f"[FYERS_CALLBACK] Status not ok: {s}")
+        return RedirectResponse(url=f"/app/?fyers_error=status_{s}")
     
-    token_data = generate_fyers_access_token(actual_code)
-    if not token_data or token_data.get("s") != "ok":
-        error_msg = token_data.get('message') if token_data else 'Unknown error'
-        print(f"Fyers Token Error: {error_msg}")
-        return RedirectResponse(url=f"/app/?fyers_error={error_msg}")
+    # Step 4: Check Fyers auth code
+    if not fyers_auth_code:
+        print(f"[FYERS_CALLBACK] No Fyers auth code found! Params: {all_params}")
+        return RedirectResponse(url="/app/?fyers_error=no_auth_code")
+    
+    # Step 5: Exchange Fyers auth code for access token
+    print(f"[FYERS_CALLBACK] Exchanging auth code for token...")
+    token_data = generate_fyers_access_token(fyers_auth_code)
+    print(f"[FYERS_CALLBACK] Token response: {token_data}")
+    
+    if not token_data:
+        return RedirectResponse(url="/app/?fyers_error=token_exchange_failed")
+    
+    if token_data.get("s") != "ok":
+        error_msg = token_data.get('message', 'Unknown error')
+        error_code = token_data.get('code', 'no_code')
+        print(f"[FYERS_CALLBACK] Token error: code={error_code}, message={error_msg}")
+        return RedirectResponse(url=f"/app/?fyers_error={urllib.parse.quote(error_msg)}")
 
     access_token = token_data.get("access_token")
     refresh_token = token_data.get("refresh_token")
     
-    # Store or update token
+    if not access_token:
+        print(f"[FYERS_CALLBACK] No access token in response")
+        return RedirectResponse(url="/app/?fyers_error=no_access_token_in_response")
+    
+    # Step 6: Store or update token
     token = db.query(FyersToken).filter(FyersToken.user_id == current_user.id).first()
     if token:
         token.access_token = access_token
@@ -146,7 +169,7 @@ async def fyers_callback(
         db.add(token)
     
     db.commit()
-    # Redirect back to settings page in the frontend
+    print(f"[FYERS_CALLBACK] Success! Token saved for user {current_user.email}")
     return RedirectResponse(url="/app/?fyers_connected=true")
 
 @router.get("/holdings")

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar.jsx';
 import Dashboard from './components/sections/Dashboard.jsx';
 import VirtualTrading from './components/VirtualTrading.jsx';
+import RealTrading from './components/RealTrading.jsx';
 import MarketData from './components/sections/MarketData.jsx';
 import OrderHistory from './components/sections/OrderHistory.jsx';
 import Wallet from './components/sections/Wallet.jsx';
@@ -123,6 +124,10 @@ function App() {
         }
         return <VirtualTrading initialTab="trade" />;
 
+      case 'real-trading':
+        // Real Trading - Fyers integration
+        return <RealTrading initialTab={subSection === 'fyers' ? 'trade' : 'trade'} />;
+
       case 'market':
         return <MarketData subSection={subSection || 'gainers'} />;
 
@@ -154,6 +159,8 @@ function App() {
       'trading.trade': 'Trade Stocks',
       'trading.portfolio': 'My Portfolio',
       'trading.orders': 'Order History',
+      'real-trading': 'Real Trading',
+      'real-trading.fyers': 'Fyers Trading',
       'market': 'Market Data',
       'market.gainers': 'Top Gainers',
       'market.losers': 'Top Losers',

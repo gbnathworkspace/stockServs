@@ -35,6 +35,15 @@ def generate_fyers_access_token(auth_code: str):
     """
     Step 2: Exchange auth code for access token
     """
+    print(f"[FYERS_TOKEN] Starting token exchange...")
+    print(f"[FYERS_TOKEN] Client ID: {FYERS_CLIENT_ID[:10]}... (truncated)" if FYERS_CLIENT_ID else "[FYERS_TOKEN] Client ID: NOT SET")
+    print(f"[FYERS_TOKEN] Redirect URI: {FYERS_REDIRECT_URI}")
+    print(f"[FYERS_TOKEN] Auth code length: {len(auth_code) if auth_code else 0}")
+    
+    if not FYERS_CLIENT_ID or not FYERS_SECRET_KEY:
+        print("[FYERS_TOKEN] ERROR: Fyers credentials not configured")
+        return {"s": "error", "message": "Fyers credentials not configured on server", "code": "config_error"}
+    
     try:
         fyers_session = fyersModel.SessionModel(
             client_id=FYERS_CLIENT_ID,
@@ -44,11 +53,16 @@ def generate_fyers_access_token(auth_code: str):
             grant_type="authorization_code"
         )
         fyers_session.set_token(auth_code)
-        response = fyers_session.generate_access_token()
+        # Note: Method is generate_token() not generate_access_token()
+        response = fyers_session.generate_token()
+        print(f"[FYERS_TOKEN] Response: {response}")
         return response
     except Exception as e:
-        print(f"Error generating Fyers access token: {e}")
-        return None
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"[FYERS_TOKEN] Exception: {e}")
+        print(f"[FYERS_TOKEN] Traceback: {error_details}")
+        return {"s": "error", "message": str(e), "code": "exception", "details": error_details}
 
 def get_fyers_client(access_token: str):
     """

@@ -4222,3 +4222,249 @@ td.stock-link {
   color: var(--accent-blue);
 }
 
+/* ===== REAL TRADING COMPONENT ===== */
+.real-trading-container {
+  width: 100%;
+  min-height: 400px;
+}
+
+.real-trading-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 1rem;
+  color: var(--text-secondary);
+}
+
+.real-trading-loading .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-green);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.real-trading-connect-prompt {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.connect-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.real-trading-connect-prompt h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.connect-description {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.broker-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.broker-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.75rem;
+  text-align: left;
+  transition: all 0.3s ease;
+}
+
+.broker-card:hover {
+  border-color: var(--accent-green);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.broker-card.coming-soon {
+  opacity: 0.6;
+}
+
+.broker-card.coming-soon:hover {
+  border-color: var(--border-color);
+  transform: none;
+  box-shadow: none;
+}
+
+.broker-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.broker-logo {
+  font-size: 1.75rem;
+}
+
+.broker-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.broker-desc {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+}
+
+.connect-btn {
+  width: 100%;
+  padding: 0.875rem 1.25rem;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.connect-btn.primary {
+  background: linear-gradient(135deg, var(--accent-green) 0%, #00b386 100%);
+  border: none;
+  color: #000;
+  box-shadow: 0 4px 12px rgba(0, 208, 156, 0.25);
+}
+
+.connect-btn.primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 208, 156, 0.35);
+}
+
+.connect-btn.disabled {
+  background: var(--border-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+  padding: 0.875rem 1rem;
+  background: var(--accent-red-glow);
+  border: 1px solid rgba(255, 82, 82, 0.3);
+  border-radius: 10px;
+  color: var(--accent-red);
+  font-size: 0.9rem;
+}
+
+.error-icon {
+  font-size: 1rem;
+}
+
+/* Broker Status Banner */
+.broker-status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1.25rem;
+  border-radius: 12px;
+  margin-bottom: 1.25rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.broker-status-banner.connected {
+  background: var(--accent-green-glow);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.broker-status-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.broker-status-banner .status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--accent-green);
+  color: #000;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.broker-status-banner .status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.broker-status-banner .status-text strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.broker-status-banner .status-detail {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.disconnect-btn {
+  background: transparent;
+  border: 1px solid var(--accent-red);
+  color: var(--accent-red);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.disconnect-btn:hover {
+  background: var(--accent-red-glow);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .real-trading-connect-prompt {
+    padding: 1.25rem;
+  }
+
+  .broker-options {
+    grid-template-columns: 1fr;
+  }
+
+  .broker-status-banner {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .broker-status-info {
+    flex-direction: column;
+  }
+}
