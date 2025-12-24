@@ -14,6 +14,7 @@ from routes.fyers import router as fyers_router
 from routes.deps import get_current_user
 
 from services.request_logger import RequestLogger
+from services.data_scheduler import data_scheduler
 from database.connection import engine, Base
 from database import models  # Import models to register them
 import os
@@ -253,3 +254,31 @@ async def setup_database():
     from setup_db import setup_database
     result = setup_database()
     return result
+
+
+# Background Data Scheduler - starts automatically with the app
+@app.on_event("startup")
+async def startup_event():
+    """Start background data scheduler on app startup."""
+    data_scheduler.start()
+    print("[STARTUP] Background data scheduler initialized")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop background data scheduler on app shutdown."""
+    data_scheduler.stop()
+    print("[SHUTDOWN] Background data scheduler stopped")
+
+
+@app.get("/scheduler/status")
+async def get_scheduler_status():
+    """Get the current status of the background data scheduler."""
+    return data_scheduler.get_status()
+
+
+@app.post("/scheduler/fetch")
+async def trigger_scheduler_fetch():
+    """Manually trigger a data fetch (admin use)."""
+    status = await data_scheduler.force_fetch()
+    return {"message": "Data fetch triggered", "status": status}

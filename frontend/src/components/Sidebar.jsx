@@ -45,6 +45,8 @@ const menuItems = [
     subsections: [
       { id: 'gainers', label: 'Top Gainers' },
       { id: 'losers', label: 'Top Losers' },
+      { id: 'nifty-contributors', label: 'Nifty Contributors', icon: '📊' },
+      { id: 'fii-dii', label: 'FII / DII', icon: '🏛️' },
       { id: 'weekly', label: 'Weekly Movers' },
       { id: 'bulk', label: 'Bulk Deals' },
     ]

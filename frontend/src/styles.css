@@ -4468,3 +4468,907 @@ td.stock-link {
     flex-direction: column;
   }
 }
+
+/* ===== NIFTY CONTRIBUTORS DASHBOARD ===== */
+.nifty-contributors {
+  padding: 1.5rem;
+}
+
+.nifty-contributors-loading,
+.nifty-contributors-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 1rem;
+  color: var(--text-secondary);
+}
+
+.nifty-contributors-error .error-icon {
+  font-size: 3rem;
+}
+
+.nifty-contributors-error .retry-btn {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--accent-blue);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-green);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Contributors Header */
+.contributors-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.contributors-title-section {
+  flex: 1;
+}
+
+.contributors-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.contributors-icon {
+  font-size: 1.5rem;
+}
+
+.contributors-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.contributors-header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.refresh-btn {
+  padding: 0.5rem 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Market Strength Indicator */
+.market-strength-indicator {
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  min-width: 280px;
+}
+
+.market-strength-indicator.strength-strong {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: var(--accent-green);
+}
+
+.market-strength-indicator.strength-weak {
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  color: #eab308;
+}
+
+.market-strength-indicator.strength-neutral {
+  background: rgba(156, 163, 175, 0.15);
+  border: 1px solid rgba(156, 163, 175, 0.3);
+  color: var(--text-secondary);
+}
+
+.strength-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.strength-icon {
+  font-size: 1rem;
+}
+
+.strength-details {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  margin-top: 0.25rem;
+}
+
+/* Contribution Summary */
+.contribution-summary {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.summary-item {
+  flex: 1;
+  min-width: 150px;
+  padding: 1rem;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.summary-item.summary-positive {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.summary-item.summary-negative {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.summary-item.summary-net {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.summary-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.summary-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.summary-positive .summary-value {
+  color: var(--accent-green);
+}
+
+.summary-negative .summary-value {
+  color: var(--accent-red);
+}
+
+.summary-net .summary-value.positive {
+  color: var(--accent-green);
+}
+
+.summary-net .summary-value.negative {
+  color: var(--accent-red);
+}
+
+/* Contributors Grid */
+.contributors-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.contributors-column {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 1.25rem;
+  border: 1px solid var(--border-color);
+}
+
+.contributors-column.movers-column {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.contributors-column.draggers-column {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.column-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.column-title.movers-title {
+  color: var(--accent-green);
+}
+
+.column-title.draggers-title {
+  color: var(--accent-red);
+}
+
+.column-total {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+.column-total.positive {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--accent-green);
+}
+
+.column-total.negative {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--accent-red);
+}
+
+.contributors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.empty-contributors {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+}
+
+/* Contributor Card */
+.contributor-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  gap: 0.75rem;
+}
+
+.contributor-card.contributor-mover {
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.contributor-card.contributor-mover:hover {
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.contributor-card.contributor-dragger {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.contributor-card.contributor-dragger:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.contributor-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 120px;
+}
+
+.contributor-rank {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.contributor-rank.rank-positive {
+  background: rgba(34, 197, 94, 0.3);
+  color: var(--accent-green);
+}
+
+.contributor-rank.rank-negative {
+  background: rgba(239, 68, 68, 0.3);
+  color: var(--accent-red);
+}
+
+.contributor-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.contributor-symbol {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.contributor-price {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* OI Signal Badge */
+.oi-signal-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.oi-signal-emoji {
+  font-size: 0.85rem;
+}
+
+.oi-signal-label {
+  display: none;
+}
+
+.oi-signal-pct {
+  opacity: 0.8;
+  font-size: 0.65rem;
+}
+
+@media (min-width: 1200px) {
+  .oi-signal-label {
+    display: inline;
+  }
+}
+
+/* Contributor Right (Points) */
+.contributor-right {
+  text-align: right;
+  min-width: 80px;
+}
+
+.contribution-points {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.contribution-points.points-positive {
+  color: var(--accent-green);
+}
+
+.contribution-points.points-negative {
+  color: var(--accent-red);
+}
+
+.contribution-pct {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* OI Legend */
+.oi-legend {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.legend-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.legend-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.legend-emoji {
+  font-size: 1rem;
+}
+
+.legend-label {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.legend-desc {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+/* Contributors Footer */
+.contributors-footer {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.last-update {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .contributors-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contributors-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .contributors-header-right {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .market-strength-indicator {
+    min-width: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .nifty-contributors {
+    padding: 1rem;
+  }
+
+  .contribution-summary {
+    flex-direction: column;
+  }
+
+  .summary-item {
+    min-width: auto;
+  }
+
+  .contributor-card {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .contributor-left {
+    min-width: auto;
+  }
+
+  .oi-signal-badge {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    margin-top: 0.25rem;
+  }
+
+  .oi-signal-label {
+    display: inline;
+  }
+
+  .legend-items {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== FII / DII ACTIVITY ===== */
+.fii-dii-activity {
+  padding: 1.5rem;
+}
+
+.fii-dii-loading,
+.fii-dii-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 1rem;
+  color: var(--text-secondary);
+}
+
+.fii-dii-error .error-icon {
+  font-size: 3rem;
+}
+
+.fii-dii-error .retry-btn {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--accent-blue);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Header */
+.fii-dii-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.fii-dii-title-section {
+  flex: 1;
+}
+
+.fii-dii-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.fii-dii-icon {
+  font-size: 1.5rem;
+}
+
+.fii-dii-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.trade-date {
+  color: var(--accent-blue);
+  font-weight: 500;
+}
+
+/* Institutional Cards */
+.fii-dii-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.institutional-card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.institutional-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.institutional-card.bullish {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.institutional-card.bearish {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.card-icon {
+  font-size: 1.25rem;
+}
+
+.net-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+}
+
+.net-badge.bullish {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--accent-green);
+}
+
+.net-badge.bearish {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--accent-red);
+}
+
+.net-badge.neutral {
+  background: rgba(156, 163, 175, 0.15);
+  color: var(--text-secondary);
+}
+
+.card-net-value {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.net-amount {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.net-amount.bullish {
+  color: var(--accent-green);
+}
+
+.net-amount.bearish {
+  color: var(--accent-red);
+}
+
+.net-amount.neutral {
+  color: var(--text-secondary);
+}
+
+.card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.detail-label {
+  color: var(--text-secondary);
+}
+
+.detail-value {
+  font-weight: 600;
+}
+
+.detail-value.buy {
+  color: var(--accent-green);
+}
+
+.detail-value.sell {
+  color: var(--accent-red);
+}
+
+.detail-value.bullish {
+  color: var(--accent-green);
+}
+
+.detail-value.bearish {
+  color: var(--accent-red);
+}
+
+/* History Section */
+.fii-dii-history {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  margin-bottom: 1.5rem;
+}
+
+.history-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 1.25rem 0;
+}
+
+.history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-card {
+  padding: 1rem;
+  border-radius: 12px;
+  text-align: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.summary-card.bullish {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.summary-card.bearish {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.summary-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.summary-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.summary-value.bullish {
+  color: var(--accent-green);
+}
+
+.summary-value.bearish {
+  color: var(--accent-red);
+}
+
+/* History Table */
+.history-table-container {
+  overflow-x: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.history-table th {
+  text-align: left;
+  padding: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.history-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.history-table tr:last-child td {
+  border-bottom: none;
+}
+
+.history-table .text-right {
+  text-align: right;
+}
+
+.history-table .date-cell {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.history-table .bullish {
+  color: var(--accent-green);
+}
+
+.history-table .bearish {
+  color: var(--accent-red);
+}
+
+/* Market Insight */
+.fii-dii-insight {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.insight-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.insight-content {
+  flex: 1;
+}
+
+.insight-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.insight-text {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Footer */
+.fii-dii-footer {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .fii-dii-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .history-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .fii-dii-activity {
+    padding: 1rem;
+  }
+
+  .fii-dii-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .institutional-card {
+    padding: 1.25rem;
+  }
+
+  .net-amount {
+    font-size: 1.5rem;
+  }
+
+  .fii-dii-insight {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+}
