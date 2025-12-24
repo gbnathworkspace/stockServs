@@ -5372,3 +5372,512 @@ td.stock-link {
     text-align: center;
   }
 }
+
+
+/* ===== OPTION CLOCK STYLES ===== */
+
+/* Symbol Toggle */
+.symbol-selector-card {
+  margin-bottom: 1.5rem;
+}
+
+.symbol-toggle {
+  display: flex;
+  gap: 0.5rem;
+  background: var(--input-bg);
+  padding: 0.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.symbol-btn {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.symbol-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.symbol-btn.active {
+  background: var(--accent-blue);
+  color: white;
+  box-shadow: 0 2px 8px rgba(77, 171, 247, 0.3);
+}
+
+/* Signal Card */
+.signal-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.signal-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+}
+
+.signal-card.bullish::before {
+  background: linear-gradient(90deg, var(--accent-green), #34d399);
+}
+
+.signal-card.bearish::before {
+  background: linear-gradient(90deg, var(--accent-red), #f87171);
+}
+
+.signal-card.neutral::before {
+  background: linear-gradient(90deg, var(--accent-blue), #60a5fa);
+}
+
+.signal-card.bullish {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), var(--card-bg));
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.signal-card.bearish {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), var(--card-bg));
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.signal-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.signal-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.signal-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.signal-badge.bullish {
+  background: var(--accent-green-glow);
+  color: var(--accent-green);
+}
+
+.signal-badge.bearish {
+  background: var(--accent-red-glow);
+  color: var(--accent-red);
+}
+
+.signal-badge.neutral {
+  background: rgba(77, 171, 247, 0.15);
+  color: var(--accent-blue);
+}
+
+.signal-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.signal-description {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* Strike Levels */
+.strike-levels-card {
+  margin-bottom: 1.5rem;
+}
+
+.strike-levels-card h3 {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.strike-levels-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+}
+
+.strike-level-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  background: var(--input-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.strike-level-item.support {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), var(--input-bg));
+}
+
+.strike-level-item.resistance {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), var(--input-bg));
+}
+
+.strike-level-item.current {
+  border-color: rgba(77, 171, 247, 0.3);
+  background: linear-gradient(135deg, rgba(77, 171, 247, 0.05), var(--input-bg));
+}
+
+.strike-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.strike-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.strike-level-item.support .strike-value {
+  color: var(--accent-green);
+}
+
+.strike-level-item.resistance .strike-value {
+  color: var(--accent-red);
+}
+
+.strike-level-item.current .strike-value {
+  color: var(--accent-blue);
+}
+
+/* PCR Timeline */
+.intraday-timeline-card {
+  margin-bottom: 1.5rem;
+}
+
+.intraday-timeline-card h3 {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.pcr-timeline {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.5rem 0;
+}
+
+.timeline-item {
+  flex: 0 0 auto;
+  min-width: 80px;
+  padding: 0.75rem;
+  background: var(--input-bg);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.timeline-item:hover {
+  transform: translateY(-2px);
+}
+
+.timeline-item.bullish {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), var(--input-bg));
+}
+
+.timeline-item.bearish {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), var(--input-bg));
+}
+
+.timeline-time {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.timeline-pcr {
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.timeline-signal {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.timeline-signal.bullish {
+  color: var(--accent-green);
+}
+
+.timeline-signal.bearish {
+  color: var(--accent-red);
+}
+
+/* Strike Table */
+.strike-table-card {
+  margin-bottom: 1.5rem;
+}
+
+.strike-table-card h3 {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.strike-table-container {
+  overflow-x: auto;
+}
+
+.strike-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
+}
+
+.strike-table th {
+  padding: 0.75rem 0.5rem;
+  background: var(--input-bg);
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-align: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.strike-table td {
+  padding: 0.6rem 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.strike-table .strike-col {
+  font-weight: 700;
+  color: var(--accent-blue);
+  background: rgba(77, 171, 247, 0.05);
+}
+
+.strike-table .atm-row {
+  background: rgba(77, 171, 247, 0.1);
+}
+
+.strike-table .atm-row .strike-col {
+  background: rgba(77, 171, 247, 0.2);
+}
+
+.strike-table .highlight-cell.bullish {
+  background: var(--accent-green-glow);
+  color: var(--accent-green);
+  font-weight: 600;
+}
+
+.strike-table .highlight-cell.bearish {
+  background: var(--accent-red-glow);
+  color: var(--accent-red);
+  font-weight: 600;
+}
+
+.strike-table .positive {
+  color: var(--accent-green);
+}
+
+.strike-table .negative {
+  color: var(--accent-red);
+}
+
+/* Signal Legend */
+.signal-legend-card {
+  margin-bottom: 1.5rem;
+}
+
+.signal-legend-card h3 {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.signal-legend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--input-bg);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 0.25rem;
+  flex-shrink: 0;
+}
+
+.legend-dot.bullish {
+  background: var(--accent-green);
+  box-shadow: 0 0 8px var(--accent-green);
+}
+
+.legend-dot.bearish {
+  background: var(--accent-red);
+  box-shadow: 0 0 8px var(--accent-red);
+}
+
+.legend-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.legend-text strong {
+  color: var(--text-primary);
+}
+
+/* Stat Card Changes for Option Clock */
+.stat-card-change.bullish {
+  color: var(--accent-green);
+}
+
+.stat-card-change.bearish {
+  color: var(--accent-red);
+}
+
+.stat-card-change.neutral {
+  color: var(--text-secondary);
+}
+
+.stat-card-icon.orange {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+}
+
+.stat-card-icon.red {
+  background: linear-gradient(135deg, var(--accent-red), #f87171);
+}
+
+/* Loading and Error States */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  gap: 1rem;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-container {
+  padding: 2rem;
+}
+
+.error-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+  padding: 2rem;
+  background: var(--card-bg);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+}
+
+.error-icon {
+  font-size: 2rem;
+  color: var(--accent-red);
+}
+
+.refresh-btn {
+  padding: 0.5rem 1.5rem;
+  background: var(--accent-blue);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refresh-btn:hover {
+  background: #3b9aef;
+  transform: translateY(-1px);
+}
+
+/* Responsive Option Clock */
+@media (max-width: 768px) {
+  .strike-levels-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .signal-legend-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .symbol-toggle {
+    flex-direction: column;
+  }
+
+  .signal-value {
+    font-size: 1.5rem;
+  }
+
+  .pcr-timeline {
+    gap: 0.25rem;
+  }
+
+  .timeline-item {
+    min-width: 70px;
+    padding: 0.5rem;
+  }
+}

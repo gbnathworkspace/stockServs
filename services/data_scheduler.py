@@ -1,11 +1,11 @@
 """
 Background Data Scheduler Service
-Automatically fetches and stores market data (FII/DII, etc.) without requiring user visits.
+Automatically fetches and stores market data (FII/DII, Option Clock, etc.) without requiring user visits.
 """
 
 import asyncio
 import httpx
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, date
 from typing import Optional
 import threading
 
@@ -15,6 +15,9 @@ from database.models import FiiDiiActivity
 
 # NSE API URLs
 NSE_FII_DII_URL = "https://www.nseindia.com/api/fiidiiTradeReact"
+
+# Option Clock fetch interval (15 minutes = 900 seconds)
+OPTION_CLOCK_INTERVAL = 900
 
 # Headers for NSE requests
 NSE_HEADERS = {
@@ -35,9 +38,12 @@ class DataScheduler:
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self.fetch_interval_seconds = 3600  # Fetch every hour
+        self.fetch_interval_seconds = 3600  # Fetch FII/DII every hour
+        self.option_clock_interval = OPTION_CLOCK_INTERVAL  # Fetch Option Clock every 15 min
         self.last_fetch_time: Optional[datetime] = None
         self.last_fetch_status: str = "Not started"
+        self.last_option_clock_fetch: Optional[datetime] = None
+        self.option_clock_status: str = "Not started"
 
     def start(self):
         """Start the background scheduler in a separate thread."""
@@ -73,18 +79,34 @@ class DataScheduler:
         # Initial fetch on startup
         await self._fetch_all_data()
 
+        # Track last Option Clock fetch time separately (more frequent)
+        last_oc_check = datetime.now()
+
         while self._running:
             try:
-                # Wait for the interval
-                await asyncio.sleep(self.fetch_interval_seconds)
+                # Check every minute for Option Clock (to hit 15-min intervals accurately)
+                await asyncio.sleep(60)
 
-                # Only fetch during market hours (9 AM - 6 PM IST)
-                # and on weekdays
                 now = datetime.now()
-                if self._is_market_time(now):
-                    await self._fetch_all_data()
-                else:
-                    print(f"[SCHEDULER] Skipping fetch - outside market hours ({now.strftime('%H:%M')})")
+
+                # Only operate during market hours (9 AM - 6 PM IST) on weekdays
+                if not self._is_market_time(now):
+                    print(f"[SCHEDULER] Outside market hours ({now.strftime('%H:%M')})")
+                    continue
+
+                # Option Clock: Fetch every 15 minutes during market hours
+                time_since_oc = (now - last_oc_check).total_seconds()
+                if time_since_oc >= self.option_clock_interval:
+                    await self._fetch_option_clock_data()
+                    last_oc_check = now
+
+                # FII/DII: Fetch every hour
+                if self.last_fetch_time:
+                    time_since_fii = (now - self.last_fetch_time).total_seconds()
+                    if time_since_fii >= self.fetch_interval_seconds:
+                        await self._fetch_fii_dii_data()
+                        self.last_fetch_time = now
+                        self.last_fetch_status = "Success"
 
             except asyncio.CancelledError:
                 break
@@ -115,11 +137,77 @@ class DataScheduler:
 
             self.last_fetch_time = datetime.now()
             self.last_fetch_status = "Success"
-            print(f"[SCHEDULER] Data fetch completed successfully")
+            print(f"[SCHEDULER] FII/DII data fetch completed successfully")
 
         except Exception as e:
             self.last_fetch_status = f"Error: {str(e)}"
-            print(f"[SCHEDULER] Data fetch failed: {e}")
+            print(f"[SCHEDULER] FII/DII data fetch failed: {e}")
+
+        # Also fetch Option Clock data on startup if during market hours
+        try:
+            if self._is_market_time(datetime.now()):
+                await self._fetch_option_clock_data()
+        except Exception as e:
+            print(f"[SCHEDULER] Option Clock fetch failed on startup: {e}")
+
+    async def _fetch_option_clock_data(self):
+        """Fetch and store Option Clock OI snapshots for NIFTY and BANKNIFTY."""
+        from services.option_clock_service import option_clock_service
+
+        try:
+            # Get system access token
+            access_token = option_clock_service.get_system_access_token()
+            if not access_token:
+                print("[SCHEDULER] No Fyers access token available for Option Clock")
+                self.option_clock_status = "No token"
+                return
+
+            # Fetch snapshots for both indices
+            for symbol in ["NIFTY", "BANKNIFTY"]:
+                try:
+                    snapshot = option_clock_service.create_snapshot(access_token, symbol)
+                    if snapshot:
+                        print(f"[SCHEDULER] Option Clock snapshot created for {symbol}")
+                    else:
+                        print(f"[SCHEDULER] Failed to create Option Clock snapshot for {symbol}")
+                except Exception as e:
+                    print(f"[SCHEDULER] Error fetching {symbol} option data: {e}")
+
+            self.last_option_clock_fetch = datetime.now()
+            self.option_clock_status = "Success"
+
+            # At market close (after 3:30 PM), create daily summary
+            now = datetime.now()
+            if now.hour == 15 and now.minute >= 30:
+                self._create_daily_summaries()
+
+            # Run cleanup once per day (after market close)
+            if now.hour == 18 and now.minute < 15:  # Run cleanup around 6 PM
+                self._run_option_clock_cleanup()
+
+        except Exception as e:
+            print(f"[SCHEDULER] Option Clock fetch failed: {e}")
+            self.option_clock_status = f"Error: {str(e)}"
+
+    def _create_daily_summaries(self):
+        """Create daily summaries at market close."""
+        from services.option_clock_service import option_clock_service
+
+        today = date.today()
+        for symbol in ["NIFTY", "BANKNIFTY"]:
+            try:
+                option_clock_service.create_daily_summary(symbol, today)
+            except Exception as e:
+                print(f"[SCHEDULER] Failed to create daily summary for {symbol}: {e}")
+
+    def _run_option_clock_cleanup(self):
+        """Clean up old Option Clock snapshots (keep 7 days)."""
+        from services.option_clock_service import option_clock_service
+
+        try:
+            option_clock_service.cleanup_old_snapshots(days_to_keep=7)
+        except Exception as e:
+            print(f"[SCHEDULER] Option Clock cleanup failed: {e}")
 
     async def _fetch_fii_dii_data(self):
         """Fetch and store FII/DII activity data."""
@@ -230,9 +318,16 @@ class DataScheduler:
         """Get current scheduler status."""
         return {
             "running": self._running,
-            "last_fetch_time": self.last_fetch_time.isoformat() if self.last_fetch_time else None,
-            "last_fetch_status": self.last_fetch_status,
-            "fetch_interval_seconds": self.fetch_interval_seconds,
+            "fii_dii": {
+                "last_fetch_time": self.last_fetch_time.isoformat() if self.last_fetch_time else None,
+                "status": self.last_fetch_status,
+                "interval_seconds": self.fetch_interval_seconds,
+            },
+            "option_clock": {
+                "last_fetch_time": self.last_option_clock_fetch.isoformat() if self.last_option_clock_fetch else None,
+                "status": self.option_clock_status,
+                "interval_seconds": self.option_clock_interval,
+            }
         }
 
     async def force_fetch(self):

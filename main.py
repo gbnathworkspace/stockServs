@@ -11,6 +11,7 @@ from routes.portfolio import router as portfolio_router
 from routes.market_data import router as market_data_router
 from routes.logs import router as logs_router
 from routes.fyers import router as fyers_router
+from routes.option_clock import router as option_clock_router
 from routes.deps import get_current_user
 
 from services.request_logger import RequestLogger
@@ -85,6 +86,7 @@ app.include_router(portfolio_router, dependencies=protected)
 app.include_router(nse_data_router, dependencies=protected)
 app.include_router(market_data_router, dependencies=protected)
 app.include_router(logs_router, dependencies=protected)
+app.include_router(option_clock_router, dependencies=protected)  # Option Clock requires auth
 app.include_router(fyers_router)  # No global auth - fyers handles its own auth (callback needs to be public)
 
 
