@@ -1,0 +1,239 @@
+/* ==========================================================================
+   WATCHLIST STYLES
+   ========================================================================== */
+
+/* Watchlist Tabs Container */
+.watchlist-tabs-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.watchlist-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  flex: 1;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.watchlist-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.watchlist-tab:hover {
+  background: var(--hover-bg);
+  border-color: var(--border-hover);
+}
+
+.watchlist-tab.active {
+  background: var(--accent-green);
+  color: white;
+  border-color: var(--accent-green);
+}
+
+.watchlist-tab.add-tab {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  background: rgba(0, 208, 156, 0.1);
+  border: 1px dashed var(--accent-green);
+  color: var(--accent-green);
+}
+
+.watchlist-tab.add-tab:hover {
+  background: rgba(0, 208, 156, 0.2);
+}
+
+.watchlist-count {
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.watchlist-tab.active .watchlist-count {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.delete-watchlist-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 77, 77, 0.1);
+  border: 1px solid rgba(255, 77, 77, 0.3);
+  border-radius: 8px;
+  color: var(--accent-red);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.delete-watchlist-btn:hover {
+  background: rgba(255, 77, 77, 0.2);
+}
+
+/* Remove Stock Button */
+.remove-stock-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 77, 77, 0.1);
+  border: 1px solid rgba(255, 77, 77, 0.3);
+  color: var(--accent-red);
+  font-size: 1.25rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.remove-stock-btn:hover {
+  background: rgba(255, 77, 77, 0.25);
+  transform: scale(1.1);
+}
+
+/* Add Stock Modal */
+.add-stock-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.add-stock-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-stock-item:hover:not(.disabled) {
+  background: var(--hover-bg);
+  border-color: var(--accent-green);
+  transform: translateX(4px);
+}
+
+.add-stock-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.add-btn-small {
+  padding: 0.35rem 0.75rem;
+  background: var(--accent-green);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-btn-small:hover {
+  background: #00b884;
+  transform: scale(1.05);
+}
+
+.added-badge {
+  padding: 0.35rem 0.75rem;
+  background: rgba(0, 208, 156, 0.15);
+  color: var(--accent-green);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid rgba(0, 208, 156, 0.3);
+}
+
+/* Primary Button */
+.primary-btn {
+  padding: 0.65rem 1.25rem;
+  background: var(--accent-green);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.primary-btn:hover {
+  background: #00b884;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 208, 156, 0.3);
+}
+
+/* Glass Theme Overrides for Watchlists */
+[data-theme="glass"] .watchlist-tab,
+[data-theme="glass"] .add-stock-item {
+  background: var(--card-bg);
+  backdrop-filter: var(--card-backdrop);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="glass"] .watchlist-tab:hover,
+[data-theme="glass"] .add-stock-item:hover:not(.disabled) {
+  background: var(--card-bg-hover);
+  border-color: var(--border-highlight);
+}
+
+[data-theme="glass"] .watchlist-tab.active {
+  background: rgba(82, 255, 168, 0.15);
+  border-color: var(--accent-green);
+  box-shadow: 0 0 15px var(--accent-green-glow);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .watchlist-tabs {
+    overflow-x: scroll;
+    scrollbar-width: none;
+  }
+  
+  .watchlist-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .watchlist-tab {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.85rem;
+  }
+}

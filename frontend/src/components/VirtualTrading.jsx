@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createChart, CrosshairMode, LineStyle } from 'lightweight-charts';
 import { authApi, fastAuthApi } from '../lib/api.js';
 import useAutoRefresh, { useRelativeTime } from '../hooks/useAutoRefresh';
+import '../watchlist.css';
 
 const API_BASE_URL = window.location.origin;
 const CHART_RANGES = [
@@ -27,21 +29,30 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const [portfolio, setPortfolio] = useState([]);
   const [walletBalance, setWalletBalance] = useState(100000);
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState({ stocks: false, portfolio: false, trade: false, wallet: false, fyers: false });
+  const [loading, setLoading] = useState({ stocks: false, portfolio: false, trade: false, wallet: false, fyers: false, watchlists: false });
   const [tradeForm, setTradeForm] = useState({ quantity: 1, price: '', orderType: 'market', broker: 'virtual' });
   const [fyersConnected, setFyersConnected] = useState(false);
   const [fyersHoldings, setFyersHoldings] = useState([]);
   const [showFyersPortfolio, setShowFyersPortfolio] = useState(false);
   const [toast, setToast] = useState({ message: '', type: '', show: false });
+  
+  // Watchlist states
+  const [watchlists, setWatchlists] = useState([]);
+  const [activeWatchlist, setActiveWatchlist] = useState(null);
+  const [watchlistStocks, setWatchlistStocks] = useState([]);
+  const [showAddStockModal, setShowAddStockModal] = useState(false);
+  const [allStocksForSearch, setAllStocksForSearch] = useState([]);
 
   const [isChartOpen, setIsChartOpen] = useState(false);
   const [chartRange, setChartRange] = useState({ interval: '5m', period: '5d' });
   const [chartStatus, setChartStatus] = useState({ loading: false, error: '' });
   const [showIndicators, setShowIndicators] = useState({ sma: false, ema: false, rsi: false });
   const candleContainerRef = useRef(null);
+  const volumeContainerRef = useRef(null);
   const rsiContainerRef = useRef(null);
   const chartRefs = useRef({
     chart: null,
+    volumeChart: null,
     rsiChart: null,
     candleSeries: null,
     volumeSeries: null,
@@ -50,19 +61,31 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     rsiSeries: null,
   });
 
-  const isModalOpen = Boolean(selectedStock) || isChartOpen;
+  const isModalOpen = Boolean(selectedStock) || isChartOpen || showAddStockModal;
 
-  // Auto-refresh: Only stock prices (NSE API) - no DB calls
-  // Portfolio is loaded on mount and when user makes trades or clicks refresh
+  // Auto-refresh: Only stock prices for active watchlist + portfolio
   // 10 second interval to prevent request overlap
   const { lastUpdate: stocksUpdate } = useAutoRefresh('trading-stocks', () => refreshStocksSilent(), 10000);
   const stocksTime = useRelativeTime(stocksUpdate);
 
-  // Silent refresh for stock prices only (no DB calls)
+  // Silent refresh for stock prices only (watchlist + portfolio stocks)
   const refreshStocksSilent = async () => {
-    const res = await fastAuthApi(`${API_BASE_URL}/nse_data/all-stocks`);
-    if (res?.stocks?.length > 0) {
-      setStocks(res.stocks);
+    if (!activeWatchlist) return;
+    
+    // Get symbols from active watchlist + portfolio
+    const watchlistSymbols = watchlistStocks.map(s => s.symbol) || [];
+    const portfolioSymbols = portfolio.map(p => p.symbol) || [];
+    const symbols = [...new Set([...watchlistSymbols, ...portfolioSymbols])];
+    
+    if (symbols.length === 0) return;
+    
+    try {
+      const res = await fastAuthApi(`${API_BASE_URL}/watchlist/${activeWatchlist.id}/stocks`);
+      if (res?.stocks?.length > 0) {
+        setWatchlistStocks(res.stocks);
+      }
+    } catch (err) {
+      console.error('Failed to refresh watchlist stocks', err);
     }
   };
 
@@ -92,11 +115,15 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     if (chartRefs.current.chart) {
       chartRefs.current.chart.remove();
     }
+    if (chartRefs.current.volumeChart) {
+      chartRefs.current.volumeChart.remove();
+    }
     if (chartRefs.current.rsiChart) {
       chartRefs.current.rsiChart.remove();
     }
     chartRefs.current = {
       chart: null,
+      volumeChart: null,
       rsiChart: null,
       candleSeries: null,
       volumeSeries: null,
@@ -112,13 +139,22 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
 
   const resizeCharts = () => {
     const chart = chartRefs.current.chart;
+    const volumeChart = chartRefs.current.volumeChart;
     const rsiChart = chartRefs.current.rsiChart;
     const candleContainer = candleContainerRef.current;
+    const volumeContainer = volumeContainerRef.current;
     const rsiContainer = rsiContainerRef.current;
+    
     if (chart && candleContainer) {
       chart.applyOptions({
         width: candleContainer.clientWidth,
         height: candleContainer.clientHeight,
+      });
+    }
+    if (volumeChart && volumeContainer) {
+      volumeChart.applyOptions({
+        width: volumeContainer.clientWidth,
+        height: volumeContainer.clientHeight,
       });
     }
     if (rsiChart && rsiContainer) {
@@ -130,20 +166,19 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   };
 
   const ensureCharts = () => {
-    if (chartRefs.current.chart && chartRefs.current.rsiChart) {
+    if (chartRefs.current.chart && chartRefs.current.volumeChart) {
       resizeCharts();
       return true;
     }
-    const lib = window.LightweightCharts;
-    if (!lib) {
-      updateChartStatus(false, 'Chart library failed to load');
-      return false;
-    }
+    
     const candleContainer = candleContainerRef.current;
+    if (!candleContainer) return false;
+    
+    const volumeContainer = volumeContainerRef.current;
     const rsiContainer = rsiContainerRef.current;
-    if (!candleContainer || !rsiContainer) return false;
 
-    chartRefs.current.chart = lib.createChart(candleContainer, {
+    // Create main candlestick chart
+    chartRefs.current.chart = createChart(candleContainer, {
       layout: {
         background: { color: '#181b21' },
         textColor: '#e1e3e6',
@@ -154,8 +189,8 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
         horzLines: { color: '#1f242d' },
       },
       rightPriceScale: { borderColor: '#2d333b' },
-      timeScale: { timeVisible: true },
-      crosshair: { mode: lib.CrosshairMode.Normal },
+      timeScale: { timeVisible: true, visible: true },
+      crosshair: { mode: CrosshairMode.Normal },
     });
 
     chartRefs.current.candleSeries = chartRefs.current.chart.addCandlestickSeries({
@@ -164,12 +199,6 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       wickUpColor: '#00d09c',
       wickDownColor: '#ff4d4d',
       borderVisible: false,
-    });
-
-    chartRefs.current.volumeSeries = chartRefs.current.chart.addHistogramSeries({
-      priceFormat: { type: 'volume' },
-      priceScaleId: '',
-      scaleMargins: { top: 0.8, bottom: 0 },
     });
 
     chartRefs.current.smaSeries = chartRefs.current.chart.addLineSeries({
@@ -184,46 +213,81 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       priceLineVisible: false,
     });
 
-    chartRefs.current.rsiChart = lib.createChart(rsiContainer, {
-      layout: {
-        background: { color: '#181b21' },
-        textColor: '#e1e3e6',
-        fontFamily: 'Inter, system-ui, sans-serif',
-      },
-      grid: {
-        vertLines: { color: '#1f242d' },
-        horzLines: { color: '#1f242d' },
-      },
-      rightPriceScale: { borderColor: '#2d333b' },
-      timeScale: { timeVisible: true },
-      crosshair: { mode: lib.CrosshairMode.Normal },
-    });
+    // Create separate volume chart
+    if (volumeContainer) {
+      chartRefs.current.volumeChart = createChart(volumeContainer, {
+        layout: {
+          background: { color: '#181b21' },
+          textColor: '#e1e3e6',
+          fontFamily: 'Inter, system-ui, sans-serif',
+        },
+        grid: {
+          vertLines: { color: '#1f242d' },
+          horzLines: { color: '#1f242d' },
+        },
+        rightPriceScale: { borderColor: '#2d333b' },
+        timeScale: { timeVisible: false, visible: false },
+        crosshair: { mode: CrosshairMode.Normal },
+      });
 
-    chartRefs.current.rsiSeries = chartRefs.current.rsiChart.addLineSeries({
-      color: '#9b74ff',
-      lineWidth: 2,
-      priceLineVisible: false,
-    });
+      chartRefs.current.volumeSeries = chartRefs.current.volumeChart.addHistogramSeries({
+        priceFormat: { type: 'volume' },
+        color: '#26a69a',
+        priceScaleId: '',
+      });
 
-    chartRefs.current.rsiChart.priceScale('right').applyOptions({ minValue: 0, maxValue: 100 });
-    chartRefs.current.rsiSeries.createPriceLine({
-      price: 70,
-      color: '#4f9cf7',
-      lineWidth: 1,
-      lineStyle: lib.LineStyle.Dashed,
-    });
-    chartRefs.current.rsiSeries.createPriceLine({
-      price: 30,
-      color: '#ff4d4d',
-      lineWidth: 1,
-      lineStyle: lib.LineStyle.Dashed,
-    });
+      // Sync volume chart time scale with main chart
+      chartRefs.current.chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        if (range && chartRefs.current.volumeChart) {
+          chartRefs.current.volumeChart.timeScale().setVisibleLogicalRange(range);
+        }
+      });
+    }
 
-    chartRefs.current.chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      if (range && chartRefs.current.rsiChart) {
-        chartRefs.current.rsiChart.timeScale().setVisibleLogicalRange(range);
-      }
-    });
+    // Create RSI chart only if container exists
+    if (rsiContainer) {
+      chartRefs.current.rsiChart = createChart(rsiContainer, {
+        layout: {
+          background: { color: '#181b21' },
+          textColor: '#e1e3e6',
+          fontFamily: 'Inter, system-ui, sans-serif',
+        },
+        grid: {
+          vertLines: { color: '#1f242d' },
+          horzLines: { color: '#1f242d' },
+        },
+        rightPriceScale: { borderColor: '#2d333b' },
+        timeScale: { timeVisible: true, visible: true },
+        crosshair: { mode: CrosshairMode.Normal },
+      });
+
+      chartRefs.current.rsiSeries = chartRefs.current.rsiChart.addLineSeries({
+        color: '#9b74ff',
+        lineWidth: 2,
+        priceLineVisible: false,
+      });
+
+      chartRefs.current.rsiChart.priceScale('right').applyOptions({ minValue: 0, maxValue: 100 });
+      chartRefs.current.rsiSeries.createPriceLine({
+        price: 70,
+        color: '#4f9cf7',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+      });
+      chartRefs.current.rsiSeries.createPriceLine({
+        price: 30,
+        color: '#ff4d4d',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+      });
+
+      // Sync RSI chart time scale with main chart
+      chartRefs.current.chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        if (range && chartRefs.current.rsiChart) {
+          chartRefs.current.rsiChart.timeScale().setVisibleLogicalRange(range);
+        }
+      });
+    }
 
     resizeCharts();
     return true;
@@ -366,19 +430,170 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     }
   };
 
-  // Filter stocks by search
+  // Fetch user watchlists
+  const fetchWatchlists = async () => {
+    setLoading(l => ({ ...l, watchlists: true }));
+    try {
+      const res = await authApi(`${API_BASE_URL}/watchlist`);
+      const lists = res.watchlists || [];
+      setWatchlists(lists);
+      
+      // Auto-select first watchlist if none selected
+      if (lists.length > 0 && !activeWatchlist) {
+        setActiveWatchlist(lists[0]);
+        fetchWatchlistStocks(lists[0].id);
+      } else if (lists.length === 0) {
+        initializeWatchlists();
+      }
+    } catch (err) {
+      console.error('Failed to load watchlists', err);
+      showToast('Failed to load watchlists', 'error');
+    } finally {
+      setLoading(l => ({ ...l, watchlists: false }));
+    }
+  };
+
+  // Fetch stocks in a watchlist
+  const fetchWatchlistStocks = async (watchlistId) => {
+    setLoading(l => ({ ...l, stocks: true }));
+    try {
+      const res = await authApi(`${API_BASE_URL}/watchlist/${watchlistId}/stocks`);
+      setWatchlistStocks(res.stocks || []);
+    } catch (err) {
+      console.error('Failed to load watchlist stocks', err);
+      showToast('Failed to load stocks', 'error');
+    } finally {
+      setLoading(l => ({ ...l, stocks: false }));
+    }
+  };
+
+  // Create a new watchlist
+  const createWatchlist = async () => {
+    if (watchlists.length >= 15) {
+      showToast('Maximum 15 watchlists allowed', 'error');
+      return;
+    }
+    
+    const name = `Watchlist ${watchlists.length + 1}`;
+    const position = watchlists.length;
+    
+    try {
+      const res = await authApi(`${API_BASE_URL}/watchlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, position }),
+      });
+      
+      showToast(`Created ${name}`, 'success');
+      fetchWatchlists();
+    } catch (err) {
+      console.error('Failed to create watchlist', err);
+      showToast('Failed to create watchlist', 'error');
+    }
+  };
+
+  // Initialize default watchlists for new users
+  const initializeWatchlists = async () => {
+    try {
+      await authApi(`${API_BASE_URL}/watchlist/initialize`, {
+        method: 'POST',
+      });
+      fetchWatchlists();
+    } catch (err) {
+      console.error('Failed to initialize watchlists', err);
+    }
+  };
+
+  // Delete a watchlist
+  const deleteWatchlist = async (watchlistId) => {
+    if (watchlists.length === 1) {
+      showToast('Cannot delete the last watchlist', 'error');
+      return;
+    }
+    
+    try {
+      await authApi(`${API_BASE_URL}/watchlist/${watchlistId}`, {
+        method: 'DELETE',
+      });
+      
+      showToast('Watchlist deleted', 'success');
+      
+      // Switch to first watchlist if deleted was active
+      if (activeWatchlist?.id === watchlistId) {
+        const remaining = watchlists.filter(w => w.id !== watchlistId);
+        if (remaining.length > 0) {
+          setActiveWatchlist(remaining[0]);
+          fetchWatchlistStocks(remaining[0].id);
+        }
+      }
+      
+      fetchWatchlists();
+    } catch (err) {
+      console.error('Failed to delete watchlist', err);
+      showToast('Failed to delete watchlist', 'error');
+    }
+  };
+
+  // Add stock to watchlist
+  const addStockToWatchlist = async (symbol) => {
+    if (!activeWatchlist) return;
+    
+    try {
+      await authApi(`${API_BASE_URL}/watchlist/${activeWatchlist.id}/stocks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol }),
+      });
+      
+      showToast(`Added ${symbol} to watchlist`, 'success');
+      fetchWatchlistStocks(activeWatchlist.id);
+      setShowAddStockModal(false);
+    } catch (err) {
+      console.error('Failed to add stock', err);
+      showToast(err.message || 'Failed to add stock', 'error');
+    }
+  };
+
+  // Remove stock from watchlist
+  const removeStockFromWatchlist = async (symbol) => {
+    if (!activeWatchlist) return;
+    
+    try {
+      await authApi(`${API_BASE_URL}/watchlist/${activeWatchlist.id}/stocks/${symbol}`, {
+        method: 'DELETE',
+      });
+      
+      showToast(`Removed ${symbol} from watchlist`, 'success');
+      fetchWatchlistStocks(activeWatchlist.id);
+    } catch (err) {
+      console.error('Failed to remove stock', err);
+      showToast('Failed to remove stock', 'error');
+    }
+  };
+
+  // Fetch all stocks for search modal
+  const fetchAllStocksForSearch = async () => {
+    try {
+      const res = await authApi(`${API_BASE_URL}/nse_data/all-stocks`);
+      setAllStocksForSearch(res.stocks || []);
+    } catch (err) {
+      console.error('Failed to load stocks for search', err);
+    }
+  };
+
+  // Filter watchlist stocks by search
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setFilteredStocks(stocks);
+      setFilteredStocks(watchlistStocks);
     } else {
       const query = searchQuery.toUpperCase();
-      setFilteredStocks(stocks.filter((s) => s.symbol.includes(query)));
+      setFilteredStocks(watchlistStocks.filter((s) => s.symbol.includes(query)));
     }
-  }, [searchQuery, stocks]);
+  }, [searchQuery, watchlistStocks]);
 
   // Load data on mount
   useEffect(() => {
-    fetchStocks();
+    fetchWatchlists();
     fetchPortfolio();
     fetchFyersData();
   }, []);
@@ -557,33 +772,102 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
         </button>
       </div>
 
-      {/* Stocks & Trading Tab */}
+      {/* Stocks & Trading Tab - Watchlist View */}
       {activeTab === 'stocks' && (
         <div className="virtual-stocks-container">
+          {/* Watchlist Tabs */}
+          <div className="watchlist-tabs-container">
+            <div className="watchlist-tabs">
+              {watchlists.map((wl) => (
+                <button
+                  key={wl.id}
+                  className={`watchlist-tab ${activeWatchlist?.id === wl.id ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveWatchlist(wl);
+                    fetchWatchlistStocks(wl.id);
+                  }}
+                  onDoubleClick={() => {
+                    const newName = prompt('Rename watchlist:', wl.name);
+                    if (newName && newName.trim()) {
+                      authApi(`${API_BASE_URL}/watchlist/${wl.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newName.trim() }),
+                      }).then(() => {
+                        showToast('Watchlist renamed', 'success');
+                        fetchWatchlists();
+                      }).catch(() => showToast('Failed to rename', 'error'));
+                    }
+                  }}
+                >
+                  {wl.name}
+                  <span className="watchlist-count">{wl.stock_count || 0}</span>
+                </button>
+              ))}
+              {watchlists.length < 15 && (
+                <button 
+                  className="watchlist-tab add-tab"
+                  onClick={createWatchlist}
+                  title="Create new watchlist"
+                >
+                  +
+                </button>
+              )}
+            </div>
+            {activeWatchlist && watchlists.length > 1 && (
+              <button 
+                className="delete-watchlist-btn"
+                onClick={() => {
+                  if (confirm(`Delete "${activeWatchlist.name}"?`)) {
+                    deleteWatchlist(activeWatchlist.id);
+                  }
+                }}
+                title="Delete watchlist"
+              >
+                🗑️
+              </button>
+            )}
+          </div>
+
           {/* Header */}
           <div className="virtual-stocks-header">
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <p className="eyebrow">NSE STOCKS</p>
+                <p className="eyebrow">{activeWatchlist?.name || 'WATCHLIST'}</p>
                 <div className="live-badge">
                   <span className="pulse-dot"></span>
                   LIVE
                 </div>
               </div>
               <h2>Pick a stock to trade</h2>
-              <p className="muted">Search and select a stock to simulate trades</p>
+              <p className="muted">Search within watchlist or add new stocks</p>
             </div>
 
-            <button className="ghost-btn" onClick={fetchStocks} disabled={loading.stocks}>
-              {loading.stocks ? 'Loading...' : 'Refresh'}
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button 
+                className="primary-btn"
+                onClick={() => {
+                  setShowAddStockModal(true);
+                  fetchAllStocksForSearch();
+                }}
+              >
+                + Add Stock
+              </button>
+              <button 
+                className="ghost-btn" 
+                onClick={() => activeWatchlist && fetchWatchlistStocks(activeWatchlist.id)} 
+                disabled={loading.stocks}
+              >
+                {loading.stocks ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
           </div>
 
           {/* Search */}
           <div className="search-row">
             <input
               type="text"
-              placeholder="Search symbol..."
+              placeholder="Search symbol in watchlist..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="search-input"
@@ -594,8 +878,12 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
           <div className="stock-grid">
             {loading.stocks ? (
               <div className="loading">Loading stocks...</div>
+            ) : !activeWatchlist ? (
+              <div className="loading">Create a watchlist to get started</div>
             ) : filteredStocks.length === 0 ? (
-              <div className="loading">No stocks found</div>
+              <div className="loading">
+                {searchQuery ? 'No stocks found' : 'No stocks in this watchlist. Click "Add Stock" to add some.'}
+              </div>
             ) : (
               filteredStocks.map((stock) => (
                 <div
@@ -607,9 +895,23 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
                     <span className="stock-symbol">{stock.symbol}</span>
                     <span className="stock-price">₹{Number(stock.lastPrice || 0).toFixed(2)}</span>
                   </div>
-                  <span className={`stock-change ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
-                    {stock.pChange >= 0 ? '+' : ''}{Number(stock.pChange || 0).toFixed(2)}%
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className={`stock-change ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
+                      {stock.pChange >= 0 ? '+' : ''}{Number(stock.pChange || 0).toFixed(2)}%
+                    </span>
+                    <button
+                      className="remove-stock-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Remove ${stock.symbol} from watchlist?`)) {
+                          removeStockFromWatchlist(stock.symbol);
+                        }
+                      }}
+                      title="Remove from watchlist"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -992,6 +1294,83 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
         </div>
       )}
 
+      {/* Add Stock Modal */}
+      {showAddStockModal && (
+        <div className="stock-trade-modal" onClick={() => setShowAddStockModal(false)}>
+          <div className="stock-trade-shell" onClick={(e) => e.stopPropagation()}>
+            <div className="stock-trade-header">
+              <h3>Add Stock to {activeWatchlist?.name}</h3>
+              <button className="icon-button" onClick={() => setShowAddStockModal(false)}>×</button>
+            </div>
+
+            <div className="stock-trade-content">
+              {/* Search for stocks */}
+              <div className="search-row">
+                <input
+                  type="text"
+                  placeholder="Search all NSE stocks..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="search-input"
+                  autoFocus
+                />
+              </div>
+
+              {/* Available stocks list */}
+              <div className="add-stock-list">
+                {allStocksForSearch.length === 0 ? (
+                  <div className="loading">Loading stocks...</div>
+                ) : (
+                  (() => {
+                    const query = searchQuery.toUpperCase();
+                    const filtered = query 
+                      ? allStocksForSearch.filter(s => s.symbol.includes(query))
+                      : allStocksForSearch;
+                    
+                    const existingSymbols = new Set(watchlistStocks.map(s => s.symbol));
+                    
+                    return filtered.length === 0 ? (
+                      <div className="loading">No stocks found</div>
+                    ) : (
+                      filtered.slice(0, 50).map((stock) => {
+                        const alreadyAdded = existingSymbols.has(stock.symbol);
+                        return (
+                          <div
+                            key={stock.symbol}
+                            className={`add-stock-item ${alreadyAdded ? 'disabled' : ''}`}
+                            onClick={() => !alreadyAdded && addStockToWatchlist(stock.symbol)}
+                          >
+                            <div className="stock-info">
+                              <span className="stock-symbol">{stock.symbol}</span>
+                              <span className="stock-price">₹{Number(stock.lastPrice || 0).toFixed(2)}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span className={`stock-change ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
+                                {stock.pChange >= 0 ? '+' : ''}{Number(stock.pChange || 0).toFixed(2)}%
+                              </span>
+                              {alreadyAdded ? (
+                                <span className="added-badge">✓ Added</span>
+                              ) : (
+                                <button className="add-btn-small" onClick={(e) => {
+                                  e.stopPropagation();
+                                  addStockToWatchlist(stock.symbol);
+                                }}>
+                                  + Add
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    );
+                  })()
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Chart Modal */}
       {isChartOpen && selectedStock && (
         <div className="chart-modal" onClick={closeChart}>
@@ -1045,6 +1424,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
             )}
             <div className={`chart-content ${chartStatus.loading ? 'is-loading' : ''}`}>
               <div ref={candleContainerRef} className="chart-canvas"></div>
+              <div ref={volumeContainerRef} className="chart-canvas volume"></div>
               {showIndicators.rsi && <div ref={rsiContainerRef} className="chart-canvas small"></div>}
             </div>
           </div>

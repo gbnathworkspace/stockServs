@@ -36,6 +36,14 @@ export default defineConfig(({ command }) => {
           target: 'http://localhost:8000',
           changeOrigin: true,
         },
+        '/fyers': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+        },
+        '/watchlist': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+        },
       },
     },
   };

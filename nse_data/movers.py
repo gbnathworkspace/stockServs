@@ -124,24 +124,52 @@ async def get_all_stocks():
 @router.get("/top-gainers")
 async def get_top_gainers():
     """Fetch top gainers from NSE (NIFTY 50)"""
+    # Import at function level to avoid circular imports
+    from services.cache import cache, top_gainers_key, TTL_TOP_GAINERS
+    
+    # Check cache first
+    cached = cache.get(top_gainers_key())
+    if cached is not None:
+        return cached
+    
+    # Fetch fresh data
     data = await fetch_index_data(DEFAULT_INDEX)
     
     # Sort by pChange descending
     sorted_data = sorted(data, key=lambda x: float(x.get("pChange", 0)), reverse=True)
     
     # Return top 10
-    return {"top_gainers": sorted_data[:10]}
+    result = {"top_gainers": sorted_data[:10]}
+    
+    # Cache for 5 minutes
+    cache.set(top_gainers_key(), result, TTL_TOP_GAINERS)
+    
+    return result
 
 @router.get("/top-losers")
 async def get_top_losers():
     """Fetch top losers from NSE (NIFTY 50)"""
+    # Import at function level to avoid circular imports
+    from services.cache import cache, top_losers_key, TTL_TOP_LOSERS
+    
+    # Check cache first
+    cached = cache.get(top_losers_key())
+    if cached is not None:
+        return cached
+    
+    # Fetch fresh data
     data = await fetch_index_data(DEFAULT_INDEX)
 
     # Sort by pChange ascending
     sorted_data = sorted(data, key=lambda x: float(x.get("pChange", 0)))
 
     # Return top 10
-    return {"top_losers": sorted_data[:10]}
+    result = {"top_losers": sorted_data[:10]}
+    
+    # Cache for 5 minutes
+    cache.set(top_losers_key(), result, TTL_TOP_LOSERS)
+    
+    return result
 
 
 @router.get("/nifty-contributors")

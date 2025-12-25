@@ -91,12 +91,24 @@ def weekly_gainers_key() -> str:
 def bulk_deals_key() -> str:
     return "nse:bulk_deals"
 
+def top_gainers_key() -> str:
+    return "nse:top_gainers"
+
+def top_losers_key() -> str:
+    return "nse:top_losers"
+
+def fii_dii_activity_key() -> str:
+    return "nse:fii_dii_activity"
+
 
 # TTL constants (in seconds)
-TTL_STOCK_LIST = 20        # 20 seconds - for a more "live" virtual trading feel
+TTL_STOCK_LIST = 300       # 5 minutes - reduced API load while keeping data fresh
 TTL_STOCK_PRICE = 30       # 30 seconds - prices change frequently
 TTL_CANDLE_5M = 60         # 1 minute for 5-minute candles
 TTL_CANDLE_15M = 120       # 2 minutes for 15-minute candles
 TTL_CANDLE_1D = 600        # 10 minutes for daily candles
 TTL_WEEKLY_GAINERS = 300   # 5 minutes - computed data
 TTL_BULK_DEALS = 300       # 5 minutes - bulk deals
+TTL_TOP_GAINERS = 300      # 5 minutes - market movers
+TTL_TOP_LOSERS = 300       # 5 minutes - market movers
+TTL_FII_DII = 600          # 10 minutes - FII/DII activity data

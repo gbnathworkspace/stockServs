@@ -55,6 +55,15 @@ def extract_fii_dii_records(data):
 @router.get("/fii-dii-activity")
 async def get_fii_dii_activity(db: Session = Depends(get_db)):
     """Fetch FII/DII activity data (buy/sell values and net flows)"""
+    # Import at function level to avoid circular imports
+    from services.cache import cache, fii_dii_activity_key, TTL_FII_DII
+    
+    # Check cache first
+    cached = cache.get(fii_dii_activity_key())
+    if cached is not None:
+        return cached
+    
+    # Fetch fresh data
     data = await fetch_fii_dii_data()
     
     # Parse the response to separate FII and DII data
@@ -62,11 +71,16 @@ async def get_fii_dii_activity(db: Session = Depends(get_db)):
 
     store_daily_activity(db, fii_data, dii_data)
 
-    return {
+    result = {
         "fii": fii_data,
         "dii": dii_data,
         "date": fii_data.get("date") if fii_data else None
     }
+    
+    # Cache for 10 minutes
+    cache.set(fii_dii_activity_key(), result, TTL_FII_DII)
+    
+    return result
 
 
 @router.get("/fii-dii-history")

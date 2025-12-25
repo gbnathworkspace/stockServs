@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTheme, THEMES } from '../lib/ThemeContext.jsx';
+import { useTheme, THEMES } from '../contexts/ThemeContext.jsx';
 
 const Settings = ({ onClose }) => {
   const { theme, setTheme } = useTheme();

@@ -231,3 +231,31 @@ class OptionClockDailySummary(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
+
+class Watchlist(Base):
+    """User-created watchlists for tracking specific stocks."""
+    __tablename__ = "watchlists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    position = Column(Integer, nullable=False, default=0)  # 0-14 for watchlists 1-15
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    stocks = relationship("WatchlistStock", back_populates="watchlist", cascade="all, delete-orphan")
+
+
+class WatchlistStock(Base):
+    """Stocks within a watchlist."""
+    __tablename__ = "watchlist_stocks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    watchlist_id = Column(Integer, ForeignKey("watchlists.id", ondelete="CASCADE"), nullable=False, index=True)
+    symbol = Column(String(50), nullable=False)
+    position = Column(Integer, nullable=False, default=0)  # Order within watchlist
+    added_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    watchlist = relationship("Watchlist", back_populates="stocks")

@@ -12,6 +12,7 @@ from routes.market_data import router as market_data_router
 from routes.logs import router as logs_router
 from routes.fyers import router as fyers_router
 from routes.option_clock import router as option_clock_router
+from routes.watchlist import router as watchlist_router
 from routes.deps import get_current_user
 
 from services.request_logger import RequestLogger
@@ -45,6 +46,8 @@ else:
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:8000",
+        "http://192.168.1.7:5173",
+        "http://192.168.1.7:8000",
     ]
 
 app.add_middleware(
@@ -84,6 +87,7 @@ app.include_router(holdings_router, dependencies=protected)
 app.include_router(users_router, dependencies=protected)
 app.include_router(profile_router, dependencies=protected)
 app.include_router(portfolio_router, dependencies=protected)
+app.include_router(watchlist_router, dependencies=protected)
 app.include_router(nse_data_router, dependencies=protected)
 app.include_router(market_data_router, dependencies=protected)
 app.include_router(logs_router, dependencies=protected)

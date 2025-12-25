@@ -2,7 +2,7 @@
  * API Client with timeout, retry logic, and error recovery
  */
 
-const DEFAULT_TIMEOUT = 15000; // 15 seconds (NSE API can be slow)
+const DEFAULT_TIMEOUT = 30000; // 15 seconds (NSE API can be slow)
 const MAX_RETRIES = 3;
 const RETRY_DELAY_BASE = 1000; // 1 second base delay
 

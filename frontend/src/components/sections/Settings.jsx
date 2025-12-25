@@ -1,5 +1,6 @@
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from '../../lib/ThemeContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function Settings({ subSection }) {
   const navigate = useNavigate();
