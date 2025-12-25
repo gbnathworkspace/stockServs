@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Settings({ subSection }) {
   const navigate = useNavigate();
   const userEmail = localStorage.getItem('user_email') || 'User';
+  const userName = localStorage.getItem('user_name') || userEmail.split('@')[0];
+  const [displayName, setDisplayName] = useState(userName);
+  const [profilePic, setProfilePic] = useState(localStorage.getItem('profile_pic') || '');
+  const [currentTheme, setCurrentTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [fyersConnected, setFyersConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Check connection status on mount and when subsection changes
   React.useEffect(() => {
@@ -79,6 +84,24 @@ export default function Settings({ subSection }) {
     alert('Wallet reset feature coming soon!');
   };
 
+  const handleProfilePicChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result;
+        setProfilePic(base64);
+        localStorage.setItem('profile_pic', base64);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleDisplayNameSave = () => {
+    localStorage.setItem('user_name', displayName);
+    alert('Display name saved!');
+  };
+
   if (subSection === 'preferences') {
     return (
       <div className="settings-section">
@@ -97,9 +120,19 @@ export default function Settings({ subSection }) {
                 <span className="settings-item-label">Theme</span>
                 <span className="settings-item-desc">Choose your preferred theme</span>
               </div>
-              <select className="settings-select" defaultValue="dark">
+              <select 
+                className="settings-select" 
+                value={currentTheme}
+                onChange={(e) => {
+                  const theme = e.target.value;
+                  setCurrentTheme(theme);
+                  localStorage.setItem('theme', theme);
+                  document.documentElement.setAttribute('data-theme', theme);
+                }}
+              >
                 <option value="dark">Dark Mode</option>
-                <option value="light" disabled>Light Mode (Coming Soon)</option>
+                <option value="light">Light Mode</option>
+                <option value="glass">Glass Mode</option>
               </select>
             </div>
 
@@ -171,16 +204,53 @@ export default function Settings({ subSection }) {
 
       <div className="settings-card">
         <div className="profile-header">
-          <div className="profile-avatar">
-            {userEmail.charAt(0).toUpperCase()}
+          <div 
+            className="profile-avatar clickable" 
+            onClick={() => fileInputRef.current?.click()}
+            title="Click to change profile picture"
+            style={profilePic ? { backgroundImage: `url(${profilePic})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+          >
+            {!profilePic && displayName.charAt(0).toUpperCase()}
+            <div className="avatar-overlay">📷</div>
           </div>
+          <input 
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleProfilePicChange}
+            style={{ display: 'none' }}
+          />
           <div className="profile-info">
-            <h3>{userEmail}</h3>
+            <h3>{displayName}</h3>
+            <span className="profile-email">{userEmail}</span>
             <span className="profile-badge">Paper Trading Account</span>
           </div>
         </div>
       </div>
 
+      <div className="settings-card">
+        <h3>Personal Information</h3>
+        <div className="settings-list">
+          <div className="settings-item">
+            <div className="settings-item-info">
+              <span className="settings-item-label">Display Name</span>
+              <span className="settings-item-desc">This name will be shown in the app</span>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <input 
+                type="text"
+                className="settings-input"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Enter your name"
+              />
+              <button className="settings-action-link primary" onClick={handleDisplayNameSave}>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="settings-card">
         <h3>Broker Connections</h3>
         <p className="settings-desc">Connect your real broker accounts to view holdings and place real trades.</p>

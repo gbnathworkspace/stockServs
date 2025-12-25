@@ -7,6 +7,8 @@ class TradePayload(BaseModel):
     quantity: int = Field(..., gt=0)
     price: float = Field(..., gt=0)
     side: str = Field("BUY")
+    order_type: str = Field("MARKET")  # MARKET or LIMIT
+    limit_price: Optional[float] = None  # Required for LIMIT orders
 
     @validator("side")
     def normalize_side(cls, value: str) -> str:
@@ -14,6 +16,13 @@ class TradePayload(BaseModel):
         if side not in {"BUY", "SELL"}:
             raise ValueError("side must be BUY or SELL")
         return side
+
+    @validator("order_type")
+    def normalize_order_type(cls, value: str) -> str:
+        order_type = (value or "MARKET").upper()
+        if order_type not in {"MARKET", "LIMIT"}:
+            raise ValueError("order_type must be MARKET or LIMIT")
+        return order_type
 
 
 class HoldingOut(BaseModel):

@@ -37,20 +37,28 @@ async def fetch_fii_dii_data():
             print(f"Error fetching FII/DII data: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to fetch data: {str(e)}")
 
+def extract_fii_dii_records(data):
+    if not isinstance(data, list):
+        return None, None
+
+    fii_data = None
+    dii_data = None
+
+    for item in data:
+        if "FII" in item.get("category", ""):
+            fii_data = item
+        elif "DII" in item.get("category", ""):
+            dii_data = item
+
+    return fii_data, dii_data
+
 @router.get("/fii-dii-activity")
 async def get_fii_dii_activity(db: Session = Depends(get_db)):
     """Fetch FII/DII activity data (buy/sell values and net flows)"""
     data = await fetch_fii_dii_data()
     
     # Parse the response to separate FII and DII data
-    fii_data = None
-    dii_data = None
-    
-    for item in data:
-        if "FII" in item.get("category", ""):
-            fii_data = item
-        elif "DII" in item.get("category", ""):
-            dii_data = item
+    fii_data, dii_data = extract_fii_dii_records(data)
 
     store_daily_activity(db, fii_data, dii_data)
 

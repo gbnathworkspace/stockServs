@@ -14,6 +14,7 @@ from routes.fyers import router as fyers_router
 from routes.deps import get_current_user
 
 from services.request_logger import RequestLogger
+from services.fii_dii_scheduler import start_fii_dii_scheduler, stop_fii_dii_scheduler
 from database.connection import engine, Base
 from database import models  # Import models to register them
 import os
@@ -68,6 +69,15 @@ app.include_router(market_data_router, dependencies=protected)
 app.include_router(logs_router, dependencies=protected)
 app.include_router(fyers_router)  # No global auth - fyers handles its own auth (callback needs to be public)
 
+
+@app.on_event("startup")
+async def startup_event():
+    start_fii_dii_scheduler()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    stop_fii_dii_scheduler()
 
 
 @app.middleware("http")

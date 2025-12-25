@@ -21,10 +21,17 @@ function App() {
   const navigate = useNavigate();
   const isAuthed = Boolean(localStorage.getItem('access_token'));
   const userEmail = localStorage.getItem('user_email') || 'User';
+  const userName = localStorage.getItem('user_name') || userEmail.split('@')[0];
   const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [appVersion, setAppVersion] = useState('');
+
+  // Apply saved theme on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  }, []);
 
   // Fetch version and handle Fyers callback on mount
   useEffect(() => {
@@ -214,7 +221,7 @@ function App() {
           </div>
           <div className="header-right">
             <RefreshControl />
-            <span className="user-email">{userEmail}</span>
+            <span className="user-email">{userName}</span>
             <button className="logout-btn" onClick={handleLogout}>
               Logout
             </button>

@@ -181,10 +181,60 @@ def get_order_history(db: Session, user_id: int, limit: int = 50) -> List[Dict[s
 
 def execute_trade(db: Session, user_id: int, payload: TradePayload) -> Dict[str, Any]:
     symbol = _sanitize_symbol(payload.symbol)
-    price = _round_price(payload.price)
     quantity = payload.quantity
     side = payload.side
-    total_value = round(price * quantity, 2)
+    order_type = getattr(payload, 'order_type', 'MARKET') or 'MARKET'
+    limit_price = getattr(payload, 'limit_price', None)
+    
+    # Get current market price (LTP)
+    current_ltp = _fetch_ltp(symbol)
+    
+    # Determine execution price based on order type
+    if order_type == "LIMIT":
+        if limit_price is None or limit_price <= 0:
+            raise HTTPException(
+                status_code=400, 
+                detail="Limit price is required for LIMIT orders and must be positive"
+            )
+        limit_price = _round_price(limit_price)
+        
+        # For virtual trading, we simulate limit order behavior:
+        # - BUY LIMIT: Executes if limit_price >= current market price (willing to pay at or above market)
+        # - SELL LIMIT: Executes if limit_price <= current market price (willing to sell at or below market)
+        # If conditions not met, order would be "PENDING" in a real system
+        
+        if current_ltp:
+            if side == "BUY":
+                if limit_price < current_ltp:
+                    # In real trading, this would stay pending
+                    # For simulation, we'll still execute but at the limit price
+                    # This mimics the scenario where price drops to limit
+                    execution_price = limit_price
+                    order_status = "FILLED"
+                else:
+                    # Limit price >= market price, execute immediately at market (best available)
+                    execution_price = min(limit_price, current_ltp)
+                    order_status = "FILLED"
+            else:  # SELL
+                if limit_price > current_ltp:
+                    # In real trading, this would stay pending
+                    # For simulation, we execute at limit price
+                    execution_price = limit_price
+                    order_status = "FILLED"
+                else:
+                    # Limit price <= market price, execute immediately at market (best available)
+                    execution_price = max(limit_price, current_ltp)
+                    order_status = "FILLED"
+        else:
+            # No LTP available, use limit price
+            execution_price = limit_price
+            order_status = "FILLED"
+    else:
+        # MARKET order - use the provided price (which should be current market price)
+        execution_price = _round_price(payload.price)
+        order_status = "FILLED"
+    
+    total_value = round(execution_price * quantity, 2)
 
     # Get or create wallet
     wallet = get_or_create_wallet(db, user_id)
@@ -206,7 +256,7 @@ def execute_trade(db: Session, user_id: int, payload: TradePayload) -> Dict[str,
         wallet.balance -= total_value
 
         if holding:
-            total_cost = holding.average_price * holding.quantity + price * quantity
+            total_cost = holding.average_price * holding.quantity + execution_price * quantity
             total_qty = holding.quantity + quantity
             holding.quantity = total_qty
             holding.average_price = round(total_cost / total_qty, 2)
@@ -215,7 +265,7 @@ def execute_trade(db: Session, user_id: int, payload: TradePayload) -> Dict[str,
                 user_id=user_id,
                 symbol=symbol,
                 quantity=quantity,
-                average_price=price
+                average_price=execution_price
             )
             db.add(holding)
 
@@ -232,16 +282,16 @@ def execute_trade(db: Session, user_id: int, payload: TradePayload) -> Dict[str,
     else:
         raise HTTPException(status_code=400, detail="Invalid side")
 
-    # Log the order
+    # Log the order with proper order type and execution details
     order = VirtualOrder(
         user_id=user_id,
         symbol=symbol,
         side=side,
         quantity=quantity,
-        price=price,
+        price=execution_price,
         total_value=total_value,
-        order_type="MARKET",
-        status="FILLED"
+        order_type=order_type,
+        status=order_status
     )
     db.add(order)
 
@@ -263,7 +313,11 @@ def execute_trade(db: Session, user_id: int, payload: TradePayload) -> Dict[str,
             "symbol": symbol,
             "side": side,
             "quantity": quantity,
-            "price": price,
-            "total_value": total_value
+            "price": execution_price,
+            "total_value": total_value,
+            "order_type": order_type,
+            "limit_price": limit_price if order_type == "LIMIT" else None,
+            "status": order_status,
+            "market_price": current_ltp
         }
     }

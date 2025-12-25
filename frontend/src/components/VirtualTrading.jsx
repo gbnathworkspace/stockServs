@@ -36,6 +36,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const [isChartOpen, setIsChartOpen] = useState(false);
   const [chartRange, setChartRange] = useState({ interval: '5m', period: '5d' });
   const [chartStatus, setChartStatus] = useState({ loading: false, error: '' });
+  const [showIndicators, setShowIndicators] = useState({ sma: false, ema: false, rsi: false });
   const candleContainerRef = useRef(null);
   const rsiContainerRef = useRef(null);
   const chartRefs = useRef({
@@ -222,14 +223,15 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     if (volumeSeries) {
       volumeSeries.setData(data.volume || []);
     }
+    // Only show indicators if enabled
     if (smaSeries) {
-      smaSeries.setData(data.indicators?.sma20 || []);
+      smaSeries.setData(showIndicators.sma ? (data.indicators?.sma20 || []) : []);
     }
     if (emaSeries) {
-      emaSeries.setData(data.indicators?.ema20 || []);
+      emaSeries.setData(showIndicators.ema ? (data.indicators?.ema20 || []) : []);
     }
     if (rsiSeries) {
-      rsiSeries.setData(data.indicators?.rsi14 || []);
+      rsiSeries.setData(showIndicators.rsi ? (data.indicators?.rsi14 || []) : []);
     }
     if (chart) {
       chart.timeScale().fitContent();
@@ -490,6 +492,8 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
           quantity: parseInt(tradeForm.quantity),
           price: parseFloat(tradeForm.price),
           side: side,
+          order_type: tradeForm.orderType.toUpperCase(),
+          limit_price: tradeForm.orderType === 'limit' ? parseFloat(tradeForm.price) : null,
         };
         const res = await authApi(`${API_BASE_URL}/portfolio/trade`, {
           method: 'POST',
@@ -500,7 +504,8 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
         if (res.wallet_balance !== undefined) {
           setWalletBalance(res.wallet_balance);
         }
-        showToast(`Virtual ${side} ${tradeForm.quantity} ${selectedStock.symbol} @ ₹${parseFloat(tradeForm.price).toFixed(2)}`, 'success');
+        const orderTypeLabel = tradeForm.orderType === 'limit' ? '(Limit)' : '(Market)';
+        showToast(`${side} ${tradeForm.quantity} ${selectedStock.symbol} @ ₹${parseFloat(res.order?.price || tradeForm.price).toFixed(2)} ${orderTypeLabel}`, 'success');
       }
       
       // Close modal after successful trade
@@ -1007,9 +1012,24 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
                 ))}
               </div>
               <div className="chart-legend">
-                <span className="legend-item sma">SMA 20</span>
-                <span className="legend-item ema">EMA 20</span>
-                <span className="legend-item rsi">RSI 14</span>
+                <button 
+                  className={`legend-item sma ${showIndicators.sma ? 'active' : ''}`}
+                  onClick={() => setShowIndicators(prev => ({ ...prev, sma: !prev.sma }))}
+                >
+                  SMA 20 {showIndicators.sma ? '✓' : ''}
+                </button>
+                <button 
+                  className={`legend-item ema ${showIndicators.ema ? 'active' : ''}`}
+                  onClick={() => setShowIndicators(prev => ({ ...prev, ema: !prev.ema }))}
+                >
+                  EMA 20 {showIndicators.ema ? '✓' : ''}
+                </button>
+                <button 
+                  className={`legend-item rsi ${showIndicators.rsi ? 'active' : ''}`}
+                  onClick={() => setShowIndicators(prev => ({ ...prev, rsi: !prev.rsi }))}
+                >
+                  RSI 14 {showIndicators.rsi ? '✓' : ''}
+                </button>
               </div>
             </div>
             {(chartStatus.loading || chartStatus.error) && (
@@ -1019,7 +1039,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
             )}
             <div className={`chart-content ${chartStatus.loading ? 'is-loading' : ''}`}>
               <div ref={candleContainerRef} className="chart-canvas"></div>
-              <div ref={rsiContainerRef} className="chart-canvas small"></div>
+              {showIndicators.rsi && <div ref={rsiContainerRef} className="chart-canvas small"></div>}
             </div>
           </div>
         </div>
