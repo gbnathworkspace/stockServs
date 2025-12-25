@@ -8,6 +8,9 @@ export default function Wallet({ subSection, onNavigate }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // No auto-refresh - wallet data only loaded on mount and manual refresh
+  // DB calls only happen when user interacts (load page, click refresh, make trade)
+
   useEffect(() => {
     loadWalletData();
   }, []);

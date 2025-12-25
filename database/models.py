@@ -142,3 +142,92 @@ class FiiDiiActivity(Base):
     source_date_str = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+
+class OptionClockSnapshot(Base):
+    """
+    Option Clock OI Snapshots - stores aggregated option chain data every 15 minutes.
+    Used for determining market direction based on OI changes.
+
+    Data Retention Strategy:
+    - Keep detailed intraday snapshots for 7 days (for intraday analysis)
+    - Archive daily summaries beyond 7 days (for historical trends)
+    - Cleanup job runs daily to remove old intraday data
+    """
+    __tablename__ = "option_clock_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    symbol = Column(String(20), nullable=False, index=True)  # NIFTY, BANKNIFTY
+    expiry_date = Column(Date, nullable=False, index=True)
+
+    # Aggregated OI Data
+    total_call_oi = Column(Float, nullable=True)
+    total_put_oi = Column(Float, nullable=True)
+    call_oi_change = Column(Float, nullable=True)  # Change from previous snapshot
+    put_oi_change = Column(Float, nullable=True)
+
+    # Derived Metrics
+    pcr = Column(Float, nullable=True)  # Put-Call Ratio (put_oi / call_oi)
+    pcr_change = Column(Float, nullable=True)  # PCR change from previous
+
+    # Spot Price Data
+    spot_price = Column(Float, nullable=True)
+    price_change = Column(Float, nullable=True)  # Change from previous snapshot
+    price_change_pct = Column(Float, nullable=True)
+
+    # Signal Detection
+    signal = Column(String(30), nullable=True)  # LONG_BUILDUP, SHORT_BUILDUP, etc.
+    signal_strength = Column(String(10), nullable=True)  # STRONG, MODERATE, WEAK
+
+    # Strike-wise breakdown (JSON stored as text for flexibility)
+    strike_data = Column(Text, nullable=True)  # JSON: {strike: {call_oi, put_oi, call_change, put_change}}
+
+    # Max Pain and Key Levels
+    max_pain_strike = Column(Float, nullable=True)
+    highest_call_oi_strike = Column(Float, nullable=True)
+    highest_put_oi_strike = Column(Float, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class OptionClockDailySummary(Base):
+    """
+    Daily summary of Option Clock data for long-term historical analysis.
+    Generated from intraday snapshots at market close.
+    """
+    __tablename__ = "option_clock_daily_summary"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trade_date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(20), nullable=False, index=True)
+    expiry_date = Column(Date, nullable=False)
+
+    # Opening values (9:15 AM snapshot)
+    opening_call_oi = Column(Float, nullable=True)
+    opening_put_oi = Column(Float, nullable=True)
+    opening_pcr = Column(Float, nullable=True)
+    opening_spot = Column(Float, nullable=True)
+
+    # Closing values (3:30 PM snapshot)
+    closing_call_oi = Column(Float, nullable=True)
+    closing_put_oi = Column(Float, nullable=True)
+    closing_pcr = Column(Float, nullable=True)
+    closing_spot = Column(Float, nullable=True)
+
+    # Day's changes
+    call_oi_day_change = Column(Float, nullable=True)
+    put_oi_day_change = Column(Float, nullable=True)
+    pcr_day_change = Column(Float, nullable=True)
+    spot_day_change = Column(Float, nullable=True)
+    spot_day_change_pct = Column(Float, nullable=True)
+
+    # Key levels at close
+    max_pain_strike = Column(Float, nullable=True)
+    highest_call_oi_strike = Column(Float, nullable=True)
+    highest_put_oi_strike = Column(Float, nullable=True)
+
+    # Dominant signal of the day
+    dominant_signal = Column(String(30), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+

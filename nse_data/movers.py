@@ -136,9 +136,43 @@ async def get_top_gainers():
 async def get_top_losers():
     """Fetch top losers from NSE (NIFTY 50)"""
     data = await fetch_index_data(DEFAULT_INDEX)
-    
+
     # Sort by pChange ascending
     sorted_data = sorted(data, key=lambda x: float(x.get("pChange", 0)))
-    
+
     # Return top 10
     return {"top_losers": sorted_data[:10]}
+
+
+@router.get("/nifty-contributors")
+async def get_nifty_contributors():
+    """
+    Fetch Nifty 50 stocks data for index contribution analysis.
+    Returns all Nifty 50 constituents with price data for calculating
+    contribution points and OI signals.
+    """
+    data = await fetch_index_data(DEFAULT_INDEX)
+
+    stocks = []
+    for item in data:
+        symbol = item.get("symbol")
+        if symbol:
+            stocks.append({
+                "symbol": symbol,
+                "lastPrice": item.get("lastPrice", 0),
+                "ltp": item.get("lastPrice", 0),
+                "previousClose": item.get("previousClose", 0),
+                "prevClose": item.get("previousClose", 0),
+                "pChange": item.get("pChange", 0),
+                "change": item.get("change", 0),
+                "dayHigh": item.get("dayHigh", 0),
+                "dayLow": item.get("dayLow", 0),
+                "open": item.get("open", 0),
+                "totalTradedVolume": item.get("totalTradedVolume", 0),
+                "totalTradedValue": item.get("totalTradedValue", 0),
+                # OI data - will be 0 until we integrate F&O data
+                "oiChange": 0,
+                "oiChangePct": 0,
+            })
+
+    return {"stocks": stocks}

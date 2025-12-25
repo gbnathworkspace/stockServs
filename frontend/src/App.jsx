@@ -5,6 +5,8 @@ import Dashboard from './components/sections/Dashboard.jsx';
 import VirtualTrading from './components/VirtualTrading.jsx';
 import RealTrading from './components/RealTrading.jsx';
 import MarketData from './components/sections/MarketData.jsx';
+import NiftyContributors from './components/sections/NiftyContributors.jsx';
+import FiiDiiActivity from './components/sections/FiiDiiActivity.jsx';
 import OrderHistory from './components/sections/OrderHistory.jsx';
 import Wallet from './components/sections/Wallet.jsx';
 import Watchlist from './components/sections/Watchlist.jsx';
@@ -136,6 +138,12 @@ function App() {
         return <RealTrading initialTab={subSection === 'fyers' ? 'trade' : 'trade'} />;
 
       case 'market':
+        if (subSection === 'nifty-contributors') {
+          return <NiftyContributors />;
+        }
+        if (subSection === 'fii-dii') {
+          return <FiiDiiActivity />;
+        }
         return <MarketData subSection={subSection || 'gainers'} />;
 
       case 'wallet':
@@ -171,6 +179,8 @@ function App() {
       'market': 'Market Data',
       'market.gainers': 'Top Gainers',
       'market.losers': 'Top Losers',
+      'market.nifty-contributors': 'Nifty Contributors',
+      'market.fii-dii': 'FII / DII Activity',
       'market.weekly': 'Weekly Movers',
       'market.bulk': 'Bulk Deals',
       'wallet': 'Wallet',

@@ -11,10 +11,12 @@ from routes.portfolio import router as portfolio_router
 from routes.market_data import router as market_data_router
 from routes.logs import router as logs_router
 from routes.fyers import router as fyers_router
+from routes.option_clock import router as option_clock_router
 from routes.deps import get_current_user
 
 from services.request_logger import RequestLogger
 from services.fii_dii_scheduler import start_fii_dii_scheduler, stop_fii_dii_scheduler
+from services.data_scheduler import data_scheduler
 from database.connection import engine, Base
 from database import models  # Import models to register them
 import os
@@ -27,12 +29,30 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Stock Services API", version="1.0.0")
 request_logger = RequestLogger()
 
+# CORS Configuration - secure defaults with environment override
+# In production, set ALLOWED_ORIGINS env var to your frontend domain(s)
+# Example: ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+cors_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+if cors_origins_env:
+    # Production: use specific origins from environment
+    allowed_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    # Development: allow common localhost origins
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8000",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-Id", "Accept"],
 )
 
 # Paths - use absolute path
@@ -67,6 +87,7 @@ app.include_router(portfolio_router, dependencies=protected)
 app.include_router(nse_data_router, dependencies=protected)
 app.include_router(market_data_router, dependencies=protected)
 app.include_router(logs_router, dependencies=protected)
+app.include_router(option_clock_router, dependencies=protected)  # Option Clock requires auth
 app.include_router(fyers_router)  # No global auth - fyers handles its own auth (callback needs to be public)
 
 
@@ -245,3 +266,31 @@ async def setup_database():
     from setup_db import setup_database
     result = setup_database()
     return result
+
+
+# Background Data Scheduler - starts automatically with the app
+@app.on_event("startup")
+async def startup_event():
+    """Start background data scheduler on app startup."""
+    data_scheduler.start()
+    print("[STARTUP] Background data scheduler initialized")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop background data scheduler on app shutdown."""
+    data_scheduler.stop()
+    print("[SHUTDOWN] Background data scheduler stopped")
+
+
+@app.get("/scheduler/status")
+async def get_scheduler_status():
+    """Get the current status of the background data scheduler."""
+    return data_scheduler.get_status()
+
+
+@app.post("/scheduler/fetch")
+async def trigger_scheduler_fetch():
+    """Manually trigger a data fetch (admin use)."""
+    status = await data_scheduler.force_fetch()
+    return {"message": "Data fetch triggered", "status": status}

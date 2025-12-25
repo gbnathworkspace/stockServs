@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { authApi } from '../lib/api.js';
+import { authApi, fastAuthApi } from '../lib/api.js';
+import useAutoRefresh, { useRelativeTime } from '../hooks/useAutoRefresh';
 
 const API_BASE_URL = window.location.origin;
 const CHART_RANGES = [
@@ -50,6 +51,20 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   });
 
   const isModalOpen = Boolean(selectedStock) || isChartOpen;
+
+  // Auto-refresh: Only stock prices (NSE API) - no DB calls
+  // Portfolio is loaded on mount and when user makes trades or clicks refresh
+  // 10 second interval to prevent request overlap
+  const { lastUpdate: stocksUpdate } = useAutoRefresh('trading-stocks', () => refreshStocksSilent(), 10000);
+  const stocksTime = useRelativeTime(stocksUpdate);
+
+  // Silent refresh for stock prices only (no DB calls)
+  const refreshStocksSilent = async () => {
+    const res = await fastAuthApi(`${API_BASE_URL}/nse_data/all-stocks`);
+    if (res?.stocks?.length > 0) {
+      setStocks(res.stocks);
+    }
+  };
 
   useEffect(() => {
     document.body.classList.toggle('modal-open', isModalOpen);
@@ -368,18 +383,9 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     fetchFyersData();
   }, []);
 
-  // Auto-refresh data every 20 seconds for "Live" experience
-  useEffect(() => {
-    let interval;
-    const updateData = () => {
-      if (activeTab === 'stocks' && !loading.stocks) fetchStocks();
-      if (activeTab === 'portfolio' && !loading.portfolio) fetchPortfolio();
-    };
-
-    interval = setInterval(updateData, 20000);
-    
-    return () => clearInterval(interval);
-  }, [activeTab, loading.stocks, loading.portfolio]);
+  // Note: Auto-refresh for stocks is handled by useAutoRefresh hook (line 56)
+  // Portfolio refresh only happens on user action (mount, trade, or manual refresh)
+  // This prevents unnecessary DB connections
 
 
   useEffect(() => {

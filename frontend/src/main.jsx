@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './lib/ThemeContext.jsx';
+import { ToastProvider } from './contexts/ToastContext.jsx';
 import App from './App.jsx';
 import Login from './pages/Login.jsx';
 import Signup from './pages/Signup.jsx';
@@ -27,35 +28,37 @@ function AuthRoute({ children }) {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider>
-      <BrowserRouter>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <App />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/login"
-          element={
-            <AuthRoute>
-              <Login />
-            </AuthRoute>
-          }
-        />
-        <Route
-          path="/signup"
-          element={
-            <AuthRoute>
-              <Signup />
-            </AuthRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      </BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <App />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <AuthRoute>
+                <Login />
+              </AuthRoute>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <AuthRoute>
+                <Signup />
+              </AuthRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        </BrowserRouter>
+      </ToastProvider>
     </ThemeProvider>
   </React.StrictMode>
 );

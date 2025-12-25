@@ -1,49 +1,62 @@
-import React, { useState, useEffect } from 'react';
-import { authApi } from '../../lib/api.js';
+import React, { useState, useEffect, useRef } from 'react';
+import { authApi, fastAuthApi } from '../../lib/api.js';
 import useAutoRefresh, { useRelativeTime } from '../../hooks/useAutoRefresh';
+import { useToast } from '../../contexts/ToastContext.jsx';
 
 const API_BASE_URL = window.location.origin;
 
 export default function Dashboard({ onNavigate }) {
+  const { showError } = useToast();
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [marketData, setMarketData] = useState({ gainers: [], losers: [] });
   const [fiiDiiData, setFiiDiiData] = useState(null);
 
-  // Auto-refresh: Portfolio every 15s, Market data every 15s
-  const { lastUpdate: portfolioUpdate } = useAutoRefresh('dashboard-portfolio', () => loadPortfolioSummary(), 15000);
-  const { lastUpdate: marketUpdate } = useAutoRefresh('dashboard-market', () => loadMarketData(), 15000);
-  const portfolioTime = useRelativeTime(portfolioUpdate);
+  // Track last error to avoid spamming toasts
+  const lastErrorRef = useRef({ message: '', time: 0 });
+
+  // Auto-refresh: Only market data (NSE API) - no DB calls
+  // Portfolio is loaded once on mount and refreshed manually by user
+  // 10 second interval to prevent request overlap
+  const { lastUpdate: marketUpdate } = useAutoRefresh('dashboard-market', () => loadMarketData(), 10000);
   const marketTime = useRelativeTime(marketUpdate);
 
   useEffect(() => {
     loadDashboardData();
   }, []);
 
+  // Show error toast but throttle to avoid spam (max 1 per 30 seconds per message)
+  const showThrottledError = (message) => {
+    const now = Date.now();
+    if (lastErrorRef.current.message === message && now - lastErrorRef.current.time < 30000) {
+      return; // Skip if same error within 30 seconds
+    }
+    lastErrorRef.current = { message, time: now };
+    showError(message);
+  };
+
   const loadPortfolioSummary = async () => {
-    try {
-      const summaryRes = await authApi(`${API_BASE_URL}/portfolio/summary`).catch(() => null);
-      if (summaryRes) {
-        setSummary(summaryRes);
-      }
-    } catch (error) {
-      console.error('Failed to load portfolio summary:', error);
+    const summaryRes = await fastAuthApi(`${API_BASE_URL}/portfolio/summary`, {}, (err) => {
+      showThrottledError(`Error fetching portfolio: ${err}`);
+    });
+    if (summaryRes) {
+      setSummary(summaryRes);
     }
   };
 
   const loadMarketData = async () => {
-    try {
-      const [gainersRes, losersRes] = await Promise.all([
-        authApi(`${API_BASE_URL}/nse_data/top-gainers`).catch(() => ({ top_gainers: [] })),
-        authApi(`${API_BASE_URL}/nse_data/top-losers`).catch(() => ({ top_losers: [] })),
-      ]);
-      setMarketData({
-        gainers: gainersRes?.top_gainers || [],
-        losers: losersRes?.top_losers || [],
-      });
-    } catch (error) {
-      console.error('Failed to load market data:', error);
-    }
+    const [gainersRes, losersRes] = await Promise.all([
+      fastAuthApi(`${API_BASE_URL}/nse_data/top-gainers`, {}, (err) => {
+        showThrottledError(`Error fetching NSE data for Top Gainers: ${err}`);
+      }),
+      fastAuthApi(`${API_BASE_URL}/nse_data/top-losers`, {}, (err) => {
+        showThrottledError(`Error fetching NSE data for Top Losers: ${err}`);
+      }),
+    ]);
+    setMarketData({
+      gainers: gainersRes?.top_gainers || [],
+      losers: losersRes?.top_losers || [],
+    });
   };
 
   const loadFiiDiiData = async () => {
@@ -102,13 +115,6 @@ export default function Dashboard({ onNavigate }) {
       </div>
 
       {/* Stats Cards */}
-      <div className="last-updated">
-        <svg className="last-updated-icon" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
-          <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
-        </svg>
-        <span className="last-updated-text">Portfolio updated {portfolioTime}</span>
-      </div>
       <div className="dashboard-grid">
         <div className="stat-card">
           <div className="stat-card-header">
