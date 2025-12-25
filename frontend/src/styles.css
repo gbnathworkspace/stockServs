@@ -6029,18 +6029,452 @@ td.stock-link {
     align-items: stretch;
     gap: 1rem;
   }
-  
+
   .history-summary {
     grid-template-columns: 1fr;
   }
-  
+
   .fii-dii-insight {
     flex-direction: column;
     align-items: center;
     text-align: center;
   }
-  
+
   .net-amount {
     font-size: 1.5rem;
+  }
+}
+
+/* ===== SECTOR SCOPE STYLES ===== */
+
+/* Benchmark Card */
+.benchmark-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, var(--card-bg) 0%, var(--hover-bg) 100%);
+  border: 1px solid var(--border-color);
+}
+
+.benchmark-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.benchmark-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.benchmark-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.benchmark-value {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.benchmark-price {
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.benchmark-change {
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+}
+
+.benchmark-change.positive {
+  color: var(--accent-green);
+  background: var(--accent-green-glow);
+}
+
+.benchmark-change.negative {
+  color: var(--accent-red);
+  background: var(--accent-red-glow);
+}
+
+/* Sector Heatmap Grid */
+.sector-heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.sector-heatmap-cell {
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.sector-heatmap-cell:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent-blue);
+}
+
+.sector-heatmap-cell.selected {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px var(--accent-blue);
+}
+
+.sector-heatmap-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sector-heatmap-change {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.sector-heatmap-change.positive {
+  color: var(--accent-green);
+}
+
+.sector-heatmap-change.negative {
+  color: var(--accent-red);
+}
+
+.sector-heatmap-rs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.rs-label {
+  color: var(--text-secondary);
+}
+
+.rs-value {
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.rs-value.positive {
+  color: var(--accent-green);
+}
+
+.rs-value.negative {
+  color: var(--accent-red);
+}
+
+/* Sector Position Badge */
+.sector-position-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.sector-position-badge.bullish {
+  color: var(--accent-green);
+  background: var(--accent-green-glow);
+}
+
+.sector-position-badge.bearish {
+  color: var(--accent-red);
+  background: var(--accent-red-glow);
+}
+
+.sector-position-badge.neutral {
+  color: var(--text-secondary);
+  background: rgba(156, 163, 175, 0.15);
+}
+
+/* Rotation Analysis Card */
+.rotation-card {
+  padding: 1.5rem;
+}
+
+.rotation-card h3 {
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.rotation-phase {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.phase-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.phase-badge {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+}
+
+.phase-badge.early_bull,
+.phase-badge.mid_bull {
+  color: var(--accent-green);
+  background: var(--accent-green-glow);
+}
+
+.phase-badge.late_bull {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.phase-badge.defensive {
+  color: var(--accent-red);
+  background: var(--accent-red-glow);
+}
+
+.phase-badge.recovery,
+.phase-badge.transition {
+  color: var(--accent-blue);
+  background: rgba(77, 171, 247, 0.15);
+}
+
+.rotation-insight {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+  padding: 0.75rem;
+  background: var(--hover-bg);
+  border-radius: 8px;
+  border-left: 3px solid var(--accent-blue);
+}
+
+.rotation-sectors {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.rotation-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rotation-group-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rotation-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rotation-tag {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+}
+
+.rotation-tag.leader {
+  color: var(--accent-green);
+  background: var(--accent-green-glow);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.rotation-tag.laggard {
+  color: var(--accent-red);
+  background: var(--accent-red-glow);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Sector Stocks Card */
+.sector-stocks-card {
+  margin-top: 1rem;
+}
+
+.sector-stocks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.sector-stocks-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-primary);
+}
+
+.stock-count {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  color: var(--text-primary);
+  background: var(--hover-bg);
+}
+
+.sector-stocks-summary {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: var(--hover-bg);
+  border-radius: 8px;
+}
+
+.sector-stocks-summary .advancing {
+  color: var(--accent-green);
+  font-weight: 600;
+}
+
+.sector-stocks-summary .declining {
+  color: var(--accent-red);
+  font-weight: 600;
+}
+
+/* Sector Stocks Table */
+.sector-stocks-table {
+  overflow-x: auto;
+}
+
+.sector-stocks-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sector-stocks-table th,
+.sector-stocks-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sector-stocks-table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--hover-bg);
+}
+
+.sector-stocks-table td {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.sector-stocks-table .stock-symbol {
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.sector-stocks-table td.positive {
+  color: var(--accent-green);
+  font-weight: 600;
+}
+
+.sector-stocks-table td.negative {
+  color: var(--accent-red);
+  font-weight: 600;
+}
+
+.sector-stocks-table tbody tr:hover {
+  background: var(--hover-bg);
+}
+
+/* Glass Theme Overrides for Sector Scope */
+[data-theme="glass"] .benchmark-card,
+[data-theme="glass"] .sector-heatmap-cell,
+[data-theme="glass"] .rotation-card,
+[data-theme="glass"] .sector-stocks-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="glass"] .sector-heatmap-cell:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="glass"] .rotation-insight,
+[data-theme="glass"] .sector-stocks-summary {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Responsive Sector Scope */
+@media (max-width: 768px) {
+  .benchmark-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .sector-heatmap-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rotation-phase {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sector-stocks-table {
+    font-size: 0.85rem;
+  }
+
+  .sector-stocks-table th,
+  .sector-stocks-table td {
+    padding: 0.5rem 0.75rem;
   }
 }

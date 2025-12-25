@@ -100,6 +100,12 @@ def top_losers_key() -> str:
 def fii_dii_activity_key() -> str:
     return "nse:fii_dii_activity"
 
+def sector_heatmap_key() -> str:
+    return "nse:sector_heatmap"
+
+def sector_stocks_key(sector: str) -> str:
+    return f"nse:sector_stocks:{sector}"
+
 
 # TTL constants (in seconds)
 TTL_STOCK_LIST = 300       # 5 minutes - reduced API load while keeping data fresh
@@ -112,3 +118,4 @@ TTL_BULK_DEALS = 300       # 5 minutes - bulk deals
 TTL_TOP_GAINERS = 300      # 5 minutes - market movers
 TTL_TOP_LOSERS = 300       # 5 minutes - market movers
 TTL_FII_DII = 600          # 10 minutes - FII/DII activity data
+TTL_SECTOR_DATA = 300      # 5 minutes - sector heatmap data
