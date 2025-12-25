@@ -2042,6 +2042,83 @@ td.stock-link {
   width: calc(100% - 70px);
 }
 
+/* ===== MAIN HEADER ===== */
+.main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Mobile Menu Button - Hidden by default, shown on mobile */
+.mobile-menu-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  border: none;
+  background: var(--hover-bg);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mobile-menu-btn:hover {
+  background: var(--card-bg-hover);
+}
+
+.hamburger-line {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 1px;
+  transition: all 0.3s ease;
+}
+
+/* Mobile Overlay */
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 99;
+}
+
+/* Content Area */
+.content-area {
+  padding: 1.5rem;
+  min-height: calc(100vh - 70px);
+}
+
 /* ===== DASHBOARD SECTION ===== */
 .dashboard-grid {
   display: grid;
@@ -3027,21 +3104,61 @@ td.stock-link {
 }
 
 @media (max-width: 768px) {
+  /* Hide sidebar by default on mobile */
   .sidebar {
     transform: translateX(-100%);
-    width: 260px;
+    width: 280px;
+    z-index: 200;
   }
 
+  /* Show sidebar when mobile-open class is present */
   .sidebar.mobile-open {
     transform: translateX(0);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
   }
 
+  /* Main content takes full width on mobile */
   .main-content {
     margin-left: 0;
+    width: 100%;
   }
 
   .main-content.sidebar-collapsed {
     margin-left: 0;
+    width: 100%;
+  }
+
+  /* Show hamburger menu button on mobile */
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  /* Show overlay when sidebar is open */
+  .mobile-overlay {
+    display: block;
+  }
+
+  /* Header adjustments for mobile */
+  .main-header {
+    padding: 0.875rem 1rem;
+  }
+
+  .page-title {
+    font-size: 1.1rem;
+  }
+
+  .header-right {
+    gap: 0.5rem;
+  }
+
+  .logout-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  /* Content area padding for mobile */
+  .content-area {
+    padding: 1rem;
   }
 
   .dashboard-grid {
@@ -3137,38 +3254,105 @@ td.stock-link {
   }
 
   .stock-trade-shell {
-    padding: 1.25rem;
+    padding: 1rem;
+    gap: 0.75rem;
+    max-height: calc(100vh - 2rem);
   }
 
   .stock-trade-modal {
     align-items: flex-start;
-    padding: 1rem;
+    padding: 0.75rem;
+  }
+
+  .stock-trade-header h3 {
+    font-size: 1.25rem;
+  }
+
+  .stock-trade-content {
+    gap: 0.75rem;
+  }
+
+  .stock-trade-price-row {
+    padding: 0.75rem;
   }
 
   .stock-trade-price {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
   }
 
   .chip.large {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.9rem;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.85rem;
   }
 
   .stock-trade-stats {
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
 
   .stock-trade-stat {
-    padding: 0.65rem;
+    padding: 0.5rem;
   }
 
+  .stock-trade-stat-label {
+    font-size: 0.65rem;
+  }
+
+  .stock-trade-stat-value {
+    font-size: 0.85rem;
+  }
+
+  .order-type-selector {
+    padding: 0.25rem;
+    gap: 0.35rem;
+  }
+
+  .order-type-btn {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .stock-trade-input-row {
+    gap: 0.5rem;
+  }
+
+  .stock-trade-input-group input {
+    padding: 0.7rem;
+    font-size: 0.95rem;
+  }
+
+  .stock-trade-wallet,
+  .stock-trade-total {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .stock-trade-total-value {
+    font-size: 1.1rem;
+  }
+
+  /* IMPORTANT: Make action buttons always visible */
   .stock-trade-actions {
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
+    position: sticky;
+    bottom: 0;
+    background: var(--card-bg);
+    padding-top: 0.5rem;
+    margin: 0 -1rem -1rem;
+    padding: 0.75rem 1rem 1rem;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .stock-trade-actions .buy-btn,
+  .stock-trade-actions .sell-btn {
+    padding: 0.85rem;
+    font-size: 0.9rem;
   }
 
   .stock-trade-actions .chart-btn {
     grid-column: 1 / -1;
+    padding: 0.75rem;
+    font-size: 0.85rem;
   }
   
   /* FII/DII Mobile */
