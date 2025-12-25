@@ -29,11 +29,7 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [appVersion, setAppVersion] = useState('');
 
-  // Apply saved theme on mount
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-  }, []);
+
 
   // Fetch version and handle Fyers callback on mount
   useEffect(() => {

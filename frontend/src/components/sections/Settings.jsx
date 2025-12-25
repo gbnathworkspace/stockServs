@@ -1,13 +1,13 @@
-import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../../lib/ThemeContext';
 
 export default function Settings({ subSection }) {
   const navigate = useNavigate();
+  const { theme: currentTheme, setTheme } = useTheme();
   const userEmail = localStorage.getItem('user_email') || 'User';
   const userName = localStorage.getItem('user_name') || userEmail.split('@')[0];
   const [displayName, setDisplayName] = useState(userName);
   const [profilePic, setProfilePic] = useState(localStorage.getItem('profile_pic') || '');
-  const [currentTheme, setCurrentTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [fyersConnected, setFyersConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -124,10 +124,7 @@ export default function Settings({ subSection }) {
                 className="settings-select" 
                 value={currentTheme}
                 onChange={(e) => {
-                  const theme = e.target.value;
-                  setCurrentTheme(theme);
-                  localStorage.setItem('theme', theme);
-                  document.documentElement.setAttribute('data-theme', theme);
+                  setTheme(e.target.value);
                 }}
               >
                 <option value="dark">Dark Mode</option>

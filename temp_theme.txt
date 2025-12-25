@@ -10,12 +10,12 @@ export const THEMES = {
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('theme');
+    const saved = localStorage.getItem('app-theme');
     return saved || THEMES.DARK;
   });
 
   useEffect(() => {
-    localStorage.setItem('theme', theme);
+    localStorage.setItem('app-theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
