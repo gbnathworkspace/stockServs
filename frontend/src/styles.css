@@ -3835,6 +3835,16 @@ td.stock-link {
   border-top: 1px solid var(--border-color);
 }
 
+.fii-dii-date-header {
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  padding: 0.75rem;
+  background: var(--hover-bg);
+  border-radius: 8px;
+}
+
 /* ===== SETTINGS BUTTON ===== */
 .settings-btn {
   background: transparent;

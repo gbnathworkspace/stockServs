@@ -6,6 +6,7 @@ const API_BASE_URL = window.location.origin;
 export default function MarketData({ subSection }) {
   const [data, setData] = useState([]);
   const [weeklyData, setWeeklyData] = useState(null);
+  const [fiiDiiData, setFiiDiiData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,6 +30,9 @@ export default function MarketData({ subSection }) {
         case 'weekly':
           endpoint = '/nse_data/weekly-gainers?days=5';
           break;
+        case 'fii-dii':
+          endpoint = '/nse_data/fii-dii-activity';
+          break;
         default:
           endpoint = '/nse_data/top-gainers';
       }
@@ -39,6 +43,8 @@ export default function MarketData({ subSection }) {
         setWeeklyData(res);
       } else if (subSection === 'bulk') {
         setData(res.bulk_deals || []);
+      } else if (subSection === 'fii-dii') {
+        setFiiDiiData(res);
       } else {
         setData(res.top_gainers || res.top_losers || []);
       }
@@ -49,12 +55,20 @@ export default function MarketData({ subSection }) {
     }
   };
 
+  const formatCrores = (value) => {
+    if (!value && value !== 0) return 'N/A';
+    const num = Number(value);
+    if (isNaN(num)) return 'N/A';
+    return `₹${(num / 100).toFixed(0)} Cr`;
+  };
+
   const getTitle = () => {
     switch (subSection) {
       case 'gainers': return 'Top Gainers';
       case 'losers': return 'Top Losers';
       case 'bulk': return 'Bulk Deals';
       case 'weekly': return 'Weekly Movers';
+      case 'fii-dii': return 'FII/DII Activity';
       default: return 'Market Data';
     }
   };
@@ -65,9 +79,81 @@ export default function MarketData({ subSection }) {
       case 'losers': return '📉';
       case 'bulk': return '📊';
       case 'weekly': return '📅';
+      case 'fii-dii': return '🏦';
       default: return '📊';
     }
   };
+
+  // FII/DII Activity View
+  if (subSection === 'fii-dii') {
+    return (
+      <div className="market-section">
+        <div className="section-header">
+          <div className="section-title">
+            <span className="section-title-icon">{getIcon()}</span>
+            <h2>{getTitle()}</h2>
+          </div>
+          <button onClick={loadData} disabled={loading}>
+            {loading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="loading">Loading FII/DII data...</div>
+        ) : !fiiDiiData ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">🏦</div>
+            <div className="empty-state-title">No FII/DII Data</div>
+            <div className="empty-state-text">FII/DII activity data is not available at this time.</div>
+          </div>
+        ) : (
+          <div className="fii-dii-container">
+            {fiiDiiData.date && (
+              <div className="fii-dii-date-header">
+                Data as of: <strong>{fiiDiiData.date}</strong>
+              </div>
+            )}
+            <div className="fii-dii-row">
+              <div className="fii-dii-block">
+                <div className="fii-dii-title">FII (Foreign Institutional Investors)</div>
+                <div className="fii-dii-stats">
+                  <div className="fii-dii-stat">
+                    <span className="label">Buy Value</span>
+                    <span className="value positive">{formatCrores(fiiDiiData.fii?.buyValue)}</span>
+                  </div>
+                  <div className="fii-dii-stat">
+                    <span className="label">Sell Value</span>
+                    <span className="value negative">{formatCrores(fiiDiiData.fii?.sellValue)}</span>
+                  </div>
+                  <div className={`fii-dii-stat net ${Number(fiiDiiData.fii?.netValue) >= 0 ? 'positive' : 'negative'}`}>
+                    <span className="label">Net Value</span>
+                    <span className="value">{formatCrores(fiiDiiData.fii?.netValue)}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="fii-dii-block">
+                <div className="fii-dii-title">DII (Domestic Institutional Investors)</div>
+                <div className="fii-dii-stats">
+                  <div className="fii-dii-stat">
+                    <span className="label">Buy Value</span>
+                    <span className="value positive">{formatCrores(fiiDiiData.dii?.buyValue)}</span>
+                  </div>
+                  <div className="fii-dii-stat">
+                    <span className="label">Sell Value</span>
+                    <span className="value negative">{formatCrores(fiiDiiData.dii?.sellValue)}</span>
+                  </div>
+                  <div className={`fii-dii-stat net ${Number(fiiDiiData.dii?.netValue) >= 0 ? 'positive' : 'negative'}`}>
+                    <span className="label">Net Value</span>
+                    <span className="value">{formatCrores(fiiDiiData.dii?.netValue)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (subSection === 'weekly') {
     return (
