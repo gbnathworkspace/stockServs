@@ -8,6 +8,7 @@ export default function Dashboard({ onNavigate }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [marketData, setMarketData] = useState({ gainers: [], losers: [] });
+  const [fiiDiiData, setFiiDiiData] = useState(null);
 
   // Auto-refresh: Portfolio every 15s, Market data every 15s
   const { lastUpdate: portfolioUpdate } = useAutoRefresh('dashboard-portfolio', () => loadPortfolioSummary(), 15000);
@@ -45,10 +46,21 @@ export default function Dashboard({ onNavigate }) {
     }
   };
 
+  const loadFiiDiiData = async () => {
+    try {
+      const res = await authApi(`${API_BASE_URL}/nse_data/fii-dii-activity`).catch(() => null);
+      if (res) {
+        setFiiDiiData(res);
+      }
+    } catch (error) {
+      console.error('Failed to load FII/DII data:', error);
+    }
+  };
+
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      await Promise.all([loadPortfolioSummary(), loadMarketData()]);
+      await Promise.all([loadPortfolioSummary(), loadMarketData(), loadFiiDiiData()]);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -62,6 +74,13 @@ export default function Dashboard({ onNavigate }) {
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(value || 0);
+  };
+
+  const formatCrores = (value) => {
+    if (!value && value !== 0) return 'N/A';
+    const num = Number(value);
+    if (isNaN(num)) return 'N/A';
+    return `₹${(num / 100).toFixed(0)} Cr`;
   };
 
   const walletBalance = summary?.wallet_balance ?? 100000;
@@ -151,6 +170,49 @@ export default function Dashboard({ onNavigate }) {
           </button>
         </div>
       </div>
+
+      {/* FII/DII Activity */}
+      {fiiDiiData && (
+        <div className="fii-dii-container">
+          <h3>📊 FII/DII Activity {fiiDiiData.date && <span className="fii-dii-date">({fiiDiiData.date})</span>}</h3>
+          <div className="fii-dii-row">
+            <div className="fii-dii-block">
+              <div className="fii-dii-title">FII (Foreign)</div>
+              <div className="fii-dii-stats">
+                <div className="fii-dii-stat">
+                  <span className="label">Buy</span>
+                  <span className="value positive">{formatCrores(fiiDiiData.fii?.buyValue)}</span>
+                </div>
+                <div className="fii-dii-stat">
+                  <span className="label">Sell</span>
+                  <span className="value negative">{formatCrores(fiiDiiData.fii?.sellValue)}</span>
+                </div>
+                <div className={`fii-dii-stat net ${Number(fiiDiiData.fii?.netValue) >= 0 ? 'positive' : 'negative'}`}>
+                  <span className="label">Net</span>
+                  <span className="value">{formatCrores(fiiDiiData.fii?.netValue)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="fii-dii-block">
+              <div className="fii-dii-title">DII (Domestic)</div>
+              <div className="fii-dii-stats">
+                <div className="fii-dii-stat">
+                  <span className="label">Buy</span>
+                  <span className="value positive">{formatCrores(fiiDiiData.dii?.buyValue)}</span>
+                </div>
+                <div className="fii-dii-stat">
+                  <span className="label">Sell</span>
+                  <span className="value negative">{formatCrores(fiiDiiData.dii?.sellValue)}</span>
+                </div>
+                <div className={`fii-dii-stat net ${Number(fiiDiiData.dii?.netValue) >= 0 ? 'positive' : 'negative'}`}>
+                  <span className="label">Net</span>
+                  <span className="value">{formatCrores(fiiDiiData.dii?.netValue)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Market Overview */}
       <div className="last-updated">
