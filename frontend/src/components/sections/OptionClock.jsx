@@ -115,8 +115,33 @@ export default function OptionClock() {
     );
   }
 
-  // Render error state
-  if (error && !currentData) {
+  // Check if data is stale (more than 1 hour old)
+  const isDataStale = (timestamp) => {
+    if (!timestamp) return true;
+    const dataTime = new Date(timestamp);
+    const now = new Date();
+    const hoursDiff = (now - dataTime) / (1000 * 60 * 60);
+    return hoursDiff > 1;
+  };
+
+  // Format how old the data is
+  const getDataAge = (timestamp) => {
+    if (!timestamp) return 'No data';
+    const dataTime = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - dataTime;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    if (diffHours > 0) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffMins > 0) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+    return 'Just now';
+  };
+
+  // Render error state - but only if we have no data at all
+  if (error && !currentData && !overview) {
     return (
       <div className="product-section">
         <div className="section-header">
@@ -125,12 +150,19 @@ export default function OptionClock() {
             <h2>Option Clock</h2>
           </div>
         </div>
-        <div className="error-container">
-          <div className="error-message">
-            <span className="error-icon">&#9888;</span>
-            <p>{error}</p>
-            <button className="refresh-btn" onClick={loadData}>Retry</button>
+        <div className="empty-state">
+          <div className="empty-state-icon">&#128336;</div>
+          <div className="empty-state-title">No Data Available Yet</div>
+          <div className="empty-state-text">
+            Option Clock data will be collected during market hours (9:15 AM - 3:30 PM IST).
+            <br /><br />
+            Data is fetched every 15 minutes when the market is open.
+            <br />
+            Once collected, the last available data will be shown here even when market is closed.
           </div>
+          <button className="refresh-btn" onClick={loadData} style={{ marginTop: '1rem' }}>
+            Check Again
+          </button>
         </div>
       </div>
     );
@@ -168,14 +200,42 @@ export default function OptionClock() {
         </div>
       </div>
 
+      {/* Data Status Banner */}
+      {currentData && (
+        isDataStale(currentData.timestamp) ? (
+          <div className="stale-data-banner">
+            <span className="stale-data-icon">&#9432;</span>
+            <span className="stale-data-text">
+              <strong>Market Closed</strong> - Showing last available data from {getDataAge(currentData.timestamp)}
+              {currentData.timestamp && (
+                <span className="stale-data-time">
+                  ({new Date(currentData.timestamp).toLocaleString('en-IN', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })})
+                </span>
+              )}
+            </span>
+          </div>
+        ) : (
+          <div className="live-data-banner">
+            <span className="live-data-icon"></span>
+            <span className="live-data-text">Live Data - Updated {getDataAge(currentData.timestamp)}</span>
+          </div>
+        )
+      )}
+
       {!currentData ? (
         <div className="empty-state">
           <div className="empty-state-icon">&#128336;</div>
-          <div className="empty-state-title">No Data Available</div>
+          <div className="empty-state-title">No Data Available Yet</div>
           <div className="empty-state-text">
-            Option Clock data will be available during market hours.
-            <br />
-            Data is fetched every 15 minutes between 9:15 AM - 3:30 PM.
+            Option Clock data will be collected during market hours (9:15 AM - 3:30 PM IST).
+            <br /><br />
+            Once data is collected, it will be displayed here even when market is closed.
           </div>
         </div>
       ) : (
