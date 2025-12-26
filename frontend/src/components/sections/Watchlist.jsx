@@ -123,9 +123,11 @@ export default function Watchlist({ onNavigate }) {
                   <span className="watchlist-name">{stock.identifier || 'Equity'}</span>
                 </div>
                 <div className="watchlist-price-info">
-                  <div className="watchlist-price">₹{Number(lastPrice).toLocaleString()}</div>
+                  <div className="watchlist-price">
+                    {lastPrice > 0 ? `₹${Number(lastPrice).toLocaleString()}` : 'N/A'}
+                  </div>
                   <div className={`watchlist-change ${pChange >= 0 ? 'positive' : 'negative'}`}>
-                    {pChange >= 0 ? '+' : ''}{Number(pChange).toFixed(2)}%
+                    {lastPrice > 0 ? `${pChange >= 0 ? '+' : ''}${Number(pChange).toFixed(2)}%` : '-'}
                   </div>
                 </div>
                 <div className="watchlist-actions">
