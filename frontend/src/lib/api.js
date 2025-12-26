@@ -186,3 +186,10 @@ export const batchApi = async (urls, options = {}) => {
     }
   });
 };
+
+/**
+ * Get authentication token from localStorage
+ */
+export const getAuthToken = () => {
+  return localStorage.getItem('access_token');
+};

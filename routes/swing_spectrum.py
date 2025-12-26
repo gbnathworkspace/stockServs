@@ -183,6 +183,52 @@ async def get_daily_summary(
         raise HTTPException(status_code=500, detail=f"Error fetching daily summary: {str(e)}")
 
 
+@router.get("/stats")
+async def get_stats(db: Session = Depends(get_db)):
+    """
+    Get overall Swing Spectrum statistics.
+
+    Returns counts of:
+    - 52W high breakouts
+    - 52W low breakouts
+    - High momentum stocks
+    - Strong breakouts
+    """
+    cache_key = "swing_spectrum_stats"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    service = SwingSpectrumService(db)
+
+    try:
+        # Get all breakout types
+        high_breakouts = await service.get_52w_breakouts("high")
+        low_breakouts = await service.get_52w_breakouts("low")
+
+        # Count strong breakouts
+        strong_high = len([b for b in high_breakouts if b.get("breakoutStrength") == "STRONG"])
+        strong_low = len([b for b in low_breakouts if b.get("breakoutStrength") == "STRONG"])
+
+        # Count high momentum (>3% price change)
+        high_momentum = len([b for b in high_breakouts if b.get("priceChangePct", 0) >= 3])
+
+        result = {
+            "total_52w_high_breakouts": len(high_breakouts),
+            "total_52w_low_breakouts": len(low_breakouts),
+            "strong_breakouts": strong_high + strong_low,
+            "high_momentum_stocks": high_momentum,
+            "last_updated": date.today().isoformat()
+        }
+
+        # Cache for 30 seconds
+        cache.set(cache_key, result, TTL_NSE_DATA)
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching stats: {str(e)}")
+
+
 @router.get("/momentum")
 async def get_momentum_stocks(
     min_change: float = Query(3.0, description="Minimum price change % (default: 3%)"),
@@ -217,7 +263,7 @@ async def get_momentum_stocks(
         momentum_stocks.sort(key=lambda x: x["priceChangePct"], reverse=True)
 
         result = {
-            "momentum_stocks": momentum_stocks,
+            "stocks": momentum_stocks,
             "count": len(momentum_stocks),
             "min_change_pct": min_change
         }
