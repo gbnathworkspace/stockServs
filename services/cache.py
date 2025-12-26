@@ -119,3 +119,4 @@ TTL_TOP_GAINERS = 300      # 5 minutes - market movers
 TTL_TOP_LOSERS = 300       # 5 minutes - market movers
 TTL_FII_DII = 600          # 10 minutes - FII/DII activity data
 TTL_SECTOR_DATA = 300      # 5 minutes - sector heatmap data
+TTL_NSE_DATA = 30          # 30 seconds - general NSE data (Market Pulse, etc.)

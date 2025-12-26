@@ -40,10 +40,13 @@ class DataScheduler:
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self.fetch_interval_seconds = 3600  # Fetch FII/DII every hour
         self.option_clock_interval = OPTION_CLOCK_INTERVAL  # Fetch Option Clock every 15 min
+        self.market_pulse_interval = 1800  # Fetch Market Pulse every 30 min
         self.last_fetch_time: Optional[datetime] = None
         self.last_fetch_status: str = "Not started"
         self.last_option_clock_fetch: Optional[datetime] = None
         self.option_clock_status: str = "Not started"
+        self.last_market_pulse_fetch: Optional[datetime] = None
+        self.market_pulse_status: str = "Not started"
 
     def start(self):
         """Start the background scheduler in a separate thread."""
@@ -79,12 +82,13 @@ class DataScheduler:
         # Initial fetch on startup
         await self._fetch_all_data()
 
-        # Track last Option Clock fetch time separately (more frequent)
+        # Track last fetch times separately
         last_oc_check = datetime.now()
+        last_mp_check = datetime.now()
 
         while self._running:
             try:
-                # Check every minute for Option Clock (to hit 15-min intervals accurately)
+                # Check every minute for periodic tasks
                 await asyncio.sleep(60)
 
                 now = datetime.now()
@@ -99,6 +103,12 @@ class DataScheduler:
                 if time_since_oc >= self.option_clock_interval:
                     await self._fetch_option_clock_data()
                     last_oc_check = now
+
+                # Market Pulse: Fetch every 30 minutes during market hours
+                time_since_mp = (now - last_mp_check).total_seconds()
+                if time_since_mp >= self.market_pulse_interval:
+                    await self._fetch_market_pulse_data()
+                    last_mp_check = now
 
                 # FII/DII: Fetch every hour
                 if self.last_fetch_time:
@@ -314,6 +324,41 @@ class DataScheduler:
                 continue
         return None
 
+    async def _fetch_market_pulse_data(self):
+        """Fetch and store Market Pulse data (bulk deals, snapshots)."""
+        from services.market_pulse_service import MarketPulseService
+
+        db = SessionLocal()
+        try:
+            service = MarketPulseService(db)
+
+            # Fetch and store bulk/block deals
+            await service.fetch_and_store_bulk_deals()
+
+            # Generate snapshot
+            await service.generate_snapshot()
+
+            self.last_market_pulse_fetch = datetime.now()
+            self.market_pulse_status = "Success"
+            print("[SCHEDULER] Market Pulse data fetched successfully")
+
+            # At market close (after 3:30 PM), create daily summary
+            now = datetime.now()
+            if now.hour == 15 and now.minute >= 30:
+                await service.generate_daily_summary()
+                print("[SCHEDULER] Market Pulse daily summary generated")
+
+            # Update volume baselines after market close (around 6 PM)
+            if now.hour == 18 and now.minute < 30:
+                await service.update_volume_baselines()
+                print("[SCHEDULER] Volume baselines updated")
+
+        except Exception as e:
+            print(f"[SCHEDULER] Market Pulse fetch failed: {e}")
+            self.market_pulse_status = f"Error: {str(e)}"
+        finally:
+            db.close()
+
     def get_status(self) -> dict:
         """Get current scheduler status."""
         return {
@@ -327,6 +372,11 @@ class DataScheduler:
                 "last_fetch_time": self.last_option_clock_fetch.isoformat() if self.last_option_clock_fetch else None,
                 "status": self.option_clock_status,
                 "interval_seconds": self.option_clock_interval,
+            },
+            "market_pulse": {
+                "last_fetch_time": self.last_market_pulse_fetch.isoformat() if self.last_market_pulse_fetch else None,
+                "status": self.market_pulse_status,
+                "interval_seconds": self.market_pulse_interval,
             }
         }
 
