@@ -67,6 +67,12 @@ const menuItems = [
     subsections: []
   },
   {
+    id: 'documentation',
+    label: 'Platform Guide',
+    icon: '📖',
+    subsections: []
+  },
+  {
     id: 'settings',
     label: 'Settings',
     icon: '⚙️',

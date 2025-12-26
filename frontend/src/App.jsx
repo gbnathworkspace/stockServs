@@ -18,6 +18,7 @@ import MarketPulse from './components/sections/MarketPulse.jsx';
 import InsiderStrategy from './components/sections/InsiderStrategy.jsx';
 import SectorScope from './components/sections/SectorScope.jsx';
 import SwingSpectrum from './components/sections/SwingSpectrum.jsx';
+import Documentation from './components/sections/Documentation.jsx';
 import RefreshControl from './components/RefreshControl.jsx';
 
 function App() {
@@ -154,6 +155,9 @@ function App() {
       case 'settings':
         return <Settings subSection={subSection || 'profile'} />;
 
+      case 'documentation':
+        return <Documentation />;
+
       default:
         return <Dashboard onNavigate={handleSectionChange} />;
     }
@@ -189,6 +193,7 @@ function App() {
       'settings': 'Settings',
       'settings.profile': 'Profile',
       'settings.preferences': 'Preferences',
+      'documentation': 'Platform Guide',
     };
     return titles[activeSection] || titles[mainSection] || 'Dashboard';
   };
