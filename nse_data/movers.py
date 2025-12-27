@@ -102,6 +102,7 @@ async def get_all_stocks():
             if item.get("symbol"):
                 stocks.append({
                     "symbol": item.get("symbol", ""),
+                    "identifier": item.get("identifier", "Equity"),  # Add identifier field
                     "lastPrice": item.get("lastPrice", 0),
                     "pChange": item.get("pChange", 0),
                     "dayHigh": item.get("dayHigh", 0),
@@ -115,7 +116,15 @@ async def get_all_stocks():
         return result
     except Exception as e:
         # Fallback to equity list if NIFTY 100 fails
+        # Add default price fields to match expected structure
         data = await fetch_all_equities()
+        for stock in data:
+            stock["lastPrice"] = stock.get("lastPrice", 0)
+            stock["pChange"] = stock.get("pChange", 0)
+            stock["dayHigh"] = stock.get("dayHigh", 0)
+            stock["dayLow"] = stock.get("dayLow", 0)
+            stock["open"] = stock.get("open", 0)
+            stock["previousClose"] = stock.get("previousClose", 0)
         result = {"stocks": data}
         cache.set(cache_key, result, TTL_STOCK_LIST)
         return result
