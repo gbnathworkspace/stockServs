@@ -6,6 +6,14 @@ from pydantic import BaseModel
 from database.connection import get_db
 from database.models import Watchlist, WatchlistStock, User
 from routes.deps import get_current_user
+from services.cache import (
+    cache, 
+    watchlist_all_key, 
+    watchlist_stocks_key,
+    TTL_WATCHLIST,
+    TTL_WATCHLIST_STOCKS
+)
+
 
 router = APIRouter(prefix="/watchlist", tags=["Watchlist"])
 
@@ -43,6 +51,13 @@ async def get_watchlists(
     db: Session = Depends(get_db)
 ):
     """Get all user watchlists with stock counts."""
+    # Check cache first
+    cache_key = watchlist_all_key(current_user.id)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
+    # Cache miss - fetch from database
     watchlists = (
         db.query(Watchlist)
         .filter(Watchlist.user_id == current_user.id)
@@ -62,7 +77,13 @@ async def get_watchlists(
             "updated_at": wl.updated_at.isoformat() if wl.updated_at else None,
         })
     
-    return {"watchlists": result}
+    response = {"watchlists": result}
+    
+    # Cache the result
+    cache.set(cache_key, response, TTL_WATCHLIST)
+    
+    return response
+
 
 
 @router.post("")
@@ -94,6 +115,9 @@ async def create_watchlist(
     db.add(watchlist)
     db.commit()
     db.refresh(watchlist)
+    
+    # Invalidate cache - new watchlist added
+    cache.delete(watchlist_all_key(current_user.id))
     
     return {
         "id": watchlist.id,
@@ -128,6 +152,10 @@ async def update_watchlist(
     
     stock_count = db.query(WatchlistStock).filter(WatchlistStock.watchlist_id == watchlist.id).count()
     
+    # Invalidate cache - watchlist name changed
+    cache.delete(watchlist_all_key(current_user.id))
+    cache.delete(watchlist_stocks_key(current_user.id, watchlist_id))
+    
     return {
         "id": watchlist.id,
         "name": watchlist.name,
@@ -157,6 +185,10 @@ async def delete_watchlist(
     db.delete(watchlist)
     db.commit()
     
+    # Invalidate cache - watchlist deleted
+    cache.delete(watchlist_all_key(current_user.id))
+    cache.delete(watchlist_stocks_key(current_user.id, watchlist_id))
+    
     return {"message": "Watchlist deleted successfully"}
 
 
@@ -167,6 +199,13 @@ async def get_watchlist_stocks(
     db: Session = Depends(get_db)
 ):
     """Get all stocks in a watchlist with live prices."""
+    # Check cache first
+    cache_key = watchlist_stocks_key(current_user.id, watchlist_id)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
+    # Cache miss - fetch from database
     # Verify ownership
     watchlist = (
         db.query(Watchlist)
@@ -193,11 +232,17 @@ async def get_watchlist_stocks(
             "added_at": stock.added_at.isoformat() if stock.added_at else None,
         })
     
-    return {
+    response = {
         "watchlist_id": watchlist_id,
         "watchlist_name": watchlist.name,
         "stocks": result
     }
+    
+    # Cache the result
+    cache.set(cache_key, response, TTL_WATCHLIST_STOCKS)
+    
+    return response
+
 
 
 @router.post("/{watchlist_id}/stocks")
@@ -249,6 +294,10 @@ async def add_stock_to_watchlist(
     db.commit()
     db.refresh(stock)
     
+    # Invalidate cache - stock added
+    cache.delete(watchlist_all_key(current_user.id))  # Count changed
+    cache.delete(watchlist_stocks_key(current_user.id, watchlist_id))
+    
     return {
         "symbol": stock.symbol,
         "position": stock.position,
@@ -288,6 +337,10 @@ async def remove_stock_from_watchlist(
     
     db.delete(stock)
     db.commit()
+    
+    # Invalidate cache - stock removed
+    cache.delete(watchlist_all_key(current_user.id))  # Count changed
+    cache.delete(watchlist_stocks_key(current_user.id, watchlist_id))
     
     return {"message": f"{symbol} removed from watchlist"}
 
