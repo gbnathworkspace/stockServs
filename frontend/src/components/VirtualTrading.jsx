@@ -589,7 +589,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   // Global Search logic
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setFilteredStocks(watchlistStocks);
+      setFilteredStocks(allStocksForSearch.slice(0, 50));
     } else {
       const query = searchQuery.toUpperCase();
       
@@ -1449,53 +1449,43 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
               </div>
 
               {/* Available stocks list */}
+              {/* Available stocks list */}
               <div className="add-stock-list">
-                {allStocksForSearch.length === 0 ? (
-                  <div className="loading">Loading stocks...</div>
+                {filteredStocks.length === 0 && !loading.stocks ? (
+                  <div className="loading">No stocks found</div>
                 ) : (
-                  (() => {
-                    const query = searchQuery.toUpperCase();
-                    const filtered = query 
-                      ? allStocksForSearch.filter(s => s.symbol.includes(query))
-                      : allStocksForSearch;
-                    
+                  filteredStocks.map((stock) => {
                     const existingSymbols = new Set(watchlistStocks.map(s => s.symbol));
-                    
-                    return filtered.length === 0 ? (
-                      <div className="loading">No stocks found</div>
-                    ) : (
-                      filtered.slice(0, 50).map((stock) => {
-                        const alreadyAdded = existingSymbols.has(stock.symbol);
-                        return (
-                          <div
-                            key={stock.symbol}
-                            className={`add-stock-item ${alreadyAdded ? 'disabled' : ''}`}
-                            onClick={() => !alreadyAdded && addStockToWatchlist(stock.symbol)}
-                          >
-                            <div className="stock-info">
-                              <span className="stock-symbol">{stock.symbol}</span>
-                              <span className="stock-price">₹{Number(stock.lastPrice || 0).toFixed(2)}</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span className={`stock-change ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
-                                {stock.pChange >= 0 ? '+' : ''}{Number(stock.pChange || 0).toFixed(2)}%
-                              </span>
-                              {alreadyAdded ? (
-                                <span className="added-badge">✓ Added</span>
-                              ) : (
-                                <button className="add-btn-small" onClick={(e) => {
-                                  e.stopPropagation();
-                                  addStockToWatchlist(stock.symbol);
-                                }}>
-                                  + Add
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
+                    const alreadyAdded = existingSymbols.has(stock.symbol);
+                    return (
+                      <div
+                        key={stock.symbol}
+                        className={`add-stock-item ${alreadyAdded ? 'disabled' : ''}`}
+                        onClick={() => !alreadyAdded && addStockToWatchlist(stock.symbol)}
+                      >
+                        <div className="stock-info">
+                          <span className="stock-symbol">{stock.symbol}</span>
+                          <span className="stock-price">₹{Number(stock.lastPrice || 0).toFixed(2)}</span>
+                          {stock.isFno && <span className="fno-badge" style={{fontSize: '0.7rem', background: '#333', padding: '2px 4px', borderRadius: '4px', marginLeft: '6px', color: '#888'}}>F&O</span>}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className={`stock-change ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
+                            {stock.pChange >= 0 ? '+' : ''}{Number(stock.pChange || 0).toFixed(2)}%
+                          </span>
+                          {alreadyAdded ? (
+                            <span className="added-badge">✓ Added</span>
+                          ) : (
+                            <button className="add-btn-small" onClick={(e) => {
+                              e.stopPropagation();
+                              addStockToWatchlist(stock.symbol);
+                            }}>
+                              + Add
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     );
-                  })()
+                  })
                 )}
               </div>
             </div>
