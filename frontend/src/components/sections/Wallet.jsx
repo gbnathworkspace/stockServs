@@ -160,7 +160,7 @@ export default function Wallet({ subSection, onNavigate }) {
 
         <div className="wallet-plans-section">
           <h3>Subscription Plans (Reset Balance)</h3>
-          <p className="section-subtitle">Choose a plan to reset your virtual trading capital.</p>
+          <p className="section-subtitle">Choose a plan to reset your sandbox capital.</p>
           
           <div className="wallet-stats-grid" style={{ marginTop: '1rem' }}>
             {/* Basic Plan */}

@@ -303,7 +303,7 @@ export default function Settings({ subSection }) {
           <div className="settings-item">
             <div className="settings-item-info">
               <span className="settings-item-label">Account Type</span>
-              <span className="settings-item-value">Virtual Trading (Demo)</span>
+              <span className="settings-item-value">Market Sandbox (Demo)</span>
             </div>
           </div>
 

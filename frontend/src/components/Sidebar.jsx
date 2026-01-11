@@ -39,7 +39,7 @@ const menuItems = [
   },
   {
     id: 'trading',
-    label: 'Virtual Trading',
+    label: 'Market Sandbox',
     icon: TrendingUp,
     subsections: []
   },
@@ -175,7 +175,7 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
       <div className="sidebar-footer">
         {!collapsed && (
           <div className="sidebar-footer-content">
-            <span className="footer-label">Paper Trading Mode</span>
+            <span className="footer-label">Market Sandbox Mode</span>
             <span className="footer-badge">Demo</span>
           </div>
         )}

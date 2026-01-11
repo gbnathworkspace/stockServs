@@ -168,7 +168,7 @@ function App() {
       'products.insider-strategy': 'Insider Strategy',
       'products.sector-scope': 'Sector Scope',
       'products.swing-spectrum': 'Swing Spectrum',
-      'trading': 'Virtual Trading',
+      'trading': 'Market Sandbox',
       'real-trading': 'Market Connect',
       'market': 'Market Data',
       'market.gainers': 'Top Gainers',

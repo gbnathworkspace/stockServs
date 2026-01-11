@@ -93,24 +93,21 @@ async def create_watchlist(
     db: Session = Depends(get_db)
 ):
     """Create a new watchlist."""
+    from sqlalchemy import func
+
     # Check if user already has 15 watchlists
     count = db.query(Watchlist).filter(Watchlist.user_id == current_user.id).count()
     if count >= 15:
         raise HTTPException(status_code=400, detail="Maximum 15 watchlists allowed")
     
-    # Check if position is already taken
-    existing = (
-        db.query(Watchlist)
-        .filter(Watchlist.user_id == current_user.id, Watchlist.position == data.position)
-        .first()
-    )
-    if existing:
-        raise HTTPException(status_code=400, detail="Position already occupied")
+    # Calculate next position automatically
+    max_pos = db.query(func.max(Watchlist.position)).filter(Watchlist.user_id == current_user.id).scalar()
+    next_position = (max_pos + 1) if max_pos is not None else 0
     
     watchlist = Watchlist(
         user_id=current_user.id,
         name=data.name,
-        position=data.position
+        position=next_position
     )
     db.add(watchlist)
     db.commit()
@@ -350,36 +347,40 @@ async def initialize_default_watchlists(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Initialize default watchlist with top 5 stocks for new users."""
+    """Initialize default 5 watchlists for new users."""
     # Check if user already has watchlists
     existing = db.query(Watchlist).filter(Watchlist.user_id == current_user.id).first()
     if existing:
         raise HTTPException(status_code=400, detail="Watchlists already initialized")
     
-    # Create Watchlist 1
-    watchlist = Watchlist(
-        user_id=current_user.id,
-        name="Watchlist 1",
-        position=0
-    )
-    db.add(watchlist)
-    db.commit()
-    db.refresh(watchlist)
+    created_watchlists = []
     
-    # Add top 5 stocks
-    default_stocks = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"]
-    for i, symbol in enumerate(default_stocks):
-        stock = WatchlistStock(
-            watchlist_id=watchlist.id,
-            symbol=symbol,
+    # Create 5 watchlists
+    for i in range(5):
+        watchlist = Watchlist(
+            user_id=current_user.id,
+            name=f"Watchlist {i + 1}",
             position=i
         )
-        db.add(stock)
-    
+        db.add(watchlist)
+        db.flush() # Flush to get ID
+        
+        # Add default stocks only to the first watchlist
+        if i == 0:
+            default_stocks = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"]
+            for idx, symbol in enumerate(default_stocks):
+                stock = WatchlistStock(
+                    watchlist_id=watchlist.id,
+                    symbol=symbol,
+                    position=idx
+                )
+                db.add(stock)
+        
+        created_watchlists.append(watchlist)
+
     db.commit()
     
     return {
-        "message": "Default watchlist created",
-        "watchlist_id": watchlist.id,
-        "stocks": default_stocks
+        "message": "Default watchlists created",
+        "count": len(created_watchlists)
     }
