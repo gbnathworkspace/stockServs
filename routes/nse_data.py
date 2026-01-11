@@ -5,6 +5,7 @@ from nse_data.most_active import router as most_active_router
 from nse_data.high_low import router as high_low_router
 from nse_data.bulk_deals import router as bulk_deals_router
 from nse_data.indices import router as indices_router
+from nse_data.fno import router as fno_router
 from nse_data.weekly_gainers import get_weekly_gainers_losers
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -20,6 +21,7 @@ router.include_router(most_active_router, prefix="", tags=["Most Active"])
 router.include_router(high_low_router, prefix="", tags=["52-Week High/Low"])
 router.include_router(bulk_deals_router, prefix="", tags=["Bulk/Block Deals"])
 router.include_router(indices_router, prefix="", tags=["Indices"])
+router.include_router(fno_router, prefix="/fno", tags=["Futures & Options"])
 
 
 @router.get("/status")

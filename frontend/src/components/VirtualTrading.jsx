@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createChart, CrosshairMode, LineStyle } from 'lightweight-charts';
 import { authApi, fastAuthApi } from '../lib/api.js';
 import useAutoRefresh, { useRelativeTime } from '../hooks/useAutoRefresh';
+import MarketStatus from './MarketStatus';
+import OptionChain from './OptionChain';
 import '../watchlist.css';
 
 const API_BASE_URL = window.location.origin;
@@ -770,11 +772,20 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
         >
           Order History
         </button>
+        <button
+          className={`virtual-tab ${activeTab === 'fno' ? 'active' : ''}`}
+          onClick={() => setActiveTab('fno')}
+        >
+          Option Chain
+        </button>
       </div>
 
       {/* Stocks & Trading Tab - Watchlist View */}
       {activeTab === 'stocks' && (
         <div className="virtual-stocks-container">
+          {/* Market Status Bar (Indices) */}
+          <MarketStatus />
+
           {/* Watchlist Tabs */}
           <div className="watchlist-tabs-container">
             <div className="watchlist-tabs">
@@ -1292,6 +1303,11 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
             </table>
           </div>
         </div>
+      )}
+
+      {/* Option Chain Tab */}
+      {activeTab === 'fno' && (
+        <OptionChain symbol="NIFTY" onClose={() => setActiveTab('stocks')} />
       )}
 
       {/* Add Stock Modal */}
