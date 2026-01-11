@@ -398,7 +398,10 @@ async def search_derivatives(query: str = Query(..., min_length=2)):
     
     # Identify underlying
     symbol = None
-    for s in INDEX_FO_SYMBOLS:
+    # Sort symbols by length descending to ensure BANKNIFTY matches before NIFTY
+    sorted_indices = sorted(INDEX_FO_SYMBOLS, key=len, reverse=True)
+    
+    for s in sorted_indices:
         if s in q:
             symbol = s
             break
@@ -433,24 +436,22 @@ async def search_derivatives(query: str = Query(..., min_length=2)):
         if not symbol:
             return {"results": []}
             
-        # We reuse the logic of get_option_chain directly
-        # to avoid HTTP overhead if possible, but route function isn't easily callable directly 
-        # without mocking deps if it had any. Here it doesn't.
-        # But it's an async route handler. We can call it?
-        # Better to copy-paste reuse fetching logic or call fetch_nse_data directly.
-        
         if symbol in INDEX_FO_SYMBOLS:
             url = f"{NSE_OPTION_CHAIN_INDICES}{symbol}"
         else:
             url = f"{NSE_OPTION_CHAIN_EQUITIES}{symbol}"
 
+        # print(f"Fetching F&O Search: {symbol} -> {url}") 
         data = await fetch_nse_data(url, symbol)
         
         # Format basics
         records = data.get("records", {})
         chain_data = records.get("data", [])
         
-    except Exception:
+    except Exception as e:
+         print(f"Error in F&O search for {query}: {e}")
+         import traceback
+         traceback.print_exc()
          return {"results": []}
 
     results = []
@@ -462,16 +463,12 @@ async def search_derivatives(query: str = Query(..., min_length=2)):
         
         # Filter by strike if specified
         if strike_target:
-             if abs(strike - strike_target) > 100: # Narrow tolerance
+             # Increased tolerance to 500 to catch strikes for larger indices
+             if abs(strike - strike_target) > 500: 
                  continue
         
         # If no strike specified, restrict to near ATM?
-        # Or return top results? Too many results if no strike.
-        # If no strike, return nothing? 
-        # The user's query example "nifty 26000" HAS strike.
         if not strike_target:
-             # Just return first few? Or skip?
-             # Let's return nearest expiry ATM
              underlying = records.get("underlyingValue", 0)
              if abs(strike - underlying) > (underlying * 0.05): # +/- 5%
                  continue
@@ -498,8 +495,5 @@ async def search_derivatives(query: str = Query(..., min_length=2)):
         if is_pe: add_res(pe_data, "PE")
              
     # Sort and limit
-    # Sort by expiry date (string sort works format DD-MMM-YYYY? No. '13-Jan-2025')
-    # Use index? No, list is usually sorted by expiry.
-    # We'll trust source order.
     return {"results": results[:50]}
 
