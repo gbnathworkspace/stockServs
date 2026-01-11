@@ -637,6 +637,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   }, [searchQuery, watchlistStocks, allStocksForSearch]);
 
   // Load data on mount
+  useEffect(() => {
     fetchPortfolio();
     fetchFyersData();
     fetchAllStocksForSearch();

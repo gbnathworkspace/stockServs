@@ -168,7 +168,6 @@ function App() {
       'products.insider-strategy': 'Insider Strategy',
       'products.sector-scope': 'Sector Scope',
       'products.swing-spectrum': 'Swing Spectrum',
-      'products.swing-spectrum': 'Swing Spectrum',
       'trading': 'Virtual Trading',
       'real-trading': 'Market Connect',
       'market': 'Market Data',
