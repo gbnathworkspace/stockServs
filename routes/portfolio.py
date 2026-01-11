@@ -4,13 +4,14 @@ from typing import List, Dict, Any
 
 from database.connection import get_db
 from routes.deps import get_current_user
-from schemas.portfolio import TradePayload, PortfolioResponse, TradeResponse
+from schemas.portfolio import TradePayload, PortfolioResponse, TradeResponse, FundsPayload
 from services.portfolio_service import (
     get_portfolio_holdings,
     execute_trade,
     get_portfolio_summary,
     get_wallet_balance,
-    get_order_history
+    get_order_history,
+    manage_funds
 )
 
 router = APIRouter(prefix="/portfolio", tags=["Portfolio"])
@@ -50,3 +51,10 @@ async def get_orders(
 async def place_trade(payload: TradePayload, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     result = execute_trade(db, current_user.id, payload)
     return TradeResponse(**result)
+
+
+@router.post("/funds")
+async def add_funds(payload: FundsPayload, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """Add funds or set wallet balance."""
+    new_balance = manage_funds(db, current_user.id, payload)
+    return {"wallet_balance": new_balance, "message": "Wallet updated successfully"}

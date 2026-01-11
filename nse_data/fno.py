@@ -12,6 +12,8 @@ import httpx
 import asyncio
 from typing import Optional
 from datetime import datetime
+import re
+
 
 from services.cache import cache
 
@@ -385,7 +387,119 @@ async def get_oi_analysis(symbol: str):
             "timestamp": datetime.now().isoformat(),
         }
         
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to analyze OI: {str(e)}")
+
+
+@router.get("/search")
+async def search_derivatives(query: str = Query(..., min_length=2)):
+    """Search for F&O contracts (e.g. 'NIFTY 26000 CE')."""
+    q = query.upper().strip()
+    
+    # Identify underlying
+    symbol = None
+    for s in INDEX_FO_SYMBOLS:
+        if s in q:
+            symbol = s
+            break
+            
+    # If not index, check popular stocks
+    if not symbol:
+        for s in POPULAR_STOCK_FO:
+            if s in q:
+                symbol = s
+                break
+                
+    if not symbol:
+        # Try to treat the first word as symbol if it looks valid
+        parts = q.split()
+        if parts and parts[0].isalpha():
+            symbol = parts[0]
+
+    # Parse strike
+    strike_match = re.search(r'(\d+)', q) 
+    strike_target = float(strike_match.group(1)) if strike_match else None
+    
+    # Parse type
+    is_ce = "CE" in q or "CALL" in q
+    is_pe = "PE" in q or "PUT" in q
+    if not is_ce and not is_pe:
+        is_ce = True
+        is_pe = True
+
+    # Fetch Data
+    try:
+        # If symbol is generic, we can't fetch. Need valid symbol.
+        if not symbol:
+            return {"results": []}
+            
+        # We reuse the logic of get_option_chain directly
+        # to avoid HTTP overhead if possible, but route function isn't easily callable directly 
+        # without mocking deps if it had any. Here it doesn't.
+        # But it's an async route handler. We can call it?
+        # Better to copy-paste reuse fetching logic or call fetch_nse_data directly.
+        
+        if symbol in INDEX_FO_SYMBOLS:
+            url = f"{NSE_OPTION_CHAIN_INDICES}{symbol}"
+        else:
+            url = f"{NSE_OPTION_CHAIN_EQUITIES}{symbol}"
+
+        data = await fetch_nse_data(url, symbol)
+        
+        # Format basics
+        records = data.get("records", {})
+        chain_data = records.get("data", [])
+        
+    except Exception:
+         return {"results": []}
+
+    results = []
+    
+    # Filter
+    for item in chain_data:
+        expiry = item.get("expiryDate", "")
+        strike = item.get("strikePrice", 0)
+        
+        # Filter by strike if specified
+        if strike_target:
+             if abs(strike - strike_target) > 100: # Narrow tolerance
+                 continue
+        
+        # If no strike specified, restrict to near ATM?
+        # Or return top results? Too many results if no strike.
+        # If no strike, return nothing? 
+        # The user's query example "nifty 26000" HAS strike.
+        if not strike_target:
+             # Just return first few? Or skip?
+             # Let's return nearest expiry ATM
+             underlying = records.get("underlyingValue", 0)
+             if abs(strike - underlying) > (underlying * 0.05): # +/- 5%
+                 continue
+
+        ce_data = item.get("CE")
+        pe_data = item.get("PE")
+        
+        # Helper to add result
+        def add_res(d, type_code):
+            if d and d.get("lastPrice", 0) > 0:
+                results.append({
+                     "identifier": f"{symbol} {expiry} {strike} {type_code}",
+                     "display": f"{symbol} {expiry} {strike} {type_code}",
+                     "symbol": symbol,
+                     "expiry": expiry,
+                     "strike": strike,
+                     "type": type_code,
+                     "ltp": d.get("lastPrice"),
+                     "change": d.get("change"),
+                     "pChange": d.get("pChange")
+                 })
+
+        if is_ce: add_res(ce_data, "CE")
+        if is_pe: add_res(pe_data, "PE")
+             
+    # Sort and limit
+    # Sort by expiry date (string sort works format DD-MMM-YYYY? No. '13-Jan-2025')
+    # Use index? No, list is usually sorted by expiry.
+    # We'll trust source order.
+    return {"results": results[:50]}
+

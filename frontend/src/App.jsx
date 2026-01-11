@@ -145,8 +145,7 @@ function App() {
         }
         return <MarketData subSection={subSection || 'gainers'} />;
 
-      case 'wallet':
-        return <Wallet subSection={subSection || 'balance'} onNavigate={handleSectionChange} />;
+
 
       case 'watchlist':
         return <Watchlist onNavigate={handleSectionChange} />;
@@ -169,12 +168,9 @@ function App() {
       'products.insider-strategy': 'Insider Strategy',
       'products.sector-scope': 'Sector Scope',
       'products.swing-spectrum': 'Swing Spectrum',
+      'products.swing-spectrum': 'Swing Spectrum',
       'trading': 'Virtual Trading',
-      'trading.trade': 'Trade Stocks',
-      'trading.portfolio': 'My Portfolio',
-      'trading.orders': 'Order History',
-      'real-trading': 'Real Trading',
-      'real-trading.fyers': 'Fyers Trading',
+      'real-trading': 'Market Connect',
       'market': 'Market Data',
       'market.gainers': 'Top Gainers',
       'market.losers': 'Top Losers',
@@ -182,9 +178,7 @@ function App() {
       'market.fii-dii': 'FII / DII Activity',
       'market.weekly': 'Weekly Movers',
       'market.bulk': 'Bulk Deals',
-      'wallet': 'Wallet',
-      'wallet.balance': 'Balance',
-      'wallet.transactions': 'Transactions',
+
       'watchlist': 'Watchlist',
       'settings': 'Settings',
       'settings.profile': 'Profile',

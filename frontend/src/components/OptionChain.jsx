@@ -18,7 +18,7 @@ const styles = {
   atm: { background: 'rgba(255, 215, 0, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)' },
 };
 
-const OptionChain = ({ symbol = 'NIFTY', onClose }) => {
+const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
   const [chainData, setChainData] = useState(null);
   const [expiryDates, setExpiryDates] = useState([]);
   const [selectedExpiry, setSelectedExpiry] = useState('');
@@ -133,6 +133,18 @@ const OptionChain = ({ symbol = 'NIFTY', onClose }) => {
                     <td style={{...styles.td, ...styles.callBg}}>{row.CE?.totalTradedVolume?.toLocaleString() || '-'}</td>
                     <td style={{...styles.td, ...styles.callBg, color: row.CE?.change >= 0 ? '#00d09c' : '#ff4d4d'}}>
                       {row.CE?.lastPrice?.toFixed(2) || '-'}
+                      {row.CE && onSelectToken && (
+                        <div style={{display:'flex', gap:'2px', justifyContent:'center', marginTop:'2px', opacity: 0.8}}>
+                           <button 
+                             style={{fontSize:'10px', padding:'1px 4px', cursor:'pointer', background:'#00d09c', border:'none', borderRadius:'2px', color:'black'}} 
+                             onClick={() => onSelectToken({...row.CE, symbol: selectedSymbol, expiry: row.expiryDate, strike: row.strikePrice, type: 'CE'})}
+                           >B</button>
+                           <button 
+                             style={{fontSize:'10px', padding:'1px 4px', cursor:'pointer', background:'#ff4d4d', border:'none', borderRadius:'2px', color:'white'}} 
+                             onClick={() => onSelectToken({...row.CE, symbol: selectedSymbol, expiry: row.expiryDate, strike: row.strikePrice, type: 'CE'})}
+                           >S</button>
+                        </div>
+                      )}
                     </td>
                     <td style={{...styles.td, ...styles.callBg, color: row.CE?.pChange >= 0 ? '#00d09c' : '#ff4d4d'}}>
                       {row.CE?.pChange?.toFixed(1)}%
@@ -147,6 +159,18 @@ const OptionChain = ({ symbol = 'NIFTY', onClose }) => {
                     </td>
                     <td style={{...styles.td, ...styles.putBg, color: row.PE?.change >= 0 ? '#00d09c' : '#ff4d4d'}}>
                       {row.PE?.lastPrice?.toFixed(2) || '-'}
+                      {row.PE && onSelectToken && (
+                        <div style={{display:'flex', gap:'2px', justifyContent:'center', marginTop:'2px', opacity: 0.8}}>
+                           <button 
+                             style={{fontSize:'10px', padding:'1px 4px', cursor:'pointer', background:'#00d09c', border:'none', borderRadius:'2px', color:'black'}} 
+                             onClick={() => onSelectToken({...row.PE, symbol: selectedSymbol, expiry: row.expiryDate, strike: row.strikePrice, type: 'PE'})}
+                           >B</button>
+                           <button 
+                             style={{fontSize:'10px', padding:'1px 4px', cursor:'pointer', background:'#ff4d4d', border:'none', borderRadius:'2px', color:'white'}} 
+                             onClick={() => onSelectToken({...row.PE, symbol: selectedSymbol, expiry: row.expiryDate, strike: row.strikePrice, type: 'PE'})}
+                           >S</button>
+                        </div>
+                      )}
                     </td>
                     <td style={{...styles.td, ...styles.putBg}}>{row.PE?.totalTradedVolume?.toLocaleString() || '-'}</td>
                     <td style={{...styles.td, ...styles.putBg}}>{row.PE?.openInterest?.toLocaleString() || '-'}</td>

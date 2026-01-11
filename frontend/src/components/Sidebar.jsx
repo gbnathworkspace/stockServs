@@ -41,19 +41,13 @@ const menuItems = [
     id: 'trading',
     label: 'Virtual Trading',
     icon: TrendingUp,
-    subsections: [
-      { id: 'trade', label: 'Trade Stocks' },
-      { id: 'portfolio', label: 'My Portfolio' },
-      { id: 'orders', label: 'Order History' },
-    ]
+    subsections: []
   },
   {
     id: 'real-trading',
-    label: 'Real Trading',
+    label: 'Market Connect',
     icon: Building2,
-    subsections: [
-      { id: 'fyers', label: 'Fyers', icon: LineChart },
-    ]
+    subsections: []
   },
   {
     id: 'market',
@@ -68,15 +62,7 @@ const menuItems = [
       { id: 'bulk', label: 'Bulk Deals' },
     ]
   },
-  {
-    id: 'wallet',
-    label: 'Wallet',
-    icon: Wallet,
-    subsections: [
-      { id: 'balance', label: 'Balance' },
-      { id: 'transactions', label: 'Transactions' },
-    ]
-  },
+
   {
     id: 'watchlist',
     label: 'Watchlist',

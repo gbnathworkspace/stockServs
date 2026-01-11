@@ -4,6 +4,7 @@ import { authApi, fastAuthApi } from '../lib/api.js';
 import useAutoRefresh, { useRelativeTime } from '../hooks/useAutoRefresh';
 import MarketStatus from './MarketStatus';
 import OptionChain from './OptionChain';
+import Wallet from './sections/Wallet';
 import '../watchlist.css';
 
 const API_BASE_URL = window.location.origin;
@@ -33,6 +34,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState({ stocks: false, portfolio: false, trade: false, wallet: false, fyers: false, watchlists: false });
   const [tradeForm, setTradeForm] = useState({ quantity: 1, price: '', orderType: 'market', broker: 'virtual' });
+  const [walletSubSection, setWalletSubSection] = useState('balance');
   const [fyersConnected, setFyersConnected] = useState(false);
   const [fyersHoldings, setFyersHoldings] = useState([]);
   const [showFyersPortfolio, setShowFyersPortfolio] = useState(false);
@@ -584,20 +586,60 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   };
 
   // Filter watchlist stocks by search
+  // Global Search logic
   useEffect(() => {
     if (!searchQuery.trim()) {
       setFilteredStocks(watchlistStocks);
     } else {
       const query = searchQuery.toUpperCase();
-      setFilteredStocks(watchlistStocks.filter((s) => s.symbol.includes(query)));
+      
+      // Local stock search
+      const localMatches = allStocksForSearch.filter(s => s.symbol.includes(query)).slice(0, 20);
+      
+      // Perform Search
+      const runSearch = async () => {
+          setLoading(l => ({...l, stocks: true}));
+          
+          let fnoMatches = [];
+          // If query looks like F&O or Index
+          if (/\d/.test(query) || /CE|PE|CALL|PUT/i.test(query) || /NIFTY|BANK/i.test(query)) {
+               try {
+                  const res = await fastAuthApi(`${API_BASE_URL}/nse_data/fno/search?query=${encodeURIComponent(query)}`);
+                  if (res.results) {
+                      fnoMatches = res.results.map(i => ({
+                          symbol: i.identifier,
+                          lastPrice: i.ltp,
+                          pChange: i.pChange,
+                          isFno: true,
+                          ...i
+                      }));
+                  }
+               } catch (e) {
+                   console.error("F&O Search failed", e);
+               }
+          }
+          
+          let combined = [];
+          if (fnoMatches.length > 0) {
+              combined = [...fnoMatches, ...localMatches];
+          } else {
+              combined = localMatches;
+          }
+          
+          setFilteredStocks(combined);
+          setLoading(l => ({...l, stocks: false}));
+      };
+      
+      // debounce slightly
+      const timer = setTimeout(runSearch, 300);
+      return () => clearTimeout(timer);
     }
-  }, [searchQuery, watchlistStocks]);
+  }, [searchQuery, watchlistStocks, allStocksForSearch]);
 
   // Load data on mount
-  useEffect(() => {
-    fetchWatchlists();
     fetchPortfolio();
     fetchFyersData();
+    fetchAllStocksForSearch();
   }, []);
 
   // Note: Auto-refresh for stocks is handled by useAutoRefresh hook (line 56)
@@ -753,32 +795,29 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       )}
 
       {/* Tab switcher */}
-      <div className="virtual-tabs">
-        <button
-          className={`virtual-tab ${activeTab === 'stocks' ? 'active' : ''}`}
-          onClick={() => setActiveTab('stocks')}
-        >
-          Trade Stocks
-        </button>
-        <button
-          className={`virtual-tab ${activeTab === 'portfolio' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('portfolio'); fetchPortfolio(); }}
-        >
-          Portfolio
-        </button>
-        <button
-          className={`virtual-tab ${activeTab === 'orders' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('orders'); fetchOrders(); }}
-        >
-          Order History
-        </button>
-        <button
-          className={`virtual-tab ${activeTab === 'fno' ? 'active' : ''}`}
-          onClick={() => setActiveTab('fno')}
-        >
-          Option Chain
-        </button>
+      <div className="section-tabs" style={{marginBottom: '1rem', display: 'flex', gap: '8px', borderBottom: '1px solid #444c56', paddingBottom: '8px', overflowX: 'auto'}}>
+         <button 
+           className={`virtual-tab ${activeTab === 'stocks' ? 'active' : ''}`}
+           onClick={() => setActiveTab('stocks')}
+         >Trade</button>
+         <button 
+           className={`virtual-tab ${activeTab === 'portfolio' ? 'active' : ''}`}
+           onClick={() => setActiveTab('portfolio')}
+         >Portfolio</button>
+         <button 
+           className={`virtual-tab ${activeTab === 'orders' ? 'active' : ''}`}
+           onClick={() => setActiveTab('orders')}
+         >Orders</button>
+         <button 
+           className={`virtual-tab ${activeTab === 'fno' ? 'active' : ''}`}
+           onClick={() => setActiveTab('fno')}
+         >Option Chain</button>
+         <button 
+           className={`virtual-tab ${activeTab === 'wallet' ? 'active' : ''}`}
+           onClick={() => setActiveTab('wallet')}
+         >Wallet</button>
       </div>
+
 
       {/* Stocks & Trading Tab - Watchlist View */}
       {activeTab === 'stocks' && (
@@ -865,6 +904,12 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
                 + Add Stock
               </button>
               <button 
+                className="secondary-btn"
+                onClick={() => setActiveTab('fno')}
+              >
+                Option Chain
+              </button>
+              <button 
                 className="ghost-btn" 
                 onClick={() => activeWatchlist && fetchWatchlistStocks(activeWatchlist.id)} 
                 disabled={loading.stocks}
@@ -878,7 +923,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
           <div className="search-row">
             <input
               type="text"
-              placeholder="Search symbol in watchlist..."
+              placeholder="Search stocks, indices, or F&O (e.g. NIFTY 26000)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="search-input"
@@ -907,21 +952,37 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
                     <span className="stock-price">₹{Number(stock.lastPrice || 0).toFixed(2)}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span className={`stock-change ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
-                      {stock.pChange >= 0 ? '+' : ''}{Number(stock.pChange || 0).toFixed(2)}%
-                    </span>
-                    <button
-                      className="remove-stock-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm(`Remove ${stock.symbol} from watchlist?`)) {
-                          removeStockFromWatchlist(stock.symbol);
-                        }
-                      }}
-                      title="Remove from watchlist"
-                    >
-                      ×
-                    </button>
+                    {stock.isFno ? (
+                        <div className="fno-actions" style={{display: 'flex', gap: '4px'}}>
+                           <button 
+                             style={{background:'#00d09c', color:'black', border:'none', borderRadius:'4px', padding:'2px 8px', fontSize:'12px', fontWeight:'bold', cursor:'pointer'}}
+                             onClick={(e) => { e.stopPropagation(); handleSelectStock(stock); }}
+                           >B</button>
+                           <button 
+                             style={{background:'#ff4d4d', color:'white', border:'none', borderRadius:'4px', padding:'2px 8px', fontSize:'12px', fontWeight:'bold', cursor:'pointer'}}
+                             onClick={(e) => { e.stopPropagation(); handleSelectStock(stock); }}
+                           >S</button>
+                        </div>
+                    ) : (
+                        <span className={`stock-change ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
+                           {stock.pChange >= 0 ? '+' : ''}{Number(stock.pChange || 0).toFixed(2)}%
+                        </span>
+                    )}
+                    
+                    {!stock.isFno && !searchQuery && (
+                        <button
+                          className="remove-stock-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Remove ${stock.symbol} from watchlist?`)) {
+                              removeStockFromWatchlist(stock.symbol);
+                            }
+                          }}
+                          title="Remove from watchlist"
+                        >
+                          ×
+                        </button>
+                    )}
                   </div>
                 </div>
               ))
@@ -1307,7 +1368,61 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
 
       {/* Option Chain Tab */}
       {activeTab === 'fno' && (
-        <OptionChain symbol="NIFTY" onClose={() => setActiveTab('stocks')} />
+        <OptionChain 
+          symbol="NIFTY" 
+          onClose={() => setActiveTab('stocks')} 
+          onSelectToken={(token) => {
+              const stockObj = {
+                  symbol: token.identifier || `${token.symbol} ${token.expiry} ${token.strike} ${token.type}`,
+                  lastPrice: token.ltp,
+                  pChange: token.pChange,
+                  isFno: true
+              };
+              // Default lot size logic? Nifty 50, BankNifty 15.
+              let qty = 1;
+              if (token.symbol === 'NIFTY') qty = 50;
+              else if (token.symbol === 'BANKNIFTY') qty = 15;
+              
+              setSelectedStock(stockObj);
+              setTradeForm({
+                  quantity: qty,
+                  price: stockObj.lastPrice?.toFixed(2) || '',
+                  orderType: 'market',
+                  broker: 'virtual'
+              });
+          }}
+        />
+      )}
+
+      {/* Wallet Tab */}
+      {activeTab === 'wallet' && (
+        <div className="wallet-container" style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
+           <div className="wallet-nav" style={{display: 'flex', gap: '1rem', padding: '0.5rem 0', marginBottom: '1rem'}}>
+              <button 
+                className={`secondary-btn ${walletSubSection === 'balance' ? 'active-sub' : ''}`}
+                style={{borderColor: walletSubSection === 'balance' ? '#00d09c' : '#444c56'}}
+                onClick={() => setWalletSubSection('balance')}
+              >Overview</button>
+              <button 
+                className={`secondary-btn ${walletSubSection === 'funds' ? 'active-sub' : ''}`}
+                style={{borderColor: walletSubSection === 'funds' ? '#00d09c' : '#444c56'}}
+                onClick={() => setWalletSubSection('funds')}
+              >Add Funds</button>
+              <button 
+                className={`secondary-btn ${walletSubSection === 'transactions' ? 'active-sub' : ''}`}
+                style={{borderColor: walletSubSection === 'transactions' ? '#00d09c' : '#444c56'}}
+                onClick={() => setWalletSubSection('transactions')}
+              >Transactions</button>
+           </div>
+           <Wallet 
+             subSection={walletSubSection} 
+             onNavigate={(target) => {
+                 if (target && target.includes('funds')) setWalletSubSection('funds');
+                 else if (target && target.includes('transactions')) setWalletSubSection('transactions');
+                 else setWalletSubSection('balance');
+             }}
+           />
+        </div>
       )}
 
       {/* Add Stock Modal */}

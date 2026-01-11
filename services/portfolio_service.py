@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import yfinance as yf
 
 from database.models import VirtualHolding, VirtualWallet, VirtualOrder
-from schemas.portfolio import TradePayload, HoldingOut
+from schemas.portfolio import TradePayload, HoldingOut, FundsPayload
 from services.cache import cache, stock_price_key, TTL_STOCK_PRICE
 
 
@@ -321,3 +321,17 @@ def execute_trade(db: Session, user_id: int, payload: TradePayload) -> Dict[str,
             "market_price": current_ltp
         }
     }
+
+
+def manage_funds(db: Session, user_id: int, payload: FundsPayload) -> float:
+    """Add funds or set wallet balance."""
+    wallet = get_or_create_wallet(db, user_id)
+    
+    if payload.type == "SET":
+        wallet.balance = payload.amount
+    else:
+        wallet.balance += payload.amount
+        
+    db.commit()
+    db.refresh(wallet)
+    return wallet.balance
