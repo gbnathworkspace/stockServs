@@ -28,6 +28,8 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const [stocks, setStocks] = useState([]);
   const [filteredStocks, setFilteredStocks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchPage, setSearchPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [selectedStock, setSelectedStock] = useState(null);
   const [portfolio, setPortfolio] = useState([]);
   const [walletBalance, setWalletBalance] = useState(100000);
@@ -585,6 +587,35 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     }
   };
 
+  // Load more search results
+  const handleLoadMore = async () => {
+    if (loading.stocks || !hasMore) return;
+    
+    const nextPage = searchPage + 1;
+    const query = searchQuery.toUpperCase();
+    
+    setLoading(l => ({...l, stocks: true}));
+    try {
+      const res = await fastAuthApi(`${API_BASE_URL}/nse_data/fno/search?query=${encodeURIComponent(query)}&page=${nextPage}&limit=20`);
+      if (res.results) {
+        const newMatches = res.results.map(i => ({
+          symbol: i.identifier,
+          lastPrice: i.ltp,
+          pChange: i.pChange,
+          isFno: true,
+          ...i
+        }));
+        setFilteredStocks(prev => [...prev, ...newMatches]);
+        setSearchPage(nextPage);
+        setHasMore(newMatches.length === 20 && res.total > (nextPage * 20));
+      }
+    } catch (e) {
+      console.error("Load more failed", e);
+    } finally {
+      setLoading(l => ({...l, stocks: false}));
+    }
+  };
+
   // Filter watchlist stocks by search
   // Global Search logic
   useEffect(() => {
@@ -599,13 +630,16 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       // Perform Search
       const runSearch = async () => {
           setLoading(l => ({...l, stocks: true}));
+          setSearchPage(1);
+          setHasMore(false);
           
           let fnoMatches = [];
           // If query looks like F&O or Index
           if (/\d/.test(query) || /CE|PE|CALL|PUT/i.test(query) || /NIFTY|BANK/i.test(query)) {
                try {
-                  const res = await fastAuthApi(`${API_BASE_URL}/nse_data/fno/search?query=${encodeURIComponent(query)}`);
+                  const res = await fastAuthApi(`${API_BASE_URL}/nse_data/fno/search?query=${encodeURIComponent(query)}&page=1&limit=20`);
                   if (res.results) {
+                      setHasMore(res.results.length === 20 && res.total > 20);
                       fnoMatches = res.results.map(i => ({
                           symbol: i.identifier,
                           lastPrice: i.ltp,
@@ -1486,6 +1520,27 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
                       </div>
                     );
                   })
+                )}
+
+                {hasMore && (
+                  <button 
+                    className="load-more-btn" 
+                    onClick={handleLoadMore} 
+                    disabled={loading.stocks}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px dashed rgba(255, 255, 255, 0.1)',
+                      borderRadius: '8px',
+                      color: '#888',
+                      marginTop: '10px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {loading.stocks ? 'Loading...' : 'Load More Results'}
+                  </button>
                 )}
               </div>
             </div>

@@ -47,6 +47,8 @@ class DataScheduler:
         self.option_clock_status: str = "Not started"
         self.last_market_pulse_fetch: Optional[datetime] = None
         self.market_pulse_status: str = "Not started"
+        self.last_fyers_sync: Optional[datetime] = None
+        self.fyers_sync_status: str = "Not started"
 
     def start(self):
         """Start the background scheduler in a separate thread."""
@@ -109,6 +111,11 @@ class DataScheduler:
                 if time_since_mp >= self.market_pulse_interval:
                     await self._fetch_market_pulse_data()
                     last_mp_check = now
+
+                # Fyers Symbol Sync: Once every 24 hours
+                if not self.last_fyers_sync or (now - self.last_fyers_sync).total_seconds() >= 86400:
+                    await self._sync_fyers_symbols()
+                    self.last_fyers_sync = now
 
                 # FII/DII: Fetch every hour
                 if self.last_fetch_time:
@@ -358,6 +365,17 @@ class DataScheduler:
             self.market_pulse_status = f"Error: {str(e)}"
         finally:
             db.close()
+
+    async def _sync_fyers_symbols(self):
+        """Download latest symbol master from Fyers."""
+        from services.fyers_service import download_fyers_master
+        try:
+            success = await download_fyers_master()
+            self.fyers_sync_status = "Success" if success else "Failed"
+            print(f"[SCHEDULER] Fyers symbol sync: {self.fyers_sync_status}")
+        except Exception as e:
+            print(f"[SCHEDULER] Fyers symbol sync error: {e}")
+            self.fyers_sync_status = f"Error: {str(e)}"
 
     def get_status(self) -> dict:
         """Get current scheduler status."""

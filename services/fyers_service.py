@@ -1,5 +1,11 @@
-from fyers_apiv3 import fyersModel
 import os
+import httpx
+import csv
+import io
+import asyncio
+from typing import List, Dict, Optional
+from datetime import datetime
+from fyers_apiv3 import fyersModel
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -7,6 +13,20 @@ load_dotenv()
 FYERS_CLIENT_ID = os.getenv("FYERS_CLIENT_ID")
 FYERS_SECRET_KEY = os.getenv("FYERS_SECRET_KEY")
 FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI")
+
+# Symbol master configuration
+SYM_MASTER_DIR = os.path.join(os.getcwd(), "data", "symbols")
+SYM_MASTER_FO = os.path.join(SYM_MASTER_DIR, "NSE_FO.csv")
+
+# Cache for parsed symbols
+_SYMBOL_CACHE = {
+    "data": [],
+    "last_updated": None
+}
+
+def ensure_master_dir():
+    if not os.path.exists(SYM_MASTER_DIR):
+        os.makedirs(SYM_MASTER_DIR, exist_ok=True)
 
 def get_fyers_auth_url(state: str = None):
     """
@@ -114,3 +134,69 @@ def place_fyers_order(access_token: str, order_data: dict):
     except Exception as e:
         print(f"Error placing Fyers order: {e}")
         return None
+
+async def download_fyers_master():
+    """
+    Download the F&O symbol master from Fyers
+    """
+    ensure_master_dir()
+    url = "https://public.fyers.in/sym_details/NSE_FO.csv"
+    print(f"[FYERS_DATA] Downloading symbol master from {url}...")
+    
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                with open(SYM_MASTER_FO, "wb") as f:
+                    f.write(resp.content)
+                print(f"[FYERS_DATA] Successfully saved symbol master to {SYM_MASTER_FO}")
+                _SYMBOL_CACHE["last_updated"] = datetime.now()
+                return True
+            else:
+                print(f"[FYERS_DATA] Failed to download master: {resp.status_code}")
+                return False
+        except Exception as e:
+            print(f"[FYERS_DATA] Download error: {e}")
+            return False
+
+def get_fyers_symbols():
+    """
+    Get F&O symbols from CSV
+    """
+    if _SYMBOL_CACHE["data"] and _SYMBOL_CACHE["last_updated"]:
+        # Refresh if older than 1 day
+        if (datetime.now() - _SYMBOL_CACHE["last_updated"]).days < 1:
+            return _SYMBOL_CACHE["data"]
+
+    if not os.path.exists(SYM_MASTER_FO):
+        print("[FYERS_DATA] Symbol master not found locally.")
+        return []
+
+    print(f"[FYERS_DATA] Parsing symbol master: {SYM_MASTER_FO}")
+    symbols = []
+    try:
+        with open(SYM_MASTER_FO, "r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) < 16: continue
+                # NEW MAPPING based on debug:
+                # 0: FyToken, 1: Description, 9: Symbol, 8: ExpiryTimestamp, 13: Base, 15: Strike, 16: Type
+                try:
+                    symbols.append({
+                        "fyToken": row[0],
+                        "description": row[1],
+                        "symbol": row[9] if ":" in row[9] else row[2], # Fallback
+                        "strike": float(row[15]) if row[15] else 0,
+                        "expiry": row[8],
+                        "underlying": row[13],
+                        "type": row[16] if row[16] in ["CE", "PE"] else ("CE" if "CE" in row[1] else "PE" if "PE" in row[1] else "XX")
+                    })
+                except:
+                    continue
+        
+        _SYMBOL_CACHE["data"] = symbols
+        _SYMBOL_CACHE["last_updated"] = datetime.now()
+        return symbols
+    except Exception as e:
+        print(f"[FYERS_DATA] Parse error: {e}")
+        return []
