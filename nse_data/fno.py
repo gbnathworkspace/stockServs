@@ -34,34 +34,47 @@ POPULAR_STOCK_FO = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", 
 
 
 async def fetch_nse_data(url: str, symbol: str = ""):
-    """Generic NSE data fetcher with proper headers and cookies."""
+    """Generic NSE data fetcher with proper headers, cookies, and retry logic."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive",
-        "Referer": "https://www.nseindia.com/",
+        "Referer": "https://www.nseindia.com/option-chain",
+        "Origin": "https://www.nseindia.com",
     }
 
-    async with httpx.AsyncClient(follow_redirects=True, timeout=20.0) as client:
-        try:
-            # Get cookies from main page first
+    async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+        for attempt in range(3):
             try:
-                await client.get("https://www.nseindia.com", headers=headers)
-                await asyncio.sleep(0.3)
-            except Exception:
-                pass
+                # Refresh cookies on first attempt or failure
+                if attempt == 0:
+                    try:
+                        await client.get("https://www.nseindia.com", headers=headers)
+                        await asyncio.sleep(0.5)
+                    except Exception:
+                        pass
 
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            print(f"HTTP error fetching {url}: {e.response.status_code}")
-            raise HTTPException(status_code=e.response.status_code, detail=f"NSE API error: {e.response.status_code}")
-        except Exception as e:
-            print(f"Error fetching NSE data from {url}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch data: {str(e)}")
+                response = await client.get(url, headers=headers)
+                
+                if response.status_code == 401 or response.status_code == 403:
+                    # Session might be invalid, try refreshing cookies again
+                    await client.get("https://www.nseindia.com", headers=headers)
+                    await asyncio.sleep(1)
+                    continue
+                
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as e:
+                print(f"HTTP error fetching {url} (Attempt {attempt+1}): {e.response.status_code}")
+                await asyncio.sleep(1)
+            except Exception as e:
+                print(f"Error fetching NSE data from {url} (Attempt {attempt+1}): {e}")
+                await asyncio.sleep(1)
+        
+        # If all retries fail
+        raise HTTPException(status_code=503, detail="Failed to fetch data from NSE after retries")
 
 
 def format_option_chain(data: dict) -> dict:
@@ -463,8 +476,8 @@ async def search_derivatives(query: str = Query(..., min_length=2)):
         
         # Filter by strike if specified
         if strike_target:
-             # Increased tolerance to 500 to catch strikes for larger indices
-             if abs(strike - strike_target) > 500: 
+             # Increased tolerance to 3000 to catch strikes for larger indices like Sensex/BankNifty
+             if abs(strike - strike_target) > 3000: 
                  continue
         
         # If no strike specified, restrict to near ATM?
