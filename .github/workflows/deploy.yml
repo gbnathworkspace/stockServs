@@ -86,9 +86,3 @@ jobs:
           echo '=== Checking container logs ==='
           docker logs stock_servs --tail 20
         "
-          sleep 5
-          docker ps | grep stock_servs
-          
-          echo '=== Checking container logs ==='
-          docker logs stock_servs --tail 20
-        "

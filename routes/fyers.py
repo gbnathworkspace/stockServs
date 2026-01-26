@@ -9,7 +9,9 @@ from services.fyers_service import (
     generate_fyers_access_token,
     fetch_fyers_holdings,
     fetch_fyers_positions,
-    place_fyers_order
+    place_fyers_order,
+    download_fyers_master,
+    get_fyers_symbols
 )
 from datetime import datetime, timedelta
 
@@ -43,13 +45,30 @@ async def get_fyers_status(
     db: Session = Depends(get_db)
 ):
     """
-    Check if Fyers is connected
+    Check if Fyers is connected with valid, non-expired token
     """
     token = db.query(FyersToken).filter(FyersToken.user_id == current_user.id).first()
+
+    # Check if token exists AND is valid
+    is_connected = False
+    is_expired = False
+
+    if token and token.access_token:
+        # Token is valid if:
+        # 1. No expiry set (legacy tokens), OR
+        # 2. Expiry is in the future
+        if not token.expires_at:
+            is_connected = True
+        elif token.expires_at > datetime.now():
+            is_connected = True
+        else:
+            is_expired = True
+
     return {
-        "connected": token is not None,
+        "connected": is_connected,
         "connected_at": token.created_at if token else None,
-        "expires_at": token.expires_at if token else None
+        "expires_at": token.expires_at if token else None,
+        "is_expired": is_expired
     }
 
 @router.get("/callback")
@@ -229,3 +248,21 @@ async def disconnect_fyers(
     db.query(FyersToken).filter(FyersToken.user_id == current_user.id).delete()
     db.commit()
     return {"message": "Fyers disconnected successfully"}
+
+@router.get("/all-stocks")
+async def get_all_fyers_stocks(
+    current_user: User = Depends(get_current_user)
+):
+    """Return the full list of Fyers symbols.
+    If the local master CSV is missing or stale, it will be downloaded.
+    """
+    # Ensure the master file exists; download if needed
+    from services.fyers_service import download_fyers_master, get_fyers_symbols, SYM_MASTER_FO
+    import os, asyncio
+    if not os.path.exists(SYM_MASTER_FO):
+        # Await the async download directly
+        await download_fyers_master()
+    symbols = get_fyers_symbols()
+    # Return only the symbol strings for simplicity
+    return {"stocks": [s.get("symbol") for s in symbols]}
+

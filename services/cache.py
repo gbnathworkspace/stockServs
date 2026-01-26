@@ -106,6 +106,15 @@ def sector_heatmap_key() -> str:
 def sector_stocks_key(sector: str) -> str:
     return f"nse:sector_stocks:{sector}"
 
+def watchlist_all_key(user_id: int) -> str:
+    """Cache key for user's all watchlists"""
+    return f"watchlist:{user_id}:all"
+
+def watchlist_stocks_key(user_id: int, watchlist_id: int) -> str:
+    """Cache key for stocks in a specific watchlist"""
+    return f"watchlist:{user_id}:{watchlist_id}:stocks"
+
+
 
 # TTL constants (in seconds)
 TTL_STOCK_LIST = 300       # 5 minutes - reduced API load while keeping data fresh
@@ -120,3 +129,6 @@ TTL_TOP_LOSERS = 300       # 5 minutes - market movers
 TTL_FII_DII = 600          # 10 minutes - FII/DII activity data
 TTL_SECTOR_DATA = 300      # 5 minutes - sector heatmap data
 TTL_NSE_DATA = 30          # 30 seconds - general NSE data (Market Pulse, etc.)
+TTL_WATCHLIST = 60         # 1 minute - user's watchlist structure
+TTL_WATCHLIST_STOCKS = 60  # 1 minute - stocks in watchlist
+

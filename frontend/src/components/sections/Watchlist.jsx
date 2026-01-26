@@ -10,8 +10,9 @@ export default function Watchlist({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [dataSource, setDataSource] = useState(''); // 'fyers' or 'nse'
 
-  // Auto-refresh: Watchlist prices every 5s (prevents DB pool exhaustion)
+  // Auto-refresh: Watchlist prices every 5s using Fyers API (with NSE fallback)
   const { lastUpdate } = useAutoRefresh('watchlist-prices', () => refreshPricesSilent(), 5000);
   const lastUpdateTime = useRelativeTime(lastUpdate);
 
@@ -31,30 +32,93 @@ export default function Watchlist({ onNavigate }) {
   const loadStocks = async () => {
     setLoading(true);
     try {
-      const res = await authApi(`${API_BASE_URL}/nse_data/all-stocks`);
+      // Use Fyers API for reliable stock data (fallback: NSE if Fyers not connected)
+      const res = await authApi(`${API_BASE_URL}/fyers/market/all-stocks`);
       setStocks(res.stocks || []);
+
+      // Fallback to NSE if Fyers fails or not connected
+      if (!res.fyers_connected || (res.stocks && res.stocks.length === 0)) {
+        console.log('[Watchlist] Fyers not connected, falling back to NSE');
+        setDataSource('nse');
+        const nseRes = await authApi(`${API_BASE_URL}/nse_data/all-stocks`);
+        setStocks(nseRes.stocks || []);
+      } else {
+        setDataSource('fyers');
+      }
     } catch (error) {
       console.error('Failed to load stocks:', error);
+      // Try NSE as final fallback
+      try {
+        setDataSource('nse');
+        const nseRes = await authApi(`${API_BASE_URL}/nse_data/all-stocks`);
+        setStocks(nseRes.stocks || []);
+      } catch (nseError) {
+        console.error('NSE fallback also failed:', nseError);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   // Silent refresh with fast timeout (2s max, prevents cascade)
+  // Uses Fyers quotes API for specific watchlist symbols (like Market Sandbox)
   const refreshPricesSilent = async () => {
-    const res = await fastAuthApi(`${API_BASE_URL}/nse_data/all-stocks`);
-    if (res?.stocks?.length > 0) {
-      setStocks(res.stocks);
-      // Update watchlist with latest prices
-      const saved = localStorage.getItem('watchlist');
-      if (saved) {
-        const savedWatchlist = JSON.parse(saved);
-        const updatedWatchlist = savedWatchlist.map(w => {
-          const updated = res.stocks.find(s => s.symbol === w.symbol);
-          return updated || w;
+    const saved = localStorage.getItem('watchlist');
+    if (!saved) return;
+
+    const savedWatchlist = JSON.parse(saved);
+    if (savedWatchlist.length === 0) return;
+
+    // Get only watchlist symbols for targeted refresh
+    const symbols = savedWatchlist.map(w => w.symbol).filter(Boolean);
+    if (symbols.length === 0) return;
+
+    try {
+      // Use Fyers quotes endpoint for live price refresh (max 50 symbols)
+      const symbolsParam = symbols.slice(0, 50).join(',');
+      const res = await fastAuthApi(`${API_BASE_URL}/fyers/market/quotes?symbols=${encodeURIComponent(symbolsParam)}`);
+
+      if (res?.quotes && res.fyers_connected) {
+        setDataSource('fyers');
+        // Merge new prices with watchlist
+        const updatedWatchlist = savedWatchlist.map(stock => {
+          const quote = res.quotes[stock.symbol];
+          if (quote) {
+            return {
+              ...stock,
+              lastPrice: quote.lastPrice,
+              pChange: quote.pChange,
+              change: quote.change,
+              dayHigh: quote.high,
+              dayLow: quote.low,
+              volume: quote.volume
+            };
+          }
+          return stock;
         });
         setWatchlist(updatedWatchlist);
+
+        // Also update stocks list for consistency
+        const updatedStocks = stocks.map(s => {
+          const quote = res.quotes[s.symbol];
+          return quote ? { ...s, ...quote } : s;
+        });
+        setStocks(updatedStocks);
+      } else {
+        setDataSource('nse');
+        // Fallback to NSE all-stocks if Fyers not available
+        const nseRes = await fastAuthApi(`${API_BASE_URL}/nse_data/all-stocks`);
+        if (nseRes?.stocks?.length > 0) {
+          setStocks(nseRes.stocks);
+          const updatedWatchlist = savedWatchlist.map(w => {
+            const updated = nseRes.stocks.find(s => s.symbol === w.symbol);
+            return updated || w;
+          });
+          setWatchlist(updatedWatchlist);
+        }
       }
+    } catch (err) {
+      console.error('Failed to refresh watchlist prices', err);
     }
   };
 
@@ -86,6 +150,18 @@ export default function Watchlist({ onNavigate }) {
         <div className="section-title">
           <span className="section-title-icon">⭐</span>
           <h2>Watchlist</h2>
+          {dataSource && (
+            <span style={{
+              fontSize: '0.75rem',
+              color: dataSource === 'fyers' ? '#00d09c' : '#ffa657',
+              marginLeft: '0.5rem',
+              padding: '0.125rem 0.5rem',
+              borderRadius: '0.25rem',
+              background: 'rgba(255,255,255,0.1)'
+            }}>
+              {dataSource === 'fyers' ? '🟢 Fyers Live' : '🟡 NSE Data'}
+            </span>
+          )}
         </div>
         <div className="section-actions">
           <button onClick={() => setShowAddModal(true)}>

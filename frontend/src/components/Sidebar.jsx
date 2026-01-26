@@ -1,47 +1,58 @@
 import React, { useState } from 'react';
+import { 
+  LayoutDashboard, 
+  Target, 
+  TrendingUp, 
+  Building2, 
+  LineChart, 
+  Wallet, 
+  Star, 
+  Settings,
+  Clock,
+  Zap,
+  Activity,
+  Users,
+  Search,
+  BarChart3,
+  ChevronRight
+} from 'lucide-react';
 
 const menuItems = [
   {
     id: 'dashboard',
     label: 'Dashboard',
-    icon: '📊',
+    icon: LayoutDashboard,
     subsections: []
   },
   {
     id: 'products',
     label: 'TradeFinder Products',
-    icon: '🎯',
+    icon: Target,
     subsections: [
-      { id: 'option-clock', label: 'Option Clock', icon: '🕐' },
-      { id: 'option-apex', label: 'Option Apex', icon: '⚡' },
-      { id: 'market-pulse', label: 'Market Pulse', icon: '💓' },
-      { id: 'insider-strategy', label: 'Insider Strategy', icon: '🎯' },
-      { id: 'sector-scope', label: 'Sector Scope', icon: '🔍' },
-      { id: 'swing-spectrum', label: 'Swing Spectrum', icon: '📐' },
+      { id: 'option-clock', label: 'Option Clock', icon: Clock },
+      { id: 'option-apex', label: 'Option Apex', icon: Zap },
+      { id: 'market-pulse', label: 'Market Pulse', icon: Activity },
+      { id: 'insider-strategy', label: 'Insider Strategy', icon: Users },
+      { id: 'sector-scope', label: 'Sector Scope', icon: Search },
+      { id: 'swing-spectrum', label: 'Swing Spectrum', icon: BarChart3 },
     ]
   },
   {
     id: 'trading',
-    label: 'Virtual Trading',
-    icon: '💹',
-    subsections: [
-      { id: 'trade', label: 'Trade Stocks' },
-      { id: 'portfolio', label: 'My Portfolio' },
-      { id: 'orders', label: 'Order History' },
-    ]
+    label: 'Market Sandbox',
+    icon: TrendingUp,
+    subsections: []
   },
   {
     id: 'real-trading',
-    label: 'Real Trading',
-    icon: '🏦',
-    subsections: [
-      { id: 'fyers', label: 'Fyers', icon: '📈' },
-    ]
+    label: 'Market Connect',
+    icon: Building2,
+    subsections: []
   },
   {
     id: 'market',
     label: 'Market Data',
-    icon: '📈',
+    icon: LineChart,
     subsections: [
       { id: 'gainers', label: 'Top Gainers' },
       { id: 'losers', label: 'Top Losers' },
@@ -51,19 +62,11 @@ const menuItems = [
       { id: 'bulk', label: 'Bulk Deals' },
     ]
   },
-  {
-    id: 'wallet',
-    label: 'Wallet',
-    icon: '💰',
-    subsections: [
-      { id: 'balance', label: 'Balance' },
-      { id: 'transactions', label: 'Transactions' },
-    ]
-  },
+
   {
     id: 'watchlist',
     label: 'Watchlist',
-    icon: '⭐',
+    icon: Star,
     subsections: []
   },
   {
@@ -75,7 +78,7 @@ const menuItems = [
   {
     id: 'settings',
     label: 'Settings',
-    icon: '⚙️',
+    icon: Settings,
     subsections: [
       { id: 'profile', label: 'Profile' },
       { id: 'preferences', label: 'Preferences' },
@@ -118,7 +121,7 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
         {!collapsed && (
           <>
             <div className="sidebar-brand">
-              <span className="brand-icon">📈</span>
+              <span className="brand-icon"><Activity size={24} /></span>
               <span className="brand-text">StockServs</span>
             </div>
             <p className="sidebar-tagline">Smart Trading Intelligence</p>
@@ -142,13 +145,15 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
                 onClick={() => handleItemClick(item)}
                 title={collapsed ? item.label : undefined}
               >
-                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-icon">
+                  {React.createElement(item.icon, { size: 20 })}
+                </span>
                 {!collapsed && (
                   <>
                     <span className="nav-label">{item.label}</span>
                     {hasSubsections && (
                       <span className={`nav-arrow ${isExpanded ? 'expanded' : ''}`}>
-                        ›
+                        <ChevronRight size={16} />
                       </span>
                     )}
                   </>
@@ -176,7 +181,7 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
       <div className="sidebar-footer">
         {!collapsed && (
           <div className="sidebar-footer-content">
-            <span className="footer-label">Paper Trading Mode</span>
+            <span className="footer-label">Market Sandbox Mode</span>
             <span className="footer-badge">Demo</span>
           </div>
         )}

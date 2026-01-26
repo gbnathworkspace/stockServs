@@ -8,6 +8,134 @@ const API_BASE_URL = window.location.origin;
  * FiiDiiActivity - Shows FII/DII trading activity
  * Displays today's buy/sell/net values and historical trends
  */
+
+const FiiDiiChart = ({ data }) => {
+  // Sort data chronologically (oldest to newest) for the chart
+  const chartData = [...data].slice(0, 15).reverse();
+
+  if (!chartData.length) return null;
+
+  // Calculate scaling
+  const values = chartData.flatMap(d => [d.fii_net_value, d.dii_net_value].filter(v => v !== null));
+  const maxVal = Math.max(...values.map(v => Math.abs(v))) || 1000;
+  const yDomain = maxVal * 1.1; // 10% padding
+  const height = 220;
+  const padding = { top: 20, bottom: 30, left: 10, right: 10 };
+  const graphHeight = height - padding.top - padding.bottom;
+  const zeroY = padding.top + graphHeight / 2;
+
+  const getY = (val) => {
+    // Normalization: -yDomain -> graphHeight, +yDomain -> 0
+    // range: [-yDomain, +yDomain] -> [graphHeight, 0]
+    // percent = (val - (-yDomain)) / (yDomain * 2) = (val + yDomain) / (2 * yDomain)
+    // y = height - (percent * graphHeight)
+    // Actually simpler: 
+    // val=0 => zeroY
+    // val=+yDomain => zeroY - (graphHeight/2)
+    const offset = (val / yDomain) * (graphHeight / 2);
+    return zeroY - offset;
+  };
+
+  const formatMoney = (val) => {
+    return Math.abs(val / 100).toFixed(0) + 'Cr';
+  };
+
+  return (
+    <div className="fii-dii-chart-container">
+      <h3 className="history-title">Institutional Flow Trend (Last 15 Days)</h3>
+      <div className="chart-legend">
+        <div className="legend-item">
+          <span className="legend-color fii"></span> FII
+        </div>
+        <div className="legend-item">
+          <span className="legend-color dii"></span> DII
+        </div>
+      </div>
+      
+      <div className="fii-dii-chart-scroll">
+
+        <svg viewBox={`0 0 ${chartData.length * 60} ${height}`} preserveAspectRatio="xMidYMid meet" className="fii-dii-svg-content">
+             <defs>
+                <linearGradient id="gradGreen" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="var(--accent-green)" stopOpacity="0.8"/>
+                    <stop offset="100%" stopColor="var(--accent-green)" stopOpacity="0.4"/>
+                </linearGradient>
+                <linearGradient id="gradRed" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="var(--accent-red)" stopOpacity="0.8"/>
+                    <stop offset="100%" stopColor="var(--accent-red)" stopOpacity="0.4"/>
+                </linearGradient>
+            </defs>
+
+            {/* Zero Line */}
+            <line x1="0" y1={zeroY} x2="100%" y2={zeroY} stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+            
+            {/* Max/Min Guidelines */}
+            <text x="5" y={padding.top + 10} fontSize="10" fill="var(--text-secondary)">+{formatMoney(yDomain)}</text>
+            <text x="5" y={height - padding.bottom - 5} fontSize="10" fill="var(--text-secondary)">-{formatMoney(yDomain)}</text>
+
+            {chartData.map((d, i) => {
+                const xBase = i * 60;
+                const xCenter = xBase + 30;
+                const barWidth = 12;
+                const gap = 4;
+                
+                const fiiVal = d.fii_net_value || 0;
+                const diiVal = d.dii_net_value || 0;
+                
+                const fiiY = getY(fiiVal);
+                const diiY = getY(diiVal);
+                
+                // Keep bars growing from zeroY
+                const fiiHeight = Math.abs(fiiY - zeroY);
+                const diiHeight = Math.abs(diiY - zeroY);
+                
+                // Correct Y Start: if positive, start at fiiY. If negative, start at zeroY.
+                const fiiYStart = fiiVal >= 0 ? fiiY : zeroY;
+                const diiYStart = diiVal >= 0 ? diiY : zeroY;
+
+                const dateObj = new Date(d.trade_date);
+                const dateStr = `${dateObj.getDate()} ${dateObj.toLocaleString('default', { month: 'short' }).slice(0,3)}`;
+
+                return (
+                    <g key={i}>
+                         {/* Date Label */}
+                         <text x={xCenter} y={height - 5} textAnchor="middle" fontSize="10" fill="var(--text-secondary)">
+                            {dateStr}
+                         </text>
+
+                        {/* FII Bar */}
+                        <title>{`${dateStr}\nFII: ${formatMoney(fiiVal*100)}\nDII: ${formatMoney(diiVal*100)}`}</title>
+                        
+                        <rect 
+                            x={xCenter - barWidth - gap/2} 
+                            y={fiiYStart} 
+                            width={barWidth} 
+                            height={fiiHeight || 1} 
+                            fill={fiiVal >= 0 ? "url(#gradGreen)" : "url(#gradRed)"}
+                            rx="2"
+                        />
+
+                        {/* DII Bar */}
+                        <rect 
+                            x={xCenter + gap/2} 
+                            y={diiYStart} 
+                            width={barWidth} 
+                            height={diiHeight || 1} 
+                            fill={diiVal >= 0 ? "var(--accent-green)" : "var(--accent-red)"}
+                            opacity="0.5"
+                            rx="2"
+                            stroke={diiVal >= 0 ? "var(--accent-green)" : "var(--accent-red)"}
+                            strokeWidth="0.5"
+                        />
+                    </g>
+                );
+            })}
+        </svg>
+      </div>
+    </div>
+  );
+};
+
 export default function FiiDiiActivity() {
   const [todayData, setTodayData] = useState(null);
   const [historyData, setHistoryData] = useState([]);
@@ -295,6 +423,9 @@ export default function FiiDiiActivity() {
               </tbody>
             </table>
           </div>
+          
+          {/* Graph Section */}
+          <FiiDiiChart data={historyData} />
         </div>
       )}
 

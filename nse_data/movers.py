@@ -87,21 +87,24 @@ async def fetch_all_equities():
 
 @router.get("/all-stocks")
 async def get_all_stocks():
-    """Return the full list of NIFTY 100 stocks with current prices for virtual trading."""
+    """Return the full list of NIFTY 500 stocks with current prices for virtual trading.
+    
+    Fallback chain: NIFTY 500 -> NIFTY 200 -> NIFTY 100 -> All equities CSV
+    """
     # Check cache first
     cache_key = stock_list_key()
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
-    try:
-        # Fetch NIFTY 100 which includes price data
-        data = await fetch_index_data("NIFTY 100")
+    def format_stocks(data):
+        """Helper to format stock data consistently."""
         stocks = []
         for item in data:
             if item.get("symbol"):
                 stocks.append({
                     "symbol": item.get("symbol", ""),
+                    "identifier": item.get("identifier", "Equity"),
                     "lastPrice": item.get("lastPrice", 0),
                     "pChange": item.get("pChange", 0),
                     "dayHigh": item.get("dayHigh", 0),
@@ -109,16 +112,40 @@ async def get_all_stocks():
                     "open": item.get("open", 0),
                     "previousClose": item.get("previousClose", 0),
                 })
-        result = {"stocks": sorted(stocks, key=lambda x: x["symbol"])}
-        # Cache for 60 seconds
+        return sorted(stocks, key=lambda x: x["symbol"])
+
+    # Try indices in order of preference (largest to smallest)
+    indices_to_try = ["NIFTY 500", "NIFTY 200", "NIFTY 100"]
+    
+    for index_name in indices_to_try:
+        try:
+            data = await fetch_index_data(index_name)
+            if data and len(data) > 0:
+                stocks = format_stocks(data)
+                result = {"stocks": stocks, "source": index_name, "count": len(stocks)}
+                # Cache for 60 seconds
+                cache.set(cache_key, result, TTL_STOCK_LIST)
+                return result
+        except Exception as e:
+            print(f"Failed to fetch {index_name}: {e}")
+            continue
+
+    # Final fallback to equity list (all NSE stocks, but without live prices)
+    try:
+        data = await fetch_all_equities()
+        for stock in data:
+            stock["lastPrice"] = stock.get("lastPrice", 0)
+            stock["pChange"] = stock.get("pChange", 0)
+            stock["dayHigh"] = stock.get("dayHigh", 0)
+            stock["dayLow"] = stock.get("dayLow", 0)
+            stock["open"] = stock.get("open", 0)
+            stock["previousClose"] = stock.get("previousClose", 0)
+        result = {"stocks": data, "source": "EQUITY_L.csv", "count": len(data)}
         cache.set(cache_key, result, TTL_STOCK_LIST)
         return result
     except Exception as e:
-        # Fallback to equity list if NIFTY 100 fails
-        data = await fetch_all_equities()
-        result = {"stocks": data}
-        cache.set(cache_key, result, TTL_STOCK_LIST)
-        return result
+        print(f"All stock fetch methods failed: {e}")
+        return {"stocks": [], "source": "none", "count": 0, "error": str(e)}
 
 
 @router.get("/top-gainers")

@@ -6,6 +6,14 @@ from pydantic import BaseModel
 from database.connection import get_db
 from database.models import Watchlist, WatchlistStock, User
 from routes.deps import get_current_user
+from services.cache import (
+    cache, 
+    watchlist_all_key, 
+    watchlist_stocks_key,
+    TTL_WATCHLIST,
+    TTL_WATCHLIST_STOCKS
+)
+
 
 router = APIRouter(prefix="/watchlist", tags=["Watchlist"])
 
@@ -43,12 +51,50 @@ async def get_watchlists(
     db: Session = Depends(get_db)
 ):
     """Get all user watchlists with stock counts."""
+    # Check cache first
+    cache_key = watchlist_all_key(current_user.id)
+    # cached = cache.get(cache_key)
+    # # Only return cache if it has data. If empty, proceed to DB to potentially initialize defaults.
+    # if cached is not None and len(cached.get("watchlists", [])) > 0:
+    #     return cached
+    
+    # Cache miss - fetch from database
+    print(f"[DEBUG] get_watchlists for user_id={current_user.id} email={current_user.email}")
+    
     watchlists = (
         db.query(Watchlist)
         .filter(Watchlist.user_id == current_user.id)
         .order_by(Watchlist.position)
         .all()
     )
+    
+    # If no watchlists exist, create a default "Default" watchlist
+    if not watchlists:
+        print(f"[DEBUG] No watchlists found for user {current_user.id}. Creating default...")
+        default_watchlist = Watchlist(
+            user_id=current_user.id,
+            name="Default",
+            position=0,
+            is_default=1
+        )
+        db.add(default_watchlist)
+        db.flush()
+        
+        # Add some default stocks
+        default_stocks = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"]
+        for idx, symbol in enumerate(default_stocks):
+            stock = WatchlistStock(
+                watchlist_id=default_watchlist.id,
+                symbol=symbol,
+                position=idx
+            )
+            db.add(stock)
+            
+        db.commit()
+        db.refresh(default_watchlist)
+        watchlists = [default_watchlist]
+    
+    print(f"[DEBUG] Returning {len(watchlists)} watchlists for user {current_user.id}")
     
     result = []
     for wl in watchlists:
@@ -57,12 +103,19 @@ async def get_watchlists(
             "id": wl.id,
             "name": wl.name,
             "position": wl.position,
+            "is_default": bool(wl.is_default),
             "stock_count": stock_count,
             "created_at": wl.created_at.isoformat() if wl.created_at else None,
             "updated_at": wl.updated_at.isoformat() if wl.updated_at else None,
         })
     
-    return {"watchlists": result}
+    response = {"watchlists": result}
+    
+    # Cache the result
+    cache.set(cache_key, response, TTL_WATCHLIST)
+    
+    return response
+
 
 
 @router.post("")
@@ -72,28 +125,28 @@ async def create_watchlist(
     db: Session = Depends(get_db)
 ):
     """Create a new watchlist."""
+    from sqlalchemy import func
+
     # Check if user already has 15 watchlists
     count = db.query(Watchlist).filter(Watchlist.user_id == current_user.id).count()
     if count >= 15:
         raise HTTPException(status_code=400, detail="Maximum 15 watchlists allowed")
     
-    # Check if position is already taken
-    existing = (
-        db.query(Watchlist)
-        .filter(Watchlist.user_id == current_user.id, Watchlist.position == data.position)
-        .first()
-    )
-    if existing:
-        raise HTTPException(status_code=400, detail="Position already occupied")
+    # Calculate next position automatically
+    max_pos = db.query(func.max(Watchlist.position)).filter(Watchlist.user_id == current_user.id).scalar()
+    next_position = (max_pos + 1) if max_pos is not None else 0
     
     watchlist = Watchlist(
         user_id=current_user.id,
         name=data.name,
-        position=data.position
+        position=next_position
     )
     db.add(watchlist)
     db.commit()
     db.refresh(watchlist)
+    
+    # Invalidate cache - new watchlist added
+    cache.delete(watchlist_all_key(current_user.id))
     
     return {
         "id": watchlist.id,
@@ -128,6 +181,10 @@ async def update_watchlist(
     
     stock_count = db.query(WatchlistStock).filter(WatchlistStock.watchlist_id == watchlist.id).count()
     
+    # Invalidate cache - watchlist name changed
+    cache.delete(watchlist_all_key(current_user.id))
+    cache.delete(watchlist_stocks_key(current_user.id, watchlist_id))
+    
     return {
         "id": watchlist.id,
         "name": watchlist.name,
@@ -154,8 +211,16 @@ async def delete_watchlist(
     if not watchlist:
         raise HTTPException(status_code=404, detail="Watchlist not found")
     
+    # Prevent deletion of default watchlist
+    if watchlist.is_default:
+        raise HTTPException(status_code=400, detail="Cannot delete the default watchlist")
+    
     db.delete(watchlist)
     db.commit()
+    
+    # Invalidate cache - watchlist deleted
+    cache.delete(watchlist_all_key(current_user.id))
+    cache.delete(watchlist_stocks_key(current_user.id, watchlist_id))
     
     return {"message": "Watchlist deleted successfully"}
 
@@ -167,6 +232,13 @@ async def get_watchlist_stocks(
     db: Session = Depends(get_db)
 ):
     """Get all stocks in a watchlist with live prices."""
+    # Check cache first
+    cache_key = watchlist_stocks_key(current_user.id, watchlist_id)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
+    # Cache miss - fetch from database
     # Verify ownership
     watchlist = (
         db.query(Watchlist)
@@ -175,6 +247,14 @@ async def get_watchlist_stocks(
     )
     
     if not watchlist:
+        print(f"[DEBUG] 404 ERROR: Watchlist {watchlist_id} not found for User {current_user.id}")
+        # Check if it exists for ANY user
+        exists_any = db.query(Watchlist).filter(Watchlist.id == watchlist_id).first()
+        if exists_any:
+             print(f"[DEBUG] Watchlist {watchlist_id} exists but belongs to User {exists_any.user_id}")
+        else:
+             print(f"[DEBUG] Watchlist {watchlist_id} does not exist in DB at all")
+             
         raise HTTPException(status_code=404, detail="Watchlist not found")
     
     stocks = (
@@ -193,11 +273,17 @@ async def get_watchlist_stocks(
             "added_at": stock.added_at.isoformat() if stock.added_at else None,
         })
     
-    return {
+    response = {
         "watchlist_id": watchlist_id,
         "watchlist_name": watchlist.name,
         "stocks": result
     }
+    
+    # Cache the result
+    cache.set(cache_key, response, TTL_WATCHLIST_STOCKS)
+    
+    return response
+
 
 
 @router.post("/{watchlist_id}/stocks")
@@ -249,6 +335,10 @@ async def add_stock_to_watchlist(
     db.commit()
     db.refresh(stock)
     
+    # Invalidate cache - stock added
+    cache.delete(watchlist_all_key(current_user.id))  # Count changed
+    cache.delete(watchlist_stocks_key(current_user.id, watchlist_id))
+    
     return {
         "symbol": stock.symbol,
         "position": stock.position,
@@ -289,6 +379,10 @@ async def remove_stock_from_watchlist(
     db.delete(stock)
     db.commit()
     
+    # Invalidate cache - stock removed
+    cache.delete(watchlist_all_key(current_user.id))  # Count changed
+    cache.delete(watchlist_stocks_key(current_user.id, watchlist_id))
+    
     return {"message": f"{symbol} removed from watchlist"}
 
 
@@ -297,36 +391,40 @@ async def initialize_default_watchlists(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Initialize default watchlist with top 5 stocks for new users."""
+    """Initialize default 5 watchlists for new users."""
     # Check if user already has watchlists
     existing = db.query(Watchlist).filter(Watchlist.user_id == current_user.id).first()
     if existing:
         raise HTTPException(status_code=400, detail="Watchlists already initialized")
     
-    # Create Watchlist 1
-    watchlist = Watchlist(
-        user_id=current_user.id,
-        name="Watchlist 1",
-        position=0
-    )
-    db.add(watchlist)
-    db.commit()
-    db.refresh(watchlist)
+    created_watchlists = []
     
-    # Add top 5 stocks
-    default_stocks = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"]
-    for i, symbol in enumerate(default_stocks):
-        stock = WatchlistStock(
-            watchlist_id=watchlist.id,
-            symbol=symbol,
+    # Create 5 watchlists
+    for i in range(5):
+        watchlist = Watchlist(
+            user_id=current_user.id,
+            name=f"Watchlist {i + 1}",
             position=i
         )
-        db.add(stock)
-    
+        db.add(watchlist)
+        db.flush() # Flush to get ID
+        
+        # Add default stocks only to the first watchlist
+        if i == 0:
+            default_stocks = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"]
+            for idx, symbol in enumerate(default_stocks):
+                stock = WatchlistStock(
+                    watchlist_id=watchlist.id,
+                    symbol=symbol,
+                    position=idx
+                )
+                db.add(stock)
+        
+        created_watchlists.append(watchlist)
+
     db.commit()
     
     return {
-        "message": "Default watchlist created",
-        "watchlist_id": watchlist.id,
-        "stocks": default_stocks
+        "message": "Default watchlists created",
+        "count": len(created_watchlists)
     }

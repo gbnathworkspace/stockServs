@@ -1,0 +1,38 @@
+Data Category,Data Type,Description,Backend Endpoint,Source API (External),NSE Update Frequency,Current Cache Status,Current TTL,Recommended TTL,User Specific?,Shared Across Users?,Priority
+Real-time Data,Stock Prices,Current stock price (LTP),/market-data/candles,YFinance API (yfinance Python library),Every 1-5 seconds,✅ Cached,30 sec,30 sec,No,Yes,High
+Real-time Data,Market Pulse Screener,Market overview filters,/market-pulse/screener,NSE + Database,Every 30 seconds,✅ Cached,30 sec,30 sec,No,Yes,High
+Real-time Data,Indices (NIFTY/SENSEX),Index values and movements,/nse/indices,https://www.nseindia.com/api/allIndices,Every 1 minute,❌ NOT CACHED,None,30-60 sec,No,Yes,CRITICAL
+Real-time Data,All Indices,All market indices,/nse/all-indices,https://www.nseindia.com/api/allIndices,Every 1 minute,❌ NOT CACHED,None,30-60 sec,No,Yes,High
+Intraday Charts,Candle Data (5 min),5-minute candlestick data,/market-data/candles?interval=5m,YFinance API ({symbol}.NS),Every 5 minutes,✅ Cached,60 sec,60 sec,No,Yes,High
+Intraday Charts,Candle Data (15 min),15-minute candlestick data,/market-data/candles?interval=15m,YFinance API ({symbol}.NS),Every 15 minutes,✅ Cached,120 sec,120 sec,No,Yes,Medium
+Intraday Charts,Candle Data (1 day),Daily candlestick data,/market-data/candles?interval=1d,YFinance API ({symbol}.NS),Once per day (EOD),✅ Cached,600 sec,600 sec,No,Yes,Medium
+Market Movers,Top Gainers,Stocks with highest % gain,/nse/top-gainers,https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%2050,Every 5-15 minutes,✅ Cached,300 sec,300 sec,No,Yes,High
+Market Movers,Top Losers,Stocks with highest % loss,/nse/top-losers,https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%2050,Every 5-15 minutes,✅ Cached,300 sec,300 sec,No,Yes,High
+Market Movers,Most Active (Value),Stocks with highest turnover,/nse/most-active-value,https://www.nseindia.com/api/live-analysis-most-active-securities?index=value,Every 5-15 minutes,❌ NOT CACHED,None,120-300 sec,No,Yes,CRITICAL
+Market Movers,Most Active (Volume),Stocks with highest volume,/nse/most-active-volume,https://www.nseindia.com/api/live-analysis-most-active-securities?index=volume,Every 5-15 minutes,❌ NOT CACHED,None,120-300 sec,No,Yes,CRITICAL
+Market Movers,52-Week High,Stocks at 52-week high,/nse/52-week-high,https://www.nseindia.com/api/live-analysis-variations?index=gainers,Daily (updates EOD),❌ NOT CACHED,None,300-600 sec,No,Yes,CRITICAL
+Market Movers,52-Week Low,Stocks at 52-week low,/nse/52-week-low,https://www.nseindia.com/api/live-analysis-variations?index=gainers,Daily (updates EOD),❌ NOT CACHED,None,300-600 sec,No,Yes,CRITICAL
+Market Movers,Weekly Gainers,Top performers in the week,/nse/weekly-gainers,Computed from YFinance historical data,Daily,✅ Cached,300 sec,300 sec,No,Yes,Medium
+Market Movers,NIFTY Contributors,NIFTY 50 constituent stocks,/nse/nifty-contributors,https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%2050,Every 5-15 minutes,❌ NOT CACHED,None,120-300 sec,No,Yes,Medium
+Institutional Data,FII/DII Activity,Foreign/Domestic inst. activity,/nse/fii-dii-activity,https://www.nseindia.com/api/fiidiiTradeReact,Daily (EOD),✅ Cached,600 sec,600-1800 sec,No,Yes,Low
+Institutional Data,Bulk Deals,Large bulk trades,/nse/bulk-deals,https://www.nseindia.com/api/snapshot/capital-market/bulk-block-deals,Daily (EOD),⚠️ No Cache,None,300-600 sec,No,Yes,Medium
+Institutional Data,Block Deals,Large block trades,/nse/block-deals,https://www.nseindia.com/api/snapshot/capital-market/bulk-block-deals,Daily (EOD),⚠️ No Cache,None,300-600 sec,No,Yes,Medium
+Institutional Data,Block Activity,Bulk/block deal tracker,/market-pulse/block-activity,Database (from bulk-deals endpoint),Daily (EOD),✅ Cached,30 sec,300-600 sec,No,Yes,Medium
+Market Pulse,Volume Surge,Stocks with volume >2x avg,/market-pulse/volume-surge,Database + NSE data,Every 30 seconds,✅ Cached,30 sec,60-120 sec,No,Yes,Medium
+Market Pulse,Delivery Leaders,High delivery % stocks,/market-pulse/delivery-leaders,Database + NSE data,Every 30 seconds,✅ Cached,30 sec,60-120 sec,No,Yes,Medium
+Market Pulse,Daily Summary,EOD market pulse summary,/market-pulse/daily-summary,Database (computed),Daily (EOD),❌ No Cache,None,3600 sec,No,Yes,Low
+Sector Data,Sector Heatmap,Performance of market sectors,/nse/sector/heatmap,https://www.nseindia.com/api/allIndices,Every 15-30 minutes,✅ Cached,300 sec,300 sec,No,Yes,Medium
+Sector Data,Sector Stocks,List of stocks in each sector,/nse/sector/{name}/stocks,https://www.nseindia.com/api/equity-stockIndices?index={sector},Rarely changes,✅ Cached,300 sec,1800-3600 sec,No,Yes,Low
+Stock Information,Stock List (NIFTY 100),List of NIFTY 100 stocks,/nse/all-stocks,https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%20100,Very rarely (updates),✅ Cached,300 sec,1800-3600 sec,No,Yes,Medium
+Stock Information,All Equities CSV,Complete NSE stock list,/nse/all-stocks (fallback),https://archives.nseindia.com/content/equities/EQUITY_L.csv,Daily,✅ Cached,300 sec,1800-3600 sec,No,Yes,Low
+User Data,User Portfolio,User's stock holdings,/portfolio,Database,On user action,⚠️ Partial,30-60 sec,30-60 sec,Yes,No,Medium
+User Data,User Watchlists,User's tracked stocks,/watchlist,Database,On user modification,❌ No Cache,None,30-60 sec,Yes,No,Medium
+User Data,Watchlist Stocks,Stocks in a watchlist,/watchlist/{id}/stocks,Database,On user modification,❌ No Cache,None,30 sec,Yes,No,Medium
+User Data,User Trades,User's trade transactions,/portfolio/trades,Database,On trade execution,❌ No Cache,None,30 sec,Yes,No,Medium
+User Data,User Holdings,User's current holdings,/holdings,Database,On trade execution,❌ No Cache,None,30 sec,Yes,No,Medium
+User Data,User Profile,User account details,/profile,Database,On user change,❌ No Cache,None,300 sec,Yes,No,Low
+Trading Data,Virtual Portfolio,Paper trading positions,/portfolio,Database,On user action,❌ No Cache,None,30 sec,Yes,No,Medium
+Trading Data,Virtual Trades,Paper trade history,/portfolio/trades,Database,On trade execution,❌ No Cache,None,30 sec,Yes,No,Medium
+Trading Data,Fyers Positions,Live broker positions,/fyers/positions,Fyers API,Every 5-30 seconds,❌ No Cache,None,30 sec,Yes,No,High
+Trading Data,Fyers Holdings,Live broker holdings,/fyers/holdings,Fyers API,Daily/On change,❌ No Cache,None,300 sec,Yes,No,Medium
+Trading Data,Fyers Orders,Pending & executed orders,/fyers/orders,Fyers API,Every 5-30 sec,❌ No Cache,None,30 sec,Yes,No,High

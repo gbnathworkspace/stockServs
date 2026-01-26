@@ -32,6 +32,32 @@ export default function Wallet({ subSection, onNavigate }) {
     }
   };
 
+  const handleUpdateFunds = async (amount, type) => {
+    const formattedAmount = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
+    const action = type === 'SET' ? 'reset your balance to' : 'add';
+    
+    if (!window.confirm(`Are you sure you want to ${action} ${formattedAmount}?`)) return;
+
+    setLoading(true);
+    try {
+      await authApi(`${API_BASE_URL}/portfolio/funds`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, type }),
+      });
+      alert('Wallet updated successfully!');
+      loadWalletData();
+      if (type === 'SET') {
+        onNavigate('wallet.balance');
+      }
+    } catch (err) {
+      console.error('Failed to update funds:', err);
+      alert('Failed to update funds: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -119,6 +145,73 @@ export default function Wallet({ subSection, onNavigate }) {
     );
   }
 
+  if (subSection === 'funds') {
+    return (
+      <div className="wallet-section">
+        <div className="section-header">
+          <div className="section-title">
+            <span className="section-title-icon">💳</span>
+            <h2>Add Funds</h2>
+          </div>
+          <button onClick={() => onNavigate('wallet.balance')}>
+            Back to Wallet
+          </button>
+        </div>
+
+        <div className="wallet-plans-section">
+          <h3>Subscription Plans (Reset Balance)</h3>
+          <p className="section-subtitle">Choose a plan to reset your sandbox capital.</p>
+          
+          <div className="wallet-stats-grid" style={{ marginTop: '1rem' }}>
+            {/* Basic Plan */}
+            <div className="wallet-stat-card clickable" onClick={() => handleUpdateFunds(500000, 'SET')}>
+              <div className="wallet-stat-icon">🥉</div>
+              <div className="wallet-stat-content">
+                <span className="wallet-stat-label">Basic Plan</span>
+                <span className="wallet-stat-value">₹5,00,000</span>
+                <span className="wallet-stat-change">Start Fresh</span>
+              </div>
+            </div>
+
+            {/* Standard Plan */}
+            <div className="wallet-stat-card clickable" onClick={() => handleUpdateFunds(1000000, 'SET')}>
+              <div className="wallet-stat-icon">🥈</div>
+              <div className="wallet-stat-content">
+                <span className="wallet-stat-label">Standard Plan</span>
+                <span className="wallet-stat-value">₹10,00,000</span>
+                <span className="wallet-stat-change">Most Popular</span>
+              </div>
+            </div>
+
+            {/* Premium Plan */}
+            <div className="wallet-stat-card clickable" onClick={() => handleUpdateFunds(2000000, 'SET')}>
+              <div className="wallet-stat-icon">🥇</div>
+              <div className="wallet-stat-content">
+                <span className="wallet-stat-label">Premium Plan</span>
+                <span className="wallet-stat-value">₹20,00,000</span>
+                <span className="wallet-stat-change">Pro Trader</span>
+              </div>
+            </div>
+          </div>
+
+          <h3 style={{ marginTop: '2rem' }}>Top Up</h3>
+          <p className="section-subtitle">Add more funds to your current balance.</p>
+
+          <div className="wallet-stats-grid" style={{ marginTop: '1rem' }}>
+             <div className="wallet-stat-card clickable" onClick={() => handleUpdateFunds(500000, 'TOPUP')}>
+              <div className="wallet-stat-icon">➕</div>
+              <div className="wallet-stat-content">
+                <span className="wallet-stat-label">Top Up Pack</span>
+                <span className="wallet-stat-value">₹5,00,000</span>
+                <span className="wallet-stat-change">Cost: ₹299</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Balance view (default)
   return (
     <div className="wallet-section">
@@ -159,6 +252,10 @@ export default function Wallet({ subSection, onNavigate }) {
               <button className="wallet-action-btn" onClick={() => onNavigate('trading.portfolio')}>
                 <span className="wallet-action-icon">📁</span>
                 <span>View Portfolio</span>
+              </button>
+              <button className="wallet-action-btn" onClick={() => onNavigate('wallet.funds')}>
+                <span className="wallet-action-icon">💳</span>
+                <span>Add Funds</span>
               </button>
             </div>
           </div>

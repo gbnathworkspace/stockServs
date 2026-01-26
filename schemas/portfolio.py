@@ -25,6 +25,18 @@ class TradePayload(BaseModel):
         return order_type
 
 
+class FundsPayload(BaseModel):
+    amount: float = Field(..., gt=0)
+    type: str = Field("TOPUP")  # TOPUP or SET
+
+    @validator("type")
+    def normalize_type(cls, value: str) -> str:
+        t = (value or "TOPUP").upper()
+        if t not in {"TOPUP", "SET"}:
+            raise ValueError("type must be TOPUP or SET")
+        return t
+
+
 class HoldingOut(BaseModel):
     symbol: str
     quantity: int

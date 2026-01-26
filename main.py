@@ -12,6 +12,7 @@ from routes.portfolio import router as portfolio_router
 from routes.market_data import router as market_data_router
 from routes.logs import router as logs_router
 from routes.fyers import router as fyers_router
+from routes.fyers_market import router as fyers_market_router
 from routes.option_clock import router as option_clock_router
 from routes.watchlist import router as watchlist_router
 from routes.market_pulse import router as market_pulse_router
@@ -104,6 +105,7 @@ app.include_router(swing_spectrum_router, prefix="/swing-spectrum", tags=["Swing
 app.include_router(insider_strategy_router, prefix="/insider-strategy", tags=["Insider Strategy"], dependencies=protected)
 app.include_router(option_apex_router, prefix="/option-apex", tags=["Option Apex"], dependencies=protected)
 app.include_router(fyers_router)  # No global auth - fyers handles its own auth (callback needs to be public)
+app.include_router(fyers_market_router, dependencies=protected)  # Fyers market data for Market Sandbox
 
 
 @app.on_event("startup")

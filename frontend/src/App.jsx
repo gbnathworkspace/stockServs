@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from './contexts/ThemeContext.jsx';
+import { LoadingProvider } from './contexts/LoadingContext.jsx';
+import LoadingOverlay from './components/LoadingOverlay.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import Dashboard from './components/sections/Dashboard.jsx';
 import VirtualTrading from './components/VirtualTrading.jsx';
@@ -146,8 +148,7 @@ function App() {
         }
         return <MarketData subSection={subSection || 'gainers'} />;
 
-      case 'wallet':
-        return <Wallet subSection={subSection || 'balance'} onNavigate={handleSectionChange} />;
+
 
       case 'watchlist':
         return <Watchlist onNavigate={handleSectionChange} />;
@@ -173,12 +174,8 @@ function App() {
       'products.insider-strategy': 'Insider Strategy',
       'products.sector-scope': 'Sector Scope',
       'products.swing-spectrum': 'Swing Spectrum',
-      'trading': 'Virtual Trading',
-      'trading.trade': 'Trade Stocks',
-      'trading.portfolio': 'My Portfolio',
-      'trading.orders': 'Order History',
-      'real-trading': 'Real Trading',
-      'real-trading.fyers': 'Fyers Trading',
+      'trading': 'Market Sandbox',
+      'real-trading': 'Market Connect',
       'market': 'Market Data',
       'market.gainers': 'Top Gainers',
       'market.losers': 'Top Losers',
@@ -186,9 +183,7 @@ function App() {
       'market.fii-dii': 'FII / DII Activity',
       'market.weekly': 'Weekly Movers',
       'market.bulk': 'Bulk Deals',
-      'wallet': 'Wallet',
-      'wallet.balance': 'Balance',
-      'wallet.transactions': 'Transactions',
+
       'watchlist': 'Watchlist',
       'settings': 'Settings',
       'settings.profile': 'Profile',
@@ -199,54 +194,57 @@ function App() {
   };
 
   return (
-    <div className="app-layout">
-      {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
-        <div 
-          className="mobile-overlay" 
-          onClick={() => setMobileMenuOpen(false)} 
+    <LoadingProvider>
+      <LoadingOverlay />
+      <div className="app-layout">
+        {/* Mobile Menu Overlay */}
+        {mobileMenuOpen && (
+          <div 
+            className="mobile-overlay" 
+            onClick={() => setMobileMenuOpen(false)} 
+          />
+        )}
+
+        <Sidebar
+          activeSection={activeSection}
+          onSectionChange={handleSectionChange}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          mobileOpen={mobileMenuOpen}
+          onMobileClose={() => setMobileMenuOpen(false)}
         />
-      )}
 
-      <Sidebar
-        activeSection={activeSection}
-        onSectionChange={handleSectionChange}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        mobileOpen={mobileMenuOpen}
-        onMobileClose={() => setMobileMenuOpen(false)}
-      />
+        <main className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+          <header className="main-header">
+            <div className="header-left">
+              {/* Mobile Hamburger Button */}
+              <button 
+                className="mobile-menu-btn"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label="Toggle menu"
+              >
+                <span className="hamburger-line"></span>
+                <span className="hamburger-line"></span>
+                <span className="hamburger-line"></span>
+              </button>
+              <h1 className="page-title">{getSectionTitle()}</h1>
+              {appVersion && <span className="version-badge">{appVersion}</span>}
+            </div>
+            <div className="header-right">
+              <RefreshControl />
+              <span className="user-email">{userName}</span>
+              <button className="logout-btn" onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
+          </header>
 
-      <main className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-        <header className="main-header">
-          <div className="header-left">
-            {/* Mobile Hamburger Button */}
-            <button 
-              className="mobile-menu-btn"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle menu"
-            >
-              <span className="hamburger-line"></span>
-              <span className="hamburger-line"></span>
-              <span className="hamburger-line"></span>
-            </button>
-            <h1 className="page-title">{getSectionTitle()}</h1>
-            {appVersion && <span className="version-badge">{appVersion}</span>}
+          <div className="content-area">
+            {renderContent()}
           </div>
-          <div className="header-right">
-            <RefreshControl />
-            <span className="user-email">{userName}</span>
-            <button className="logout-btn" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
-        </header>
-
-        <div className="content-area">
-          {renderContent()}
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </LoadingProvider>
   );
 }
 
