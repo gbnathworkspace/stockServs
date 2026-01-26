@@ -31,18 +31,60 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
   const fetchOptionChain = async (sym, expiry = '') => {
     setLoading(true);
     try {
-      let url = `${window.location.origin}/nse_data/fno/option-chain/${sym}`;
+      // Use Fyers market data endpoint for option chain
+      let url = `${window.location.origin}/fyers/market/option-chain/${sym}`;
       if (expiry) {
         url += `?expiry=${expiry}`;
       }
       const res = await authApi(url);
-      setChainData(res);
-      if (!expiry && res.expiryDates && res.expiryDates.length > 0) {
-        setExpiryDates(res.expiryDates);
-        setSelectedExpiry(res.currentExpiry); // Auto-select nearest expiry
+
+      // Check if Fyers is connected
+      if (!res.fyers_connected) {
+        console.log('[OptionChain] Fyers not connected');
+        setChainData(null);
+        return;
+      }
+
+      // Transform Fyers format to display format expected by component
+      if (res.strikeData) {
+        const transformedData = {
+          underlyingValue: res.spotPrice || 0,
+          pcr: res.pcr || 0,
+          expiryDates: res.expiryDate ? [res.expiryDate] : [],
+          currentExpiry: res.expiryDate,
+          data: Object.entries(res.strikeData).map(([strike, data]) => ({
+            strikePrice: parseFloat(strike),
+            expiryDate: res.expiryDate,
+            CE: data.call_oi ? {
+              openInterest: data.call_oi || 0,
+              totalTradedVolume: data.call_volume || 0,
+              lastPrice: data.call_ltp || 0,
+              change: data.call_change || 0,
+              pChange: data.call_pChange || 0,
+            } : null,
+            PE: data.put_oi ? {
+              openInterest: data.put_oi || 0,
+              totalTradedVolume: data.put_volume || 0,
+              lastPrice: data.put_ltp || 0,
+              change: data.put_change || 0,
+              pChange: data.put_pChange || 0,
+            } : null,
+          })).sort((a, b) => a.strikePrice - b.strikePrice)
+        };
+        setChainData(transformedData);
+        if (!expiry && transformedData.expiryDates.length > 0) {
+          setExpiryDates(transformedData.expiryDates);
+          setSelectedExpiry(transformedData.currentExpiry);
+        }
+      } else {
+        setChainData(res);
+        if (!expiry && res.expiryDates && res.expiryDates.length > 0) {
+          setExpiryDates(res.expiryDates);
+          setSelectedExpiry(res.currentExpiry);
+        }
       }
     } catch (err) {
-      console.error("Failed to fetch option chain", err);
+      console.error("Failed to fetch option chain from Fyers", err);
     } finally {
       setLoading(false);
     }
