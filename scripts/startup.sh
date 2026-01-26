@@ -96,9 +96,10 @@ echo -e "\n${BLUE}[3/5] Checking database connection...${NC}"
 python3 -c "
 import sys
 try:
+    from sqlalchemy import text
     from database.connection import SessionLocal
     db = SessionLocal()
-    db.execute('SELECT 1')
+    db.execute(text('SELECT 1'))
     db.close()
     print('   Connection successful')
     sys.exit(0)
