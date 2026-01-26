@@ -29,19 +29,29 @@ cd "$PROJECT_ROOT"
 ###############################################################################
 echo -e "${BLUE}[1/5] Checking environment...${NC}"
 
-if [ ! -f ".env" ]; then
-    echo -e "${RED}❌ .env file not found${NC}"
-    echo "   Copy .env.example to .env and configure it"
-    exit 1
+# Check if DATABASE_URL is already set (e.g., from Docker environment variables)
+if [ -z "$DATABASE_URL" ]; then
+    # DATABASE_URL not set, try loading from .env file
+    if [ ! -f ".env" ]; then
+        echo -e "${RED}❌ .env file not found and DATABASE_URL not set${NC}"
+        echo "   Either:"
+        echo "   - Copy .env.example to .env and configure it, OR"
+        echo "   - Pass DATABASE_URL as an environment variable (Docker/production)"
+        exit 1
+    fi
+    
+    # Load environment variables from .env file
+    echo "   Loading environment from .env file..."
+    set -a
+    source .env
+    set +a
+else
+    echo "   Using environment variables from container/system"
 fi
 
-# Load environment variables
-set -a
-source .env
-set +a
-
+# Final validation - DATABASE_URL must be set by now
 if [ -z "$DATABASE_URL" ]; then
-    echo -e "${RED}❌ DATABASE_URL not configured in .env${NC}"
+    echo -e "${RED}❌ DATABASE_URL not configured${NC}"
     exit 1
 fi
 
