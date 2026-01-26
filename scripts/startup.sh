@@ -118,8 +118,11 @@ echo -e "${GREEN}✅ Database accessible${NC}"
 ###############################################################################
 echo -e "\n${BLUE}[4/5] Validating Fyers token...${NC}"
 
+# Temporarily disable exit-on-error for non-blocking check
+set +e
 python3 "$SCRIPT_DIR/check_fyers_token.py"
 TOKEN_STATUS=$?
+set -e
 
 if [ $TOKEN_STATUS -eq 0 ]; then
     echo -e "${GREEN}✅ Fyers token valid - Market data will be reliable${NC}"
