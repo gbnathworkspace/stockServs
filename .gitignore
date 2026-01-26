@@ -133,9 +133,10 @@ logs/
 # ===========================
 # Test & Debug Files (Development Only)
 # ===========================
-test_*.py
-check_*.py
-debug_*.py
+# Only ignore test/debug files in root, allow them in scripts/
+/test_*.py
+/check_*.py
+/debug_*.py
 *_test_results.txt
 api_responses.json
 
@@ -158,5 +159,6 @@ docker-compose.override.yml
 # ===========================
 # Local Development Scripts
 # ===========================
-scripts/fetch_*.py
-init_db.py
+# Note: scripts/ folder is now tracked in git
+# Only exclude init_db.py if it contains sensitive data
+# init_db.py

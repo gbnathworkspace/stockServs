@@ -240,6 +240,7 @@ class Watchlist(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(100), nullable=False)
     position = Column(Integer, nullable=False, default=0)  # 0-14 for watchlists 1-15
+    is_default = Column(Integer, nullable=False, default=0)  # 1 for default watchlist, 0 for others (using Integer for SQLite compatibility)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -53,17 +53,48 @@ async def get_watchlists(
     """Get all user watchlists with stock counts."""
     # Check cache first
     cache_key = watchlist_all_key(current_user.id)
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
+    # cached = cache.get(cache_key)
+    # # Only return cache if it has data. If empty, proceed to DB to potentially initialize defaults.
+    # if cached is not None and len(cached.get("watchlists", [])) > 0:
+    #     return cached
     
     # Cache miss - fetch from database
+    print(f"[DEBUG] get_watchlists for user_id={current_user.id} email={current_user.email}")
+    
     watchlists = (
         db.query(Watchlist)
         .filter(Watchlist.user_id == current_user.id)
         .order_by(Watchlist.position)
         .all()
     )
+    
+    # If no watchlists exist, create a default "Default" watchlist
+    if not watchlists:
+        print(f"[DEBUG] No watchlists found for user {current_user.id}. Creating default...")
+        default_watchlist = Watchlist(
+            user_id=current_user.id,
+            name="Default",
+            position=0,
+            is_default=1
+        )
+        db.add(default_watchlist)
+        db.flush()
+        
+        # Add some default stocks
+        default_stocks = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"]
+        for idx, symbol in enumerate(default_stocks):
+            stock = WatchlistStock(
+                watchlist_id=default_watchlist.id,
+                symbol=symbol,
+                position=idx
+            )
+            db.add(stock)
+            
+        db.commit()
+        db.refresh(default_watchlist)
+        watchlists = [default_watchlist]
+    
+    print(f"[DEBUG] Returning {len(watchlists)} watchlists for user {current_user.id}")
     
     result = []
     for wl in watchlists:
@@ -72,6 +103,7 @@ async def get_watchlists(
             "id": wl.id,
             "name": wl.name,
             "position": wl.position,
+            "is_default": bool(wl.is_default),
             "stock_count": stock_count,
             "created_at": wl.created_at.isoformat() if wl.created_at else None,
             "updated_at": wl.updated_at.isoformat() if wl.updated_at else None,
@@ -179,6 +211,10 @@ async def delete_watchlist(
     if not watchlist:
         raise HTTPException(status_code=404, detail="Watchlist not found")
     
+    # Prevent deletion of default watchlist
+    if watchlist.is_default:
+        raise HTTPException(status_code=400, detail="Cannot delete the default watchlist")
+    
     db.delete(watchlist)
     db.commit()
     
@@ -211,6 +247,14 @@ async def get_watchlist_stocks(
     )
     
     if not watchlist:
+        print(f"[DEBUG] 404 ERROR: Watchlist {watchlist_id} not found for User {current_user.id}")
+        # Check if it exists for ANY user
+        exists_any = db.query(Watchlist).filter(Watchlist.id == watchlist_id).first()
+        if exists_any:
+             print(f"[DEBUG] Watchlist {watchlist_id} exists but belongs to User {exists_any.user_id}")
+        else:
+             print(f"[DEBUG] Watchlist {watchlist_id} does not exist in DB at all")
+             
         raise HTTPException(status_code=404, detail="Watchlist not found")
     
     stocks = (

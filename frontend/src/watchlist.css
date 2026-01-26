@@ -319,3 +319,239 @@
     padding: 0.5rem 0.85rem;
   }
 }
+
+/* ==========================================================================
+   MARKET VIEW - STOCKS GRID
+   ========================================================================== */
+
+/* Stock Grid Layout - Grid of Cards */
+.stocks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+/* Stock Card */
+.stock-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.stock-card:hover {
+  background: var(--card-bg-hover);
+  border-color: var(--accent-green);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.stock-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.stock-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stock-symbol {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.stock-price {
+  font-family: var(--font-mono, 'Courier New', monospace);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stock-price.positive { color: var(--accent-green); }
+.stock-price.negative { color: var(--accent-red); }
+
+/* Stock Actions */
+.stock-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chart-btn,
+.remove-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+  padding: 0;
+}
+
+.chart-btn:hover {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: white;
+  transform: scale(1.1);
+}
+
+.remove-btn:hover {
+  background: rgba(255, 77, 77, 0.2);
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+  transform: scale(1.1);
+}
+
+.stock-card-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.change-pill {
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.change-pill.positive {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--accent-green);
+}
+
+.change-pill.negative {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--accent-red);
+}
+
+/* Glass Theme Overrides */
+[data-theme="glass"] .stock-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="glass"] .stock-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* ==========================================================================
+   SEARCH AUTOCOMPLETE DROPDOWN
+   ========================================================================== */
+
+.search-bar {
+  position: relative;
+  flex: 1;
+  max-width: 500px;
+}
+
+.search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  box-shadow: var(--shadow-lg);
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 9999;
+  margin-top: -1px;
+}
+
+.search-dropdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.search-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.search-dropdown-item:hover {
+  background: var(--hover-bg);
+  border-left: 3px solid var(--accent-green);
+}
+
+.dropdown-stock-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dropdown-symbol {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.dropdown-price {
+  font-family: var(--font-mono, 'Courier New', monospace);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.dropdown-price.positive {
+  color: var(--accent-green);
+}
+
+.dropdown-price.negative {
+  color: var(--accent-red);
+}
+
+.dropdown-change {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+.dropdown-change.positive {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--accent-green);
+}
+
+.dropdown-change.negative {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--accent-red);
+}
+
+/* Glass theme overrides */
+[data-theme="glass"] .search-dropdown {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="glass"] .search-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-left-color: var(--accent-green);
+}
+

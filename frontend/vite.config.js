@@ -12,6 +12,11 @@ export default defineConfig(({ command }) => {
     server: {
       port: 5173,
       proxy: {
+        '/api': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, ''),
+        },
         '/nse_data': {
           target: 'http://localhost:8000',
           changeOrigin: true,
