@@ -187,10 +187,23 @@ export default function ChartModal({
   const loadChartData = async () => {
     if (!stock) return;
     setStatus({ loading: true, error: '' });
-    
+
     try {
-      const url = `${API_BASE_URL}/market-data/candles?symbol=${encodeURIComponent(stock.symbol)}&interval=${range.interval}&period=${range.period}`;
+      // Use Fyers market data endpoint for chart candles
+      const url = `${API_BASE_URL}/fyers/market/candles?symbol=${encodeURIComponent(stock.symbol)}&interval=${range.interval}&period=${range.period}`;
       const data = await authApi(url);
+
+      // Check if Fyers is connected
+      if (!data.fyers_connected) {
+        setStatus({ loading: false, error: 'Connect Fyers to view charts' });
+        return;
+      }
+
+      if (data.error) {
+        setStatus({ loading: false, error: data.error });
+        return;
+      }
+
       applyChartData(data);
       setStatus({ loading: false, error: '' });
     } catch (err) {
@@ -201,14 +214,17 @@ export default function ChartModal({
   const applyChartData = (data) => {
     if (!data) return;
     const { candleSeries, volumeSeries, smaSeries, emaSeries, rsiSeries, chart, rsiChart } = chartRefs.current;
-    
+
     if (candleSeries) candleSeries.setData(data.candles || []);
     if (volumeSeries) volumeSeries.setData(data.volume || []);
-    
+
+    // Support both rsi14 and rsi field names for RSI indicator
+    const rsiData = data.indicators?.rsi14 || data.indicators?.rsi || [];
+
     if (smaSeries) smaSeries.setData(showIndicators.sma ? (data.indicators?.sma20 || []) : []);
     if (emaSeries) emaSeries.setData(showIndicators.ema ? (data.indicators?.ema20 || []) : []);
-    if (rsiSeries) rsiSeries.setData(showIndicators.rsi ? (data.indicators?.rsi14 || []) : []);
-    
+    if (rsiSeries) rsiSeries.setData(showIndicators.rsi ? rsiData : []);
+
     if (chart) chart.timeScale().fitContent();
     if (rsiChart) rsiChart.timeScale().fitContent();
   };

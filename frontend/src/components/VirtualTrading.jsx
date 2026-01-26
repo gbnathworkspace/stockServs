@@ -83,21 +83,40 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
 
   // --- DATA FETCHING ---
 
-  // Silent refresh for stock prices only (watchlist + portfolio stocks)
+  // Silent refresh for stock prices only (watchlist + portfolio stocks) using Fyers
   const refreshStocksSilent = async () => {
     if (!activeWatchlist) return;
-    
+
     // Get symbols from active watchlist + portfolio
     const watchlistSymbols = watchlistStocks.map(s => s.symbol) || [];
     const portfolioSymbols = portfolio.map(p => p.symbol) || [];
     const symbols = [...new Set([...watchlistSymbols, ...portfolioSymbols])];
-    
+
     if (symbols.length === 0) return;
-    
+
     try {
-      const res = await fastAuthApi(`${API_BASE_URL}/watchlist/${activeWatchlist.id}/stocks?fast=true`); // Assuming backend supports optimized endpoint
-      if (res?.stocks?.length > 0) {
-        setWatchlistStocks(res.stocks);
+      // Use Fyers quotes endpoint for live price refresh
+      const symbolsParam = symbols.slice(0, 50).join(','); // Max 50 symbols
+      const res = await fastAuthApi(`${API_BASE_URL}/fyers/market/quotes?symbols=${encodeURIComponent(symbolsParam)}`);
+
+      if (res?.quotes && res.fyers_connected) {
+        // Merge new prices with existing watchlist stocks
+        const updatedStocks = watchlistStocks.map(stock => {
+          const quote = res.quotes[stock.symbol];
+          if (quote) {
+            return {
+              ...stock,
+              lastPrice: quote.lastPrice,
+              pChange: quote.pChange,
+              change: quote.change,
+              high: quote.high,
+              low: quote.low,
+              volume: quote.volume
+            };
+          }
+          return stock;
+        });
+        setWatchlistStocks(updatedStocks);
       }
     } catch (err) {
       console.error('Failed to refresh watchlist stocks', err);
@@ -285,8 +304,14 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
 
   const fetchAllStocksForSearch = async () => {
     try {
-      const res = await authApi(`${API_BASE_URL}/nse_data/all-stocks`);
+      // Use Fyers market data endpoint for stock search
+      const res = await authApi(`${API_BASE_URL}/fyers/market/all-stocks`);
       setAllStocksForSearch(res.stocks || []);
+
+      // Notify if Fyers is not connected
+      if (!res.fyers_connected) {
+        console.log('[VirtualTrading] Fyers not connected - showing stocks without live prices');
+      }
     } catch (err) {
       console.error('Failed to load stocks for search', err);
     }
