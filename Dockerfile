@@ -40,11 +40,14 @@ COPY . .
 # Copy built React app from frontend-builder stage
 COPY --from=frontend-builder /build/static/app ./static/app
 
+# Make startup scripts executable
+RUN chmod +x scripts/startup.sh scripts/check_fyers_token.py
+
 # Expose port 8000
 EXPOSE 8000
 
 # Define environment variable
 ENV PYTHONUNBUFFERED=1
 
-# Run the app when the container launches
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run startup script with Fyers token validation
+CMD ["./scripts/startup.sh", "prod"]
