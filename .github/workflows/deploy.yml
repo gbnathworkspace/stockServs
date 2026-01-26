@@ -65,9 +65,11 @@ jobs:
           docker pull ${DOCKER_USER}/stock_servs:latest
           
           echo '=== Starting new container ==='
-          docker run -d --name stock_servs -p 8000:8000 \
-            -e DB_SSM_PARAM_NAME='DB_SSM_PARAM_NAME' \
-            -e AWS_REGION='us-east-1' \
+          # Using --network host to allow container to access EC2 Instance Metadata Service (IMDS)
+          # This enables the container to use the EC2 IAM role for AWS credentials
+          docker run -d --name stock_servs --network host \
+            -e DB_SSM_PARAM_NAME='${{ secrets.DB_SSM_PARAM_NAME }}' \
+            -e AWS_REGION='${{ secrets.AWS_REGION }}' \
             -e FYERS_CLIENT_ID='${{ secrets.FYERS_CLIENT_ID }}' \
             -e FYERS_SECRET_KEY='${{ secrets.FYERS_SECRET_KEY }}' \
             -e FYERS_REDIRECT_URI='${{ secrets.FYERS_REDIRECT_URI }}' \
