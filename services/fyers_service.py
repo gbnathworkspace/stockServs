@@ -1,8 +1,10 @@
 import os
+import hashlib
 import httpx
 import csv
 import io
 import asyncio
+import requests
 from typing import List, Dict, Optional
 from datetime import datetime
 from fyers_apiv3 import fyersModel
@@ -13,6 +15,7 @@ load_dotenv()
 FYERS_CLIENT_ID = os.getenv("FYERS_CLIENT_ID")
 FYERS_SECRET_KEY = os.getenv("FYERS_SECRET_KEY")
 FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI")
+FYERS_PIN = os.getenv("FYERS_PIN")
 
 # Symbol master configuration
 SYM_MASTER_DIR = os.path.join(os.getcwd(), "data", "symbols")
@@ -114,8 +117,8 @@ def generate_fyers_access_token(auth_code: str):
 
 def refresh_fyers_access_token(refresh_token: str):
     """
-    Use refresh token to get a new access token from Fyers.
-    Returns same format as generate_fyers_access_token.
+    Use refresh token + PIN to get a new access token from Fyers v3 API.
+    Endpoint: https://api-t1.fyers.in/api/v3/validate-refresh-token
     """
     if not FYERS_CLIENT_ID or not FYERS_SECRET_KEY:
         print("[FYERS_REFRESH] ERROR: Fyers credentials not configured")
@@ -125,18 +128,28 @@ def refresh_fyers_access_token(refresh_token: str):
         print("[FYERS_REFRESH] No refresh token available")
         return None
 
+    if not FYERS_PIN:
+        print("[FYERS_REFRESH] No FYERS_PIN configured — cannot auto-refresh")
+        return None
+
     try:
-        fyers_session = fyersModel.SessionModel(
-            client_id=FYERS_CLIENT_ID,
-            secret_key=FYERS_SECRET_KEY,
-            redirect_uri=FYERS_REDIRECT_URI,
-            response_type="code",
-            grant_type="refresh_token"
+        app_id_hash = hashlib.sha256(
+            (FYERS_CLIENT_ID + ":" + FYERS_SECRET_KEY).encode()
+        ).hexdigest()
+
+        resp = requests.post(
+            "https://api-t1.fyers.in/api/v3/validate-refresh-token",
+            json={
+                "grant_type": "refresh_token",
+                "appIdHash": app_id_hash,
+                "refresh_token": refresh_token,
+                "pin": FYERS_PIN,
+            },
+            timeout=15,
         )
-        fyers_session.set_token(refresh_token)
-        response = fyers_session.generate_token()
-        print(f"[FYERS_REFRESH] Response: {response}")
-        return response
+        result = resp.json()
+        print(f"[FYERS_REFRESH] Response: code={result.get('code')}, s={result.get('s')}")
+        return result
     except Exception as e:
         print(f"[FYERS_REFRESH] Exception: {e}")
         return None

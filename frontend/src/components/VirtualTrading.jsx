@@ -66,6 +66,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const [watchlistStocks, setWatchlistStocks] = useState([]);
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [allStocksForSearch, setAllStocksForSearch] = useState([]);
+  const [modalSearchQuery, setModalSearchQuery] = useState(''); // Separate search state for Add Stock modal
 
   // Fyers State
   const [fyersConnected, setFyersConnected] = useState(false);
@@ -287,7 +288,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
         body: JSON.stringify({ symbol }),
       });
       showToast(`Added ${symbol}`, 'success');
-      fetchWatchlistStocks(activeWatchlist.id);
+      await fetchWatchlistStocks(activeWatchlist.id);
       // Don't close modal to allow multiple adds
     } catch (err) {
       showToast('Failed to add stock', 'error');
@@ -299,7 +300,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     try {
       await authApi(`${API_BASE_URL}/watchlist/${activeWatchlist.id}/stocks/${symbol}`, { method: 'DELETE' });
       showToast(`Removed ${symbol}`, 'success');
-      fetchWatchlistStocks(activeWatchlist.id);
+      await fetchWatchlistStocks(activeWatchlist.id);
     } catch (err) {
       showToast('Failed to remove stock', 'error');
     }
@@ -356,20 +357,19 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     }
   }, [showAddStockModal]);
 
-  // Update filtered stocks only when search query or modal state changes
+  // Update filtered stocks for Add Stock modal only
   useEffect(() => {
-    if (showAddStockModal) {
-      // In Add Mode, filteredStocks comes from allStocksForSearch + Search Query
-      if (!searchQuery.trim()) {
-         setFilteredStocks(allStocksForSearch.slice(0, 50));
-      } else {
-         performSearch(searchQuery);
-      }
-    } else if (searchQuery.trim()) {
-      // User is searching in watchlist mode - search ALL stocks
-      performSearch(searchQuery);
+    if (!showAddStockModal) return;
+
+    if (!modalSearchQuery.trim()) {
+      setFilteredStocks(allStocksForSearch.slice(0, 50));
+      return;
     }
-  }, [searchQuery, allStocksForSearch, showAddStockModal]);
+
+    // Debounced search inside modal
+    const cleanup = performSearch(modalSearchQuery);
+    return cleanup;
+  }, [modalSearchQuery, allStocksForSearch, showAddStockModal]);
 
   const performSearch = (queryStr) => {
       const query = queryStr.toUpperCase();
@@ -542,17 +542,17 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
         <div className="virtual-stocks-container">
           <MarketStatus />
           <MarketView
-            stocks={searchQuery.trim() ? filteredStocks : watchlistStocks}
-            loading={loading.stocks && (searchQuery.trim() ? filteredStocks : watchlistStocks).length === 0}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
+            stocks={watchlistStocks}
+            loading={loading.stocks && watchlistStocks.length === 0}
+            searchQuery={''}
+            setSearchQuery={() => {}}
             watchlists={watchlists}
             activeWatchlist={activeWatchlist}
             setActiveWatchlist={(wl) => { setActiveWatchlist(wl); fetchWatchlistStocks(wl.id); }}
             onCreateWatchlist={createWatchlist}
             onDeleteWatchlist={deleteWatchlist}
             onRemoveStock={removeStockFromWatchlist}
-            onShowAddStock={() => { setSearchQuery(''); setShowAddStockModal(true); }}
+            onShowAddStock={() => { setModalSearchQuery(''); setShowAddStockModal(true); }}
             onSelectStock={setSelectedStock}
             onOpenChart={() => setIsChartOpen(true)}
             onSearch={handleSearch}
@@ -672,15 +672,15 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
           For simplicity, I'll render the MarketView component inside a modal wrapper here, passing special props.
       */}
       {showAddStockModal && (
-          <div className="stock-trade-modal" onClick={() => setShowAddStockModal(false)}>
+          <div className="stock-trade-modal" onClick={() => { setShowAddStockModal(false); setModalSearchQuery(''); setFilteredStocks([]); }}>
               <div className="stock-trade-shell" onClick={(e) => e.stopPropagation()} style={{maxWidth: '800px', width: '90%', height: '80vh', display: 'flex', flexDirection: 'column'}}>
                   <div className="stock-trade-header">
                       <h3>Add Stock to {activeWatchlist?.name}</h3>
-                      <button className="icon-button" onClick={() => setShowAddStockModal(false)}>×</button>
+                      <button className="icon-button" onClick={() => { setShowAddStockModal(false); setModalSearchQuery(''); setFilteredStocks([]); }}>×</button>
                   </div>
                   <div className="stock-trade-content" style={{overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1}}>
                        <div className="search-row">
-                           <input type="text" placeholder="Search NSE stocks..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="search-input" autoFocus />
+                           <input type="text" placeholder="Search NSE stocks..." value={modalSearchQuery} onChange={e => setModalSearchQuery(e.target.value)} className="search-input" autoFocus />
                        </div>
                        <div className="add-stock-list" style={{overflowY: 'auto', flex: 1, paddingRight: '4px'}}>
                            {filteredStocks.length === 0 ? <div className="loading">No stocks found</div> : 

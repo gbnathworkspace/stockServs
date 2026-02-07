@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 from pydantic import BaseModel
 
@@ -53,24 +54,20 @@ async def get_watchlists(
     """Get all user watchlists with stock counts."""
     # Check cache first
     cache_key = watchlist_all_key(current_user.id)
-    # cached = cache.get(cache_key)
-    # # Only return cache if it has data. If empty, proceed to DB to potentially initialize defaults.
-    # if cached is not None and len(cached.get("watchlists", [])) > 0:
-    #     return cached
-    
+    cached = cache.get(cache_key)
+    if cached is not None and len(cached.get("watchlists", [])) > 0:
+        return cached
+
     # Cache miss - fetch from database
-    print(f"[DEBUG] get_watchlists for user_id={current_user.id} email={current_user.email}")
-    
     watchlists = (
         db.query(Watchlist)
         .filter(Watchlist.user_id == current_user.id)
         .order_by(Watchlist.position)
         .all()
     )
-    
+
     # If no watchlists exist, create a default "Default" watchlist
     if not watchlists:
-        print(f"[DEBUG] No watchlists found for user {current_user.id}. Creating default...")
         default_watchlist = Watchlist(
             user_id=current_user.id,
             name="Default",
@@ -79,7 +76,7 @@ async def get_watchlists(
         )
         db.add(default_watchlist)
         db.flush()
-        
+
         # Add some default stocks
         default_stocks = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"]
         for idx, symbol in enumerate(default_stocks):
@@ -89,31 +86,38 @@ async def get_watchlists(
                 position=idx
             )
             db.add(stock)
-            
+
         db.commit()
         db.refresh(default_watchlist)
         watchlists = [default_watchlist]
-    
-    print(f"[DEBUG] Returning {len(watchlists)} watchlists for user {current_user.id}")
-    
+
+    # Single query to get stock counts for all watchlists (fixes N+1)
+    watchlist_ids = [wl.id for wl in watchlists]
+    count_rows = (
+        db.query(WatchlistStock.watchlist_id, func.count(WatchlistStock.id))
+        .filter(WatchlistStock.watchlist_id.in_(watchlist_ids))
+        .group_by(WatchlistStock.watchlist_id)
+        .all()
+    )
+    count_map = {wl_id: cnt for wl_id, cnt in count_rows}
+
     result = []
     for wl in watchlists:
-        stock_count = db.query(WatchlistStock).filter(WatchlistStock.watchlist_id == wl.id).count()
         result.append({
             "id": wl.id,
             "name": wl.name,
             "position": wl.position,
             "is_default": bool(wl.is_default),
-            "stock_count": stock_count,
+            "stock_count": count_map.get(wl.id, 0),
             "created_at": wl.created_at.isoformat() if wl.created_at else None,
             "updated_at": wl.updated_at.isoformat() if wl.updated_at else None,
         })
-    
+
     response = {"watchlists": result}
-    
+
     # Cache the result
     cache.set(cache_key, response, TTL_WATCHLIST)
-    
+
     return response
 
 
@@ -125,8 +129,6 @@ async def create_watchlist(
     db: Session = Depends(get_db)
 ):
     """Create a new watchlist."""
-    from sqlalchemy import func
-
     # Check if user already has 15 watchlists
     count = db.query(Watchlist).filter(Watchlist.user_id == current_user.id).count()
     if count >= 15:
