@@ -50,7 +50,6 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     watchlists: false 
   });
   
-  const [searchQuery, setSearchQuery] = useState('');
   const [searchPage, setSearchPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [toast, setToast] = useState({ message: '', type: '', show: false });
@@ -326,7 +325,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const handleLoadMore = async () => {
     if (loading.stocks || !hasMore) return;
     const nextPage = searchPage + 1;
-    const query = searchQuery.toUpperCase();
+    const query = modalSearchQuery.toUpperCase();
     
     setLoading(l => ({...l, stocks: true}));
     try {
@@ -544,7 +543,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
           <MarketView
             stocks={watchlistStocks}
             loading={loading.stocks && watchlistStocks.length === 0}
-            searchQuery={''}
+            searchQuery=""
             setSearchQuery={() => {}}
             watchlists={watchlists}
             activeWatchlist={activeWatchlist}
