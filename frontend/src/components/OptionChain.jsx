@@ -24,12 +24,14 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
   const [selectedExpiry, setSelectedExpiry] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState(symbol);
+  const [error, setError] = useState('');
 
-  // Common F&O Symbols
-  const foSymbols = ["NIFTY", "BANKNIFTY", "FINNIFTY", "RELIANCE", "HDFCBANK", "INFY", "TCS"];
+  // Common F&O Symbols (must match backend SUPPORTED_INDICES + SUPPORTED_STOCKS)
+  const foSymbols = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "RELIANCE", "HDFCBANK", "INFY", "TCS"];
 
   const fetchOptionChain = async (sym, expiry = '') => {
     setLoading(true);
+    setError('');
     try {
       // Use Fyers market data endpoint for option chain
       let url = `${window.location.origin}/fyers/market/option-chain/${sym}`;
@@ -40,7 +42,13 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
 
       // Check if Fyers is connected
       if (!res.fyers_connected) {
-        console.log('[OptionChain] Fyers not connected');
+        setError('Fyers not connected. Connect via Settings to view live option chain.');
+        setChainData(null);
+        return;
+      }
+
+      if (res.error) {
+        setError(res.error);
         setChainData(null);
         return;
       }
@@ -55,14 +63,14 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
           data: Object.entries(res.strikeData).map(([strike, data]) => ({
             strikePrice: parseFloat(strike),
             expiryDate: res.expiryDate,
-            CE: data.call_oi ? {
+            CE: (data.call_oi || data.call_ltp) ? {
               openInterest: data.call_oi || 0,
               totalTradedVolume: data.call_volume || 0,
               lastPrice: data.call_ltp || 0,
               change: data.call_change || 0,
               pChange: data.call_pChange || 0,
             } : null,
-            PE: data.put_oi ? {
+            PE: (data.put_oi || data.put_ltp) ? {
               openInterest: data.put_oi || 0,
               totalTradedVolume: data.put_volume || 0,
               lastPrice: data.put_ltp || 0,
@@ -135,9 +143,15 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
         </div>
       </div>
 
+      {error && (
+        <div style={{ textAlign: 'center', marginTop: '2rem', padding: '1rem', background: 'rgba(255, 77, 77, 0.1)', border: '1px solid rgba(255, 77, 77, 0.3)', borderRadius: '8px', color: '#ff4d4d' }}>
+          {error}
+        </div>
+      )}
+
       {loading ? (
         <div style={{ textAlign: 'center', marginTop: '2rem', color: '#adbac7' }}>Loading Option Chain...</div>
-      ) : (
+      ) : !error && (
         <div style={styles.tableContainer}>
           <table style={styles.table}>
             <thead>

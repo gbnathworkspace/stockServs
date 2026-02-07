@@ -26,7 +26,29 @@ class OptionClockService:
     # Index symbols and their Fyers symbol format
     SUPPORTED_INDICES = {
         "NIFTY": "NSE:NIFTY50-INDEX",
-        "BANKNIFTY": "NSE:NIFTYBANK-INDEX"
+        "BANKNIFTY": "NSE:NIFTYBANK-INDEX",
+        "FINNIFTY": "NSE:FINNIFTY-INDEX",
+        "MIDCPNIFTY": "NSE:MIDCPNIFTY-INDEX",
+    }
+
+    # Stock symbols for F&O (use EQ segment for spot price)
+    SUPPORTED_STOCKS = {
+        "RELIANCE": "NSE:RELIANCE-EQ",
+        "HDFCBANK": "NSE:HDFCBANK-EQ",
+        "INFY": "NSE:INFY-EQ",
+        "TCS": "NSE:TCS-EQ",
+    }
+
+    # Strike step sizes per symbol
+    STRIKE_STEPS = {
+        "NIFTY": 50,
+        "BANKNIFTY": 100,
+        "FINNIFTY": 50,
+        "MIDCPNIFTY": 25,
+        "RELIANCE": 20,
+        "HDFCBANK": 20,
+        "INFY": 20,
+        "TCS": 50,
     }
 
     # Option symbol format: NSE:NIFTY24DEC24000CE, NSE:NIFTY24DEC24000PE
@@ -53,7 +75,10 @@ class OptionClockService:
         """
         Get a valid Fyers access token from the database.
         Uses the most recently created token.
+        Auto-refreshes expired tokens using refresh_token if available.
         """
+        from services.fyers_service import refresh_fyers_access_token
+
         db = SessionLocal()
         try:
             token_record = (
@@ -61,12 +86,32 @@ class OptionClockService:
                 .order_by(FyersToken.created_at.desc())
                 .first()
             )
-            if token_record and token_record.access_token:
-                # Check if token is not expired (if expires_at is set)
-                if token_record.expires_at and token_record.expires_at < datetime.now():
-                    print("[OPTION_CLOCK] Token expired")
-                    return None
+            if not token_record or not token_record.access_token:
+                return None
+
+            # Token is valid
+            if not token_record.expires_at or token_record.expires_at > datetime.now():
                 return token_record.access_token
+
+            # Token expired — try auto-refresh
+            if token_record.refresh_token:
+                print("[SYSTEM_TOKEN] Token expired, attempting refresh...")
+                refresh_result = refresh_fyers_access_token(token_record.refresh_token)
+                if refresh_result and refresh_result.get("s") == "ok":
+                    new_access = refresh_result.get("access_token")
+                    new_refresh = refresh_result.get("refresh_token")
+                    if new_access:
+                        token_record.access_token = new_access
+                        if new_refresh:
+                            token_record.refresh_token = new_refresh
+                        token_record.created_at = datetime.utcnow()
+                        token_record.expires_at = datetime.utcnow() + timedelta(days=1)
+                        db.commit()
+                        print(f"[SYSTEM_TOKEN] Token refreshed successfully")
+                        return new_access
+                print("[SYSTEM_TOKEN] Refresh failed")
+            else:
+                print("[SYSTEM_TOKEN] Token expired, no refresh_token available")
             return None
         finally:
             db.close()
@@ -121,20 +166,20 @@ class OptionClockService:
 
     def fetch_option_chain(self, access_token: str, symbol: str = "NIFTY") -> Optional[Dict]:
         """
-        Fetch option chain data from Fyers for the given index.
-        Returns aggregated OI data for calls and puts.
+        Fetch option chain data from Fyers for the given index or stock.
+        Returns aggregated OI data with LTP, volume, and change for calls and puts.
         """
         try:
             fyers = self.get_fyers_client(access_token)
 
-            # First, get the spot price
-            index_symbol = self.SUPPORTED_INDICES.get(symbol)
-            if not index_symbol:
+            # Get the spot/underlying symbol
+            spot_symbol = self.SUPPORTED_INDICES.get(symbol) or self.SUPPORTED_STOCKS.get(symbol)
+            if not spot_symbol:
                 print(f"[OPTION_CLOCK] Unsupported symbol: {symbol}")
                 return None
 
             # Fetch spot price using quotes API
-            quotes_data = {"symbols": index_symbol}
+            quotes_data = {"symbols": spot_symbol}
             quotes_response = fyers.quotes(quotes_data)
 
             if quotes_response.get("s") != "ok":
@@ -150,7 +195,7 @@ class OptionClockService:
                 return None
 
             # Calculate ATM strike and generate strikes to fetch
-            step = 50 if symbol == "NIFTY" else 100  # BANKNIFTY has 100 step
+            step = self.STRIKE_STEPS.get(symbol, 50)
             atm_strike = self.get_atm_strike(spot_price, step)
             strikes = self.generate_strikes(atm_strike, step, count=15)
 
@@ -195,7 +240,7 @@ class OptionClockService:
         expiry: date,
         strikes: List[float]
     ) -> Dict:
-        """Process raw option data into aggregated metrics."""
+        """Process raw option data into aggregated metrics with full price data."""
 
         total_call_oi = 0
         total_put_oi = 0
@@ -222,23 +267,39 @@ class OptionClockService:
                 strike = float(strike_str)
                 oi = v.get("open_interest", 0) or 0
                 oi_change = v.get("oi_change", 0) or 0
+                ltp = v.get("lp", 0) or 0
+                volume = v.get("volume", 0) or 0
+                change = v.get("ch", 0) or 0
+                pChange = v.get("chp", 0) or 0
 
                 if strike not in strike_breakdown:
                     strike_breakdown[strike] = {
                         "call_oi": 0, "put_oi": 0,
-                        "call_oi_change": 0, "put_oi_change": 0
+                        "call_oi_change": 0, "put_oi_change": 0,
+                        "call_ltp": 0, "put_ltp": 0,
+                        "call_volume": 0, "put_volume": 0,
+                        "call_change": 0, "put_change": 0,
+                        "call_pChange": 0, "put_pChange": 0,
                     }
 
                 if option_type == "CE":
                     total_call_oi += oi
                     strike_breakdown[strike]["call_oi"] = oi
                     strike_breakdown[strike]["call_oi_change"] = oi_change
+                    strike_breakdown[strike]["call_ltp"] = ltp
+                    strike_breakdown[strike]["call_volume"] = volume
+                    strike_breakdown[strike]["call_change"] = change
+                    strike_breakdown[strike]["call_pChange"] = pChange
                     if oi > highest_call_oi["oi"]:
                         highest_call_oi = {"strike": strike, "oi": oi}
                 else:
                     total_put_oi += oi
                     strike_breakdown[strike]["put_oi"] = oi
                     strike_breakdown[strike]["put_oi_change"] = oi_change
+                    strike_breakdown[strike]["put_ltp"] = ltp
+                    strike_breakdown[strike]["put_volume"] = volume
+                    strike_breakdown[strike]["put_change"] = change
+                    strike_breakdown[strike]["put_pChange"] = pChange
                     if oi > highest_put_oi["oi"]:
                         highest_put_oi = {"strike": strike, "oi": oi}
 

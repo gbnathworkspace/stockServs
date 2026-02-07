@@ -23,6 +23,8 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       case 'trade': return 'stocks';
       case 'portfolio': return 'portfolio';
       case 'orders': return 'orders';
+      case 'fno': return 'fno';
+      case 'wallet': return 'wallet';
       default: return 'stocks';
     }
   };
@@ -77,7 +79,6 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   useEffect(() => {
     fetchPortfolio();
     fetchFyersData();
-    fetchAllStocksForSearch();
     fetchWatchlists(); // This will auto-select first watchlist and load stocks
   }, []);
 
@@ -180,27 +181,22 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   
   const fetchWatchlists = async () => {
     setLoading(l => ({ ...l, watchlists: true }));
-    showLoading('Loading watchlists...');
     try {
       const res = await authApi(`${API_BASE_URL}/watchlist`);
       const lists = res.watchlists || [];
       setWatchlists(lists);
-      
+
       // Auto-select first watchlist if none selected
+      // (Backend auto-creates a default watchlist if none exist)
       if (lists.length > 0 && !activeWatchlist) {
         setActiveWatchlist(lists[0]);
-        // fetchWatchlistStocks called by effect when activeWatchlist changes? 
-        // Or explicitly here:
         fetchWatchlistStocks(lists[0].id);
-      } else if (lists.length === 0) {
-        initializeWatchlists();
       }
     } catch (err) {
       console.error('Failed to load watchlists', err);
       showToast('Failed to load watchlists', 'error');
     } finally {
       setLoading(l => ({ ...l, watchlists: false }));
-      hideLoading();
     }
   };
 
@@ -214,15 +210,6 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       showToast('Failed to load stocks', 'error');
     } finally {
       setLoading(l => ({ ...l, stocks: false }));
-    }
-  };
-
-  const initializeWatchlists = async () => {
-    try {
-      await authApi(`${API_BASE_URL}/watchlist/initialize`, { method: 'POST' });
-      fetchWatchlists();
-    } catch (err) {
-      console.error('Failed to initialize watchlists', err);
     }
   };
 
@@ -344,6 +331,14 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     }
   };
 
+  // Lazy-load all stocks when Add Stock modal opens
+  useEffect(() => {
+    if (showAddStockModal && allStocksForSearch.length === 0) {
+      fetchAllStocksForSearch();
+    }
+  }, [showAddStockModal]);
+
+  // Update filtered stocks only when search query or modal state changes
   useEffect(() => {
     if (showAddStockModal) {
       // In Add Mode, filteredStocks comes from allStocksForSearch + Search Query
@@ -352,16 +347,11 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       } else {
          performSearch(searchQuery);
       }
-    } else {
-      // In Watchlist Mode: if searching, show ALL stocks; if not searching, show watchlist stocks
-      if (!searchQuery.trim()) {
-        setFilteredStocks(watchlistStocks);
-      } else {
-        // User is searching - switch to showing ALL stocks, not filtering watchlist
-        performSearch(searchQuery);
-      }
+    } else if (searchQuery.trim()) {
+      // User is searching in watchlist mode - search ALL stocks
+      performSearch(searchQuery);
     }
-  }, [searchQuery, watchlistStocks, allStocksForSearch, showAddStockModal]);
+  }, [searchQuery, allStocksForSearch, showAddStockModal]);
 
   const performSearch = (queryStr) => {
       const query = queryStr.toUpperCase();
@@ -533,9 +523,9 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       {activeTab === 'stocks' && (
         <div className="virtual-stocks-container">
           <MarketStatus />
-          <MarketView 
-            stocks={filteredStocks}
-            loading={loading.stocks && filteredStocks.length === 0} // Only show full loader if empty
+          <MarketView
+            stocks={searchQuery.trim() ? filteredStocks : watchlistStocks}
+            loading={loading.stocks && (searchQuery.trim() ? filteredStocks : watchlistStocks).length === 0}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             watchlists={watchlists}
