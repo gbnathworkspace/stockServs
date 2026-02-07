@@ -204,7 +204,25 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     setLoading(l => ({ ...l, stocks: true }));
     try {
       const res = await authApi(`${API_BASE_URL}/watchlist/${watchlistId}/stocks`);
-      setWatchlistStocks(res.stocks || []);
+      const stocks = res.stocks || [];
+      setWatchlistStocks(stocks);
+
+      // Fetch live prices immediately (works even outside market hours)
+      if (stocks.length > 0) {
+        try {
+          const symbols = stocks.map(s => s.symbol).slice(0, 50).join(',');
+          const priceRes = await fastAuthApi(`${API_BASE_URL}/fyers/market/quotes?symbols=${encodeURIComponent(symbols)}`);
+          if (priceRes?.quotes && priceRes.fyers_connected) {
+            const withPrices = stocks.map(stock => {
+              const quote = priceRes.quotes[stock.symbol];
+              return quote ? { ...stock, lastPrice: quote.lastPrice, pChange: quote.pChange, change: quote.change, high: quote.high, low: quote.low, volume: quote.volume } : stock;
+            });
+            setWatchlistStocks(withPrices);
+          }
+        } catch (priceErr) {
+          console.error('Failed to fetch initial prices', priceErr);
+        }
+      }
     } catch (err) {
       console.error('Failed to load watchlist stocks', err);
       showToast('Failed to load stocks', 'error');
@@ -401,6 +419,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       
       if (res.results && res.results.length > 0) {
         const results = res.results.map(i => ({
+          ...i,
           symbol: i.identifier,
           display: i.display || i.identifier,
           lastPrice: i.ltp || 0,
@@ -409,7 +428,6 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
           expiry: i.expiry,
           type: i.type,
           isFno: true,
-          ...i
         }));
         
         // Remove duplicates
