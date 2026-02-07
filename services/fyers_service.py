@@ -112,6 +112,36 @@ def generate_fyers_access_token(auth_code: str):
         print(f"[FYERS_TOKEN] Traceback: {error_details}")
         return {"s": "error", "message": str(e), "code": "exception", "details": error_details}
 
+def refresh_fyers_access_token(refresh_token: str):
+    """
+    Use refresh token to get a new access token from Fyers.
+    Returns same format as generate_fyers_access_token.
+    """
+    if not FYERS_CLIENT_ID or not FYERS_SECRET_KEY:
+        print("[FYERS_REFRESH] ERROR: Fyers credentials not configured")
+        return None
+
+    if not refresh_token:
+        print("[FYERS_REFRESH] No refresh token available")
+        return None
+
+    try:
+        fyers_session = fyersModel.SessionModel(
+            client_id=FYERS_CLIENT_ID,
+            secret_key=FYERS_SECRET_KEY,
+            redirect_uri=FYERS_REDIRECT_URI,
+            response_type="code",
+            grant_type="refresh_token"
+        )
+        fyers_session.set_token(refresh_token)
+        response = fyers_session.generate_token()
+        print(f"[FYERS_REFRESH] Response: {response}")
+        return response
+    except Exception as e:
+        print(f"[FYERS_REFRESH] Exception: {e}")
+        return None
+
+
 def get_fyers_client(access_token: str):
     """
     Get an authenticated Fyers client
@@ -206,7 +236,7 @@ def get_fyers_symbols():
         with open(SYM_MASTER_FO, "r", encoding="utf-8") as f:
             reader = csv.reader(f)
             for row in reader:
-                if len(row) < 16: continue
+                if len(row) < 17: continue
                 # NEW MAPPING based on debug:
                 # 0: FyToken, 1: Description, 9: Symbol, 8: ExpiryTimestamp, 13: Base, 15: Strike, 16: Type
                 try:

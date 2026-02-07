@@ -430,7 +430,7 @@ async def search_derivatives(
     page: int = 1,
     limit: int = 20
 ):
-    """Search for F&O contracts using Fyers Symbol Master (reliable) or NSE (fallback)."""
+    """Search for F&O contracts using Fyers Symbol Master."""
     q = query.upper().strip()
     
     # 1. Try Fyers-based Search First
@@ -544,96 +544,6 @@ async def search_derivatives(
                 })
             return {"results": results, "total": total_count, "page": page}
 
-    # 2. NSE Fallback (Original Logic)
-    # Identify underlying
-    symbol = None
-    # Sort symbols by length descending to ensure BANKNIFTY matches before NIFTY
-    sorted_indices = sorted(INDEX_FO_SYMBOLS, key=len, reverse=True)
-    
-    for s in sorted_indices:
-        if s in q:
-            symbol = s
-            break
-            
-    # If not index, check popular stocks
-    if not symbol:
-        for s in POPULAR_STOCK_FO:
-            if s in q:
-                symbol = s
-                break
-                
-    if not symbol:
-        # Try to treat the first word as symbol if it looks valid
-        parts = q.split()
-        if parts and parts[0].isalpha():
-            symbol = parts[0]
-
-    # Parse strike
-    strike_match = re.search(r'(\d+)', q) 
-    strike_target = float(strike_match.group(1)) if strike_match else None
-    
-    # Parse type
-    is_ce_nse = "CE" in q or "CALL" in q
-    is_pe_nse = "PE" in q or "PUT" in q
-    if not is_ce_nse and not is_pe_nse:
-        is_ce_nse = True
-        is_pe_nse = True
-
-    # Fetch Data
-    try:
-        # If symbol is generic, we can't fetch. Need valid symbol.
-        if not symbol:
-            return {"results": []}
-            
-        if symbol in INDEX_FO_SYMBOLS:
-            url = f"{NSE_OPTION_CHAIN_INDICES}{symbol}"
-        else:
-            url = f"{NSE_OPTION_CHAIN_EQUITIES}{symbol}"
-
-        data = await fetch_nse_data(url, symbol)
-        records = data.get("records", {})
-        chain_data = records.get("data", [])
-        
-    except Exception as e:
-         print(f"Error in F&O search (NSE fallback) for {query}: {e}")
-         return {"results": []}
-
-    results = []
-    
-    # Filter
-    for item in chain_data:
-        expiry = item.get("expiryDate", "")
-        strike = item.get("strikePrice", 0)
-        
-        if strike_target:
-             if abs(strike - strike_target) > 3000: 
-                 continue
-        
-        if not strike_target:
-             underlying = records.get("underlyingValue", 0)
-             if abs(strike - underlying) > (underlying * 0.05): # +/- 5%
-                 continue
-
-        ce_data = item.get("CE")
-        pe_data = item.get("PE")
-        
-        def add_res(d, type_code):
-            if d and d.get("lastPrice", 0) > 0:
-                results.append({
-                     "identifier": f"{symbol} {expiry} {strike} {type_code}",
-                     "display": f"{symbol} {expiry} {strike} {type_code}",
-                     "symbol": symbol,
-                     "expiry": expiry,
-                     "strike": strike,
-                     "type": type_code,
-                     "ltp": d.get("lastPrice"),
-                     "change": d.get("change"),
-                     "pChange": d.get("pChange"),
-                     "source": "nse"
-                 })
-
-        if is_ce_nse: add_res(ce_data, "CE")
-        if is_pe_nse: add_res(pe_data, "PE")
-             
-    return {"results": results[:50]}
+    # No Fyers symbols available
+    return {"results": [], "total": 0, "page": page}
 
