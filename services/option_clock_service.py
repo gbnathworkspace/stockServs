@@ -59,6 +59,12 @@ class OptionClockService:
         7: "JUL", 8: "AUG", 9: "SEP", 10: "OCT", 11: "NOV", 12: "DEC"
     }
 
+    # NSE weekly option month codes: 1-9 for Jan-Sep, O/N/D for Oct/Nov/Dec
+    WEEKLY_MONTH_CODES = {
+        1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6",
+        7: "7", 8: "8", 9: "9", 10: "O", 11: "N", 12: "D"
+    }
+
     def __init__(self):
         self.last_snapshots: Dict[str, OptionClockSnapshot] = {}
 
@@ -140,28 +146,42 @@ class OptionClockService:
             strikes.append(atm_strike + (i * step))
         return strikes
 
+    def _is_monthly_expiry(self, expiry_date: date) -> bool:
+        """Check if the given date is the last Thursday of its month."""
+        # Find the last day of the month
+        if expiry_date.month == 12:
+            next_month = date(expiry_date.year + 1, 1, 1)
+        else:
+            next_month = date(expiry_date.year, expiry_date.month + 1, 1)
+        last_day = next_month - timedelta(days=1)
+
+        # Find the last Thursday (weekday 3)
+        days_since_thursday = (last_day.weekday() - 3) % 7
+        last_thursday = last_day - timedelta(days=days_since_thursday)
+
+        return expiry_date == last_thursday
+
     def format_option_symbol(self, index: str, expiry: date, strike: float, option_type: str) -> str:
         """
         Format the Fyers option symbol.
-        Example: NSE:NIFTY24D2624000CE (for NIFTY 26 Dec 2024 24000 CE)
-        Note: Monthly expiry uses full month name, weekly uses date format
+        Monthly expiry: NSE:NIFTY26FEB25000CE (YY + full month + strike + type)
+        Weekly expiry:  NSE:NIFTY2621225000CE (YY + month_code + day(2-digit) + strike + type)
+
+        Weekly month codes: 1-9 for Jan-Sep, O/N/D for Oct/Nov/Dec
         """
         year = str(expiry.year)[-2:]  # Last 2 digits
-        month = self.MONTH_MAP[expiry.month]
-        day = expiry.day
-
-        # For weekly expiry (most common), format is: NIFTY24D26 or NIFTY2412D (varies)
-        # Fyers uses format: NIFTY24DEC24000CE for monthly, NIFTY24D2624000CE for weekly
-        # Let's use the standard format that works with Fyers API
         strike_str = str(int(strike))
 
-        # Weekly format: NIFTY24D26 (YY + Month first letter + Day)
-        # Monthly format: NIFTY24DEC (YY + MONTH)
-        # We'll use a format that typically works
-        month_letter = month[0]  # First letter: J, F, M, A, M, J, J, A, S, O, N, D
+        if self._is_monthly_expiry(expiry):
+            # Monthly format: NSE:NIFTY26FEB25000CE
+            month = self.MONTH_MAP[expiry.month]
+            symbol = f"NSE:{index}{year}{month}{strike_str}{option_type}"
+        else:
+            # Weekly format: NSE:NIFTY2621225000CE
+            month_code = self.WEEKLY_MONTH_CODES[expiry.month]
+            day = str(expiry.day).zfill(2)
+            symbol = f"NSE:{index}{year}{month_code}{day}{strike_str}{option_type}"
 
-        # Standard Fyers format for weekly options
-        symbol = f"NSE:{index}{year}{month_letter}{day}{strike_str}{option_type}"
         return symbol
 
     def fetch_option_chain(self, access_token: str, symbol: str = "NIFTY") -> Optional[Dict]:
@@ -204,10 +224,13 @@ class OptionClockService:
             # Fetch option quotes for all strikes
             # Fyers supports batch quotes, up to 50 symbols at once
             option_symbols = []
+            symbol_strike_map = {}  # Map Fyers symbol -> (strike, option_type)
             for strike in strikes:
                 ce_symbol = self.format_option_symbol(symbol, expiry, strike, "CE")
                 pe_symbol = self.format_option_symbol(symbol, expiry, strike, "PE")
                 option_symbols.extend([ce_symbol, pe_symbol])
+                symbol_strike_map[ce_symbol] = (strike, "CE")
+                symbol_strike_map[pe_symbol] = (strike, "PE")
 
             # Fetch in batches if needed
             all_option_data = []
@@ -222,7 +245,8 @@ class OptionClockService:
 
             # Process option data
             return self._process_option_data(
-                all_option_data, spot_price, prev_close, symbol, expiry, strikes
+                all_option_data, spot_price, prev_close, symbol, expiry, strikes,
+                symbol_strike_map
             )
 
         except Exception as e:
@@ -238,7 +262,8 @@ class OptionClockService:
         prev_close: float,
         symbol: str,
         expiry: date,
-        strikes: List[float]
+        strikes: List[float],
+        symbol_strike_map: Dict[str, tuple] = None
     ) -> Dict:
         """Process raw option data into aggregated metrics with full price data."""
 
@@ -252,19 +277,13 @@ class OptionClockService:
             v = item.get("v", {})
             sym = item.get("n", "")
 
-            # Parse symbol to extract strike and type
-            # Format: NSE:NIFTY24D2624000CE
+            # Look up strike and type from pre-built mapping
             try:
-                if "CE" in sym:
-                    option_type = "CE"
-                    strike_str = sym.split("CE")[0][-5:]  # Last 5 chars before CE
-                elif "PE" in sym:
-                    option_type = "PE"
-                    strike_str = sym.split("PE")[0][-5:]
+                if symbol_strike_map and sym in symbol_strike_map:
+                    strike, option_type = symbol_strike_map[sym]
                 else:
+                    # Fallback: skip unknown symbols
                     continue
-
-                strike = float(strike_str)
                 oi = v.get("open_interest", 0) or 0
                 oi_change = v.get("oi_change", 0) or 0
                 ltp = v.get("lp", 0) or 0
