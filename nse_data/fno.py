@@ -478,7 +478,9 @@ async def search_derivatives(
             # Match all parts in description or symbol
             desc = s["description"].upper()
             sym_up = s["symbol"].upper()
-            if not all(p in desc or p in sym_up for p in parts):
+            # When strike_target is set, skip numeric parts (let tolerance filter handle them)
+            text_parts = [p for p in parts if not (strike_target and p.isdigit())]
+            if text_parts and not all(p in desc or p in sym_up for p in text_parts):
                 continue
                 
             # Type filter

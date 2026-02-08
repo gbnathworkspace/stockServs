@@ -244,6 +244,14 @@ async def get_quotes(
     fyers_symbols = [convert_nse_to_fyers(s) for s in symbol_list]
     quotes = fetch_quotes_batch(token, fyers_symbols)
 
+    if not quotes and len(fyers_symbols) > 0:
+        return {
+            "quotes": {},
+            "fyers_connected": True,
+            "quotes_error": True,
+            "message": "Failed to fetch quotes from Fyers API"
+        }
+
     return {
         "quotes": quotes,
         "fyers_connected": True,
@@ -409,6 +417,21 @@ async def get_option_chain_fyers(
     data = option_clock_service.fetch_option_chain(token, symbol.upper())
 
     if not data:
+        # Fyers failed -- try NSE fallback
+        try:
+            from nse_data.fno import fetch_nse_data, format_option_chain, INDEX_FO_SYMBOLS
+            from nse_data.fno import NSE_OPTION_CHAIN_INDICES, NSE_OPTION_CHAIN_EQUITIES
+            sym = symbol.upper()
+            if sym in INDEX_FO_SYMBOLS:
+                nse_url = f"{NSE_OPTION_CHAIN_INDICES}{sym}"
+            else:
+                nse_url = f"{NSE_OPTION_CHAIN_EQUITIES}{sym}"
+            raw = await fetch_nse_data(nse_url, sym)
+            if raw and raw.get("records"):
+                nse_result = format_option_chain(raw)
+                return {**nse_result, "fyers_connected": True, "source": "nse_fallback"}
+        except Exception:
+            pass
         return {
             "data": None,
             "fyers_connected": True,
@@ -420,6 +443,7 @@ async def get_option_chain_fyers(
         "symbol": symbol.upper(),
         "spotPrice": data.get("spot_price", 0),
         "expiryDate": data.get("expiry").isoformat() if data.get("expiry") else None,
+        "expiryDates": [d.isoformat() for d in data.get("upcoming_expiries", [])],
         "timestamp": data.get("timestamp").isoformat() if data.get("timestamp") else None,
         "totalCallOI": data.get("total_call_oi", 0),
         "totalPutOI": data.get("total_put_oi", 0),

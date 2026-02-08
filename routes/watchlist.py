@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
 from pydantic import BaseModel
+from urllib.parse import unquote
 
 from database.connection import get_db
 from database.models import Watchlist, WatchlistStock, User
@@ -348,7 +349,7 @@ async def add_stock_to_watchlist(
     }
 
 
-@router.delete("/{watchlist_id}/stocks/{symbol}")
+@router.delete("/{watchlist_id}/stocks/{symbol:path}")
 async def remove_stock_from_watchlist(
     watchlist_id: int,
     symbol: str,
@@ -356,6 +357,7 @@ async def remove_stock_from_watchlist(
     db: Session = Depends(get_db)
 ):
     """Remove a stock from watchlist."""
+    symbol = unquote(symbol)
     # Verify ownership
     watchlist = (
         db.query(Watchlist)

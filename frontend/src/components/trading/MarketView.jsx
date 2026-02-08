@@ -42,7 +42,7 @@ export default function MarketView({
           fetchSuggestions={onSearch}
           minChars={1}
           debounceMs={300}
-          maxResults={8}
+          maxResults={15}
         />
 
         <div className="watchlist-tabs">
