@@ -168,10 +168,16 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
 
       {loading ? (
         <div style={{ textAlign: 'center', marginTop: '2rem', color: '#adbac7' }}>Loading Option Chain...</div>
-      ) : !error && !chainData?.data?.length ? (
+      ) : !error && (!chainData?.data?.length || (chainData?.data?.length > 0 && !chainData.data.some(r => r.CE || r.PE))) ? (
         <div style={{ textAlign: 'center', marginTop: '3rem', color: '#adbac7' }}>
-          <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>No option chain data available</p>
-          <p style={{ fontSize: '0.85rem', color: '#768390' }}>Select a symbol above or check your Fyers connection in Settings.</p>
+          <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+            {chainData?.data?.length > 0 ? 'Option data unavailable' : 'No option chain data available'}
+          </p>
+          <p style={{ fontSize: '0.85rem', color: '#768390' }}>
+            {chainData?.data?.length > 0
+              ? 'Market may be closed or option quotes are unavailable. Try again during market hours.'
+              : 'Select a symbol above or check your Fyers connection in Settings.'}
+          </p>
         </div>
       ) : !error && (
         <div style={styles.tableContainer}>
@@ -225,7 +231,7 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
                       )}
                     </td>
                     <td style={{...styles.td, ...styles.callBg, color: row.CE?.pChange >= 0 ? '#00d09c' : '#ff4d4d'}}>
-                      {row.CE?.pChange?.toFixed(1)}%
+                      {row.CE ? `${row.CE.pChange?.toFixed(1) ?? '0.0'}%` : '-'}
                     </td>
 
                     {/* STRIKE */}
@@ -233,7 +239,7 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
 
                     {/* PUTS */}
                     <td style={{...styles.td, ...styles.putBg, color: row.PE?.pChange >= 0 ? '#00d09c' : '#ff4d4d'}}>
-                      {row.PE?.pChange?.toFixed(1)}%
+                      {row.PE ? `${row.PE.pChange?.toFixed(1) ?? '0.0'}%` : '-'}
                     </td>
                     <td style={{...styles.td, ...styles.putBg, color: row.PE?.change >= 0 ? '#00d09c' : '#ff4d4d'}}>
                       {row.PE?.lastPrice?.toFixed(2) || '-'}

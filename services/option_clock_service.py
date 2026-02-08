@@ -255,6 +255,10 @@ class OptionClockService:
                 symbol_strike_map[ce_symbol] = (strike, "CE")
                 symbol_strike_map[pe_symbol] = (strike, "PE")
 
+            print(f"[OPTION_CLOCK] Fetching {len(option_symbols)} option symbols for {symbol} expiry {expiry}")
+            if option_symbols:
+                print(f"[OPTION_CLOCK] Sample symbols: {option_symbols[0]}, {option_symbols[1]}")
+
             # Fetch in batches if needed
             all_option_data = []
             batch_size = 50
@@ -265,9 +269,15 @@ class OptionClockService:
 
                 if batch_response.get("s") == "ok":
                     all_option_data.extend(batch_response.get("d", []))
+                else:
+                    print(f"[OPTION_CLOCK] Batch {i//batch_size + 1} quote failed: {batch_response.get('s')} - {batch_response.get('message', 'unknown')}")
 
             # Get upcoming expiry dates
             upcoming_expiries = self.get_upcoming_expiries(symbol, count=5)
+
+            if not all_option_data:
+                print(f"[OPTION_CLOCK] WARNING: No option quotes returned for {symbol} expiry {expiry}. Returning None to trigger fallback.")
+                return None
 
             # Process option data
             result = self._process_option_data(
@@ -313,10 +323,11 @@ class OptionClockService:
                 else:
                     # Fallback: skip unknown symbols
                     continue
-                oi = v.get("open_interest", 0) or 0
-                oi_change = v.get("oi_change", 0) or 0
-                ltp = v.get("lp", 0) or 0
-                volume = v.get("volume", 0) or 0
+                oi = v.get("oi", 0) or v.get("open_interest", 0) or 0
+                pdoi = v.get("pdoi", 0) or 0
+                oi_change = oi - pdoi
+                ltp = v.get("lp", 0) or v.get("prev_close_price", 0) or 0
+                volume = v.get("vol_traded_today", 0) or v.get("volume", 0) or 0
                 change = v.get("ch", 0) or 0
                 pChange = v.get("chp", 0) or 0
 
