@@ -11,19 +11,19 @@ export default function PortfolioView({
   
   return (
     <div className="portfolio-container">
-      <div className="portfolio-summary-card">
-        <div className="summary-item">
-          <label>Current Value</label>
+      <div className="portfolio-summary">
+        <div className="summary-card">
+          <span className="label">Current Value</span>
           <span className="value">₹{totalValue.toLocaleString()}</span>
         </div>
-        <div className="summary-item">
-          <label>Invested</label>
+        <div className="summary-card">
+          <span className="label">Invested</span>
           <span className="value">₹{totalInvested.toLocaleString()}</span>
         </div>
-        <div className="summary-item">
-          <label>Total P&L</label>
-          <span className={`value ${totalPnl >= 0 ? 'positive' : 'negative'}`}>
-            {totalPnl >= 0 ? '+' : ''}₹{Math.abs(totalPnl).toLocaleString()}
+        <div className={`summary-card ${totalPnl >= 0 ? 'positive' : 'negative'}`}>
+          <span className="label">Total P&L</span>
+          <span className="value">
+            {totalPnl >= 0 ? '+' : '-'}₹{Math.abs(totalPnl).toLocaleString()}
           </span>
         </div>
       </div>
@@ -63,8 +63,8 @@ export default function PortfolioView({
                     <td className="text-right">₹{item.ltp?.toFixed(2) || '-'}</td>
                     <td className="text-right">₹{currVal.toLocaleString()}</td>
                     <td className={`text-right ${pnl >= 0 ? 'positive' : 'negative'}`}>
-                      <div>{pnl >= 0 ? '+' : ''}₹{Math.abs(pnl).toLocaleString()}</div>
-                      <div className="sub-text">({pnlPercent.toFixed(2)}%)</div>
+                      <div>{pnl >= 0 ? '+' : '-'}₹{Math.abs(pnl).toLocaleString()}</div>
+                      <div className="sub-text">({pnlPercent >= 0 ? '+' : '-'}{Math.abs(pnlPercent).toFixed(2)}%)</div>
                     </td>
                   </tr>
                  );

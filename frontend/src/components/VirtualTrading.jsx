@@ -724,18 +724,30 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       )}
 
       {activeTab === 'fno' && (
-        <OptionChain 
-          symbol="NIFTY" 
-          onClose={() => setActiveTab('stocks')} 
+        <OptionChain
+          symbol="NIFTY"
+          onClose={() => setActiveTab('stocks')}
           onSelectToken={(token) => {
+              // Build user-friendly display name
+              const expShort = token.expiry ? token.expiry.replace(/^(\d{4})-(\d{2})-(\d{2})$/, (_, y, m, d) => {
+                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                return `${parseInt(d)} ${months[parseInt(m)-1]}`;
+              }) : '';
+              const displayName = `${token.symbol} ${token.strike} ${token.type}${expShort ? ` (${expShort})` : ''}`;
+
+              // Lot sizes for common F&O symbols
+              const lotSizes = { NIFTY: 75, BANKNIFTY: 15, FINNIFTY: 25, MIDCPNIFTY: 50 };
+              const lotSize = lotSizes[token.symbol] || 1;
+
               const stockObj = {
-                  symbol: token.identifier || `${token.symbol} ${token.expiry} ${token.strike} ${token.type}`,
-                  lastPrice: token.ltp,
-                  pChange: token.pChange,
+                  symbol: token.identifier || `NSE:${token.symbol}${token.expiry?.replace(/-/g,'')}${token.strike}${token.type}`,
+                  displayName,
+                  lastPrice: token.ltp || 0,
+                  pChange: token.pChange || 0,
+                  quantity: lotSize,
                   isFno: true
               };
-              let qty = token.symbol === 'NIFTY' ? 50 : 15; // Rough heuristic
-              setSelectedStock(stockObj);
+              handleSelectStock(stockObj);
           }}
         />
       )}
