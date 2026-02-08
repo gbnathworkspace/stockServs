@@ -155,6 +155,7 @@ async def create_watchlist(
         "id": watchlist.id,
         "name": watchlist.name,
         "position": watchlist.position,
+        "is_default": bool(watchlist.is_default),
         "stock_count": 0,
         "created_at": watchlist.created_at.isoformat(),
         "updated_at": watchlist.updated_at.isoformat(),

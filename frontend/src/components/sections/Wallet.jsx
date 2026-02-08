@@ -35,7 +35,7 @@ export default function Wallet({ subSection, onNavigate }) {
   const handleUpdateFunds = async (amount, type) => {
     const formattedAmount = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
     const action = type === 'SET' ? 'reset your balance to' : 'add';
-    
+
     if (!window.confirm(`Are you sure you want to ${action} ${formattedAmount}?`)) return;
 
     setLoading(true);
@@ -78,10 +78,7 @@ export default function Wallet({ subSection, onNavigate }) {
   };
 
   const balance = walletData?.wallet_balance ?? 100000;
-  const invested = walletData?.total_invested ?? 0;
-  const currentValue = walletData?.current_value ?? 0;
-  const totalPnL = walletData?.total_pnl ?? 0;
-  const netWorth = balance + currentValue;
+  const netWorth = balance + (walletData?.current_value ?? 0);
 
   if (subSection === 'transactions') {
     return (
@@ -161,7 +158,7 @@ export default function Wallet({ subSection, onNavigate }) {
         <div className="wallet-plans-section">
           <h3>Subscription Plans (Reset Balance)</h3>
           <p className="section-subtitle">Choose a plan to reset your sandbox capital.</p>
-          
+
           <div className="wallet-stats-grid" style={{ marginTop: '1rem' }}>
             {/* Basic Plan */}
             <div className="wallet-stat-card clickable" onClick={() => handleUpdateFunds(500000, 'SET')}>
@@ -212,7 +209,7 @@ export default function Wallet({ subSection, onNavigate }) {
     );
   }
 
-  // Balance view (default)
+  // Balance view (default) - HERO: big balance, fund actions, then transactions
   return (
     <div className="wallet-section">
       <div className="section-header">
@@ -229,101 +226,63 @@ export default function Wallet({ subSection, onNavigate }) {
         <div className="loading">Loading wallet...</div>
       ) : (
         <>
-          <div className="wallet-overview">
-            <div className="wallet-balance-card">
-              <div className="wallet-balance-label">Available Balance</div>
-              <div className="wallet-balance-value">{formatCurrency(balance)}</div>
-              <div className="wallet-balance-change">
-                <span className={totalPnL >= 0 ? 'positive' : 'negative'}>
-                  {totalPnL >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(totalPnL))} today
-                </span>
-              </div>
+          {/* Hero Balance Card */}
+          <div className="wallet-hero">
+            <div className="wallet-hero-label">Available Balance</div>
+            <div className="wallet-hero-amount">{formatCurrency(balance)}</div>
+            <div className="wallet-hero-networth">
+              Net Worth: {formatCurrency(netWorth)}
             </div>
-
-            <div className="wallet-actions-card">
-              <button className="wallet-action-btn" onClick={() => onNavigate('trading.trade')}>
-                <span className="wallet-action-icon">💹</span>
-                <span>Trade Stocks</span>
+            <div className="wallet-hero-actions">
+              <button className="wallet-hero-btn primary" onClick={() => onNavigate('wallet.funds')}>
+                Add Funds
               </button>
-              <button className="wallet-action-btn" onClick={() => onNavigate('wallet.transactions')}>
-                <span className="wallet-action-icon">📝</span>
-                <span>View Transactions</span>
-              </button>
-              <button className="wallet-action-btn" onClick={() => onNavigate('trading.portfolio')}>
-                <span className="wallet-action-icon">📁</span>
-                <span>View Portfolio</span>
-              </button>
-              <button className="wallet-action-btn" onClick={() => onNavigate('wallet.funds')}>
-                <span className="wallet-action-icon">💳</span>
-                <span>Add Funds</span>
+              <button className="wallet-hero-btn secondary" onClick={() => onNavigate('trading.trade')}>
+                Trade Now
               </button>
             </div>
           </div>
 
-          <div className="wallet-stats-grid">
-            <div className="wallet-stat-card">
-              <div className="wallet-stat-icon">🏦</div>
-              <div className="wallet-stat-content">
-                <span className="wallet-stat-label">Net Worth</span>
-                <span className="wallet-stat-value">{formatCurrency(netWorth)}</span>
-              </div>
+          {/* Recent Transactions - primary content */}
+          <div className="wallet-recent">
+            <div className="wallet-recent-header">
+              <h3>Recent Transactions</h3>
+              <button className="link-btn" onClick={() => onNavigate('wallet.transactions')}>
+                View All →
+              </button>
             </div>
-
-            <div className="wallet-stat-card">
-              <div className="wallet-stat-icon">📈</div>
-              <div className="wallet-stat-content">
-                <span className="wallet-stat-label">Invested</span>
-                <span className="wallet-stat-value">{formatCurrency(invested)}</span>
-              </div>
-            </div>
-
-            <div className="wallet-stat-card">
-              <div className="wallet-stat-icon">💹</div>
-              <div className="wallet-stat-content">
-                <span className="wallet-stat-label">Current Value</span>
-                <span className="wallet-stat-value">{formatCurrency(currentValue)}</span>
-              </div>
-            </div>
-
-            <div className="wallet-stat-card">
-              <div className="wallet-stat-icon">📊</div>
-              <div className="wallet-stat-content">
-                <span className="wallet-stat-label">Total P&L</span>
-                <span className={`wallet-stat-value ${totalPnL >= 0 ? 'positive' : 'negative'}`}>
-                  {totalPnL >= 0 ? '+' : ''}{formatCurrency(totalPnL)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Transactions Preview */}
-          {orders.length > 0 && (
-            <div className="wallet-recent">
-              <div className="wallet-recent-header">
-                <h3>Recent Transactions</h3>
-                <button className="link-btn" onClick={() => onNavigate('wallet.transactions')}>
-                  View All →
+            {orders.length === 0 ? (
+              <div className="wallet-recent-empty">
+                <span>No transactions yet.</span>
+                <button className="link-btn" onClick={() => onNavigate('trading.trade')}>
+                  Start Trading →
                 </button>
               </div>
+            ) : (
               <div className="wallet-recent-list">
-                {orders.slice(0, 5).map((order, idx) => (
+                {orders.slice(0, 8).map((order, idx) => (
                   <div key={order.id || idx} className="wallet-recent-item">
                     <div className="wallet-recent-info">
                       <span className={`order-side ${order.side?.toLowerCase()}`}>
                         {order.side}
                       </span>
-                      <span className="wallet-recent-desc">
-                        {order.quantity} {order.symbol}
-                      </span>
+                      <div className="wallet-recent-details">
+                        <span className="wallet-recent-desc">
+                          {order.quantity} {order.symbol}
+                        </span>
+                        <span className="wallet-recent-date">
+                          {formatDate(order.created_at)}
+                        </span>
+                      </div>
                     </div>
-                    <span className={order.side === 'BUY' ? 'negative' : 'positive'}>
+                    <span className={`wallet-recent-amount ${order.side === 'BUY' ? 'negative' : 'positive'}`}>
                       {order.side === 'BUY' ? '-' : '+'}₹{Number(order.total_value || 0).toLocaleString()}
                     </span>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </>
       )}
     </div>

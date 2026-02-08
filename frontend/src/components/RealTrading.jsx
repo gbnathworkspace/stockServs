@@ -160,8 +160,8 @@ const RealTrading = ({ initialTab = 'trade' }) => {
         </button>
       </div>
 
-      {/* Pass to VirtualTrading with fyers mode enforced */}
-      <VirtualTrading initialTab={initialTab} />
+      {/* Pass to VirtualTrading with live mode enforced */}
+      <VirtualTrading initialTab={initialTab} mode="real" />
     </div>
   );
 };

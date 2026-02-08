@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { authApi, fastAuthApi } from '../lib/api.js';
 import { useLoading } from '../contexts/LoadingContext.jsx';
 import useAutoRefresh, { useRelativeTime } from '../hooks/useAutoRefresh';
@@ -16,7 +16,8 @@ import OrdersView from './trading/OrdersView.jsx';
 
 const API_BASE_URL = window.location.origin;
 
-const VirtualTrading = ({ initialTab = 'trade' }) => {
+const VirtualTrading = ({ initialTab = 'trade', mode = 'virtual' }) => {
+  const isLive = mode === 'real';
   // Map initialTab prop to internal tab names
   const getInitialTab = () => {
     switch (initialTab) {
@@ -66,6 +67,9 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [allStocksForSearch, setAllStocksForSearch] = useState([]);
   const [modalSearchQuery, setModalSearchQuery] = useState(''); // Separate search state for Add Stock modal
+
+  // Watchlist cache for fast tab switching
+  const watchlistCache = useRef({});
 
   // Fyers State
   const [fyersConnected, setFyersConnected] = useState(false);
@@ -297,6 +301,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       }
 
       setWatchlistStocks(finalStocks);  // Single setState!
+      watchlistCache.current[watchlistId] = finalStocks;  // Cache for fast tab switching
     } catch (err) {
       console.error('Failed to load watchlist stocks', err);
       showToast('Failed to load stocks', 'error');
@@ -362,8 +367,14 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
         body: JSON.stringify({ symbol }),
       });
       showToast(`Added ${symbol}`, 'success');
-      await fetchWatchlistStocks(activeWatchlist.id);
-      // Don't close modal to allow multiple adds
+      // Optimistic update - add to local state
+      setWatchlistStocks(prev => [...prev, { symbol, ltp: null, change: null, pChange: null }]);
+      // Fetch price for just this one stock in background
+      fastAuthApi(`${API_BASE_URL}/fyers/market/quotes?symbols=${encodeURIComponent(symbol)}`).then(priceRes => {
+        if (priceRes?.quotes && priceRes.quotes[symbol]) {
+          setWatchlistStocks(prev => prev.map(s => s.symbol === symbol ? { ...s, ...priceRes.quotes[symbol], lastPrice: priceRes.quotes[symbol].lastPrice } : s));
+        }
+      });
     } catch (err) {
       showToast('Failed to add stock', 'error');
     }
@@ -374,7 +385,8 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     try {
       await authApi(`${API_BASE_URL}/watchlist/${activeWatchlist.id}/stocks/${encodeURIComponent(symbol)}`, { method: 'DELETE' });
       showToast(`Removed ${symbol}`, 'success');
-      await fetchWatchlistStocks(activeWatchlist.id);
+      // Optimistic update - remove from local state
+      setWatchlistStocks(prev => prev.filter(s => s.symbol !== symbol));
     } catch (err) {
       showToast('Failed to remove stock', 'error');
     }
@@ -620,6 +632,11 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
 
   const handleWatchlistSwitch = useCallback((wl) => {
     setActiveWatchlist(wl);
+    // Show cached data immediately if available
+    if (watchlistCache.current[wl.id]) {
+      setWatchlistStocks(watchlistCache.current[wl.id]);
+    }
+    // Fetch fresh data in background (or as primary if no cache)
     fetchWatchlistStocks(wl.id);
   }, []);
 
@@ -629,11 +646,14 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       {toast.show && <div className={`virtual-toast ${toast.type}`}>{toast.message}</div>}
 
       {/* Tabs */}
-      <div className="section-tabs" style={{marginBottom: '1rem', display: 'flex', gap: '8px', borderBottom: '1px solid #444c56', paddingBottom: '8px', overflowX: 'auto'}}>
-         {['stocks', 'portfolio', 'orders', 'fno', 'wallet'].map(tab => (
-           <button 
+      <div className="section-tabs" style={{marginBottom: '1rem', display: 'flex', gap: '8px', borderBottom: `1px solid ${isLive ? '#5c4a1e' : '#444c56'}`, paddingBottom: '8px', overflowX: 'auto', alignItems: 'center'}}>
+         <span className={`mode-badge ${isLive ? 'mode-badge-live' : 'mode-badge-sandbox'}`}>
+           {isLive ? 'LIVE' : 'SANDBOX'}
+         </span>
+         {['stocks', 'portfolio', 'orders', 'fno', ...(isLive ? [] : ['wallet'])].map(tab => (
+           <button
              key={tab}
-             className={`virtual-tab ${activeTab === tab ? 'active' : ''}`}
+             className={`virtual-tab ${activeTab === tab ? 'active' : ''} ${isLive ? 'live-mode-tab' : ''}`}
              onClick={() => setActiveTab(tab)}
            >
              {tab === 'stocks' ? 'Trade' : tab === 'fno' ? 'Option Chain' : tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -778,13 +798,14 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       {/* MODALS */}
       
       {/* Trade Modal */}
-      <TradeModal 
+      <TradeModal
         isOpen={!!selectedStock && !showAddStockModal && !isChartOpen} // Only show if not adding stock or charting
         onClose={() => setSelectedStock(null)}
         stock={selectedStock}
         walletBalance={walletBalance}
         onTrade={handleTrade}
         isSubmitting={loading.trade}
+        mode={mode}
       />
 
       {/* Chart Modal */}
