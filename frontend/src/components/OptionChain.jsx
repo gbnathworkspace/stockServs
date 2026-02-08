@@ -25,6 +25,7 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
   const [loading, setLoading] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState(symbol);
   const [error, setError] = useState('');
+  const [spotSource, setSpotSource] = useState('');
 
   // Common F&O Symbols (must match backend SUPPORTED_INDICES + SUPPORTED_STOCKS)
   const foSymbols = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "RELIANCE", "HDFCBANK", "INFY", "TCS"];
@@ -53,12 +54,19 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
         return;
       }
 
+      // Track spot price source for market closed banner
+      setSpotSource(res.spotSource || '');
+
       // Transform Fyers format to display format expected by component
       if (res.strikeData) {
+        const allExpiries = res.expiryDates && res.expiryDates.length > 0
+          ? res.expiryDates
+          : (res.expiryDate ? [res.expiryDate] : []);
+
         const transformedData = {
           underlyingValue: res.spotPrice || 0,
           pcr: res.pcr || 0,
-          expiryDates: res.expiryDate ? [res.expiryDate] : [],
+          expiryDates: allExpiries,
           currentExpiry: res.expiryDate,
           data: Object.entries(res.strikeData).map(([strike, data]) => ({
             strikePrice: parseFloat(strike),
@@ -69,6 +77,7 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
               lastPrice: data.call_ltp || 0,
               change: data.call_change || 0,
               pChange: data.call_pChange || 0,
+              identifier: data.call_identifier || null,
             } : null,
             PE: (data.put_oi || data.put_ltp) ? {
               openInterest: data.put_oi || 0,
@@ -76,12 +85,13 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
               lastPrice: data.put_ltp || 0,
               change: data.put_change || 0,
               pChange: data.put_pChange || 0,
+              identifier: data.put_identifier || null,
             } : null,
           })).sort((a, b) => a.strikePrice - b.strikePrice)
         };
         setChainData(transformedData);
-        if (!expiry && transformedData.expiryDates.length > 0) {
-          setExpiryDates(transformedData.expiryDates);
+        if (!expiry && allExpiries.length > 0) {
+          setExpiryDates(allExpiries);
           setSelectedExpiry(transformedData.currentExpiry);
         }
       } else {
@@ -93,6 +103,7 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
       }
     } catch (err) {
       console.error("Failed to fetch option chain from Fyers", err);
+      setError(err.message || 'Failed to fetch option chain. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -143,6 +154,12 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
         </div>
       </div>
 
+      {spotSource === 'prev_close' && (
+        <div style={{ padding: '0.5rem 1rem', marginBottom: '0.5rem', background: 'rgba(255, 215, 0, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: '6px', color: '#ffd700', fontSize: '0.85rem', textAlign: 'center' }}>
+          Market closed - showing last available data
+        </div>
+      )}
+
       {error && (
         <div style={{ textAlign: 'center', marginTop: '2rem', padding: '1rem', background: 'rgba(255, 77, 77, 0.1)', border: '1px solid rgba(255, 77, 77, 0.3)', borderRadius: '8px', color: '#ff4d4d' }}>
           {error}
@@ -151,6 +168,11 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
 
       {loading ? (
         <div style={{ textAlign: 'center', marginTop: '2rem', color: '#adbac7' }}>Loading Option Chain...</div>
+      ) : !error && !chainData?.data?.length ? (
+        <div style={{ textAlign: 'center', marginTop: '3rem', color: '#adbac7' }}>
+          <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>No option chain data available</p>
+          <p style={{ fontSize: '0.85rem', color: '#768390' }}>Select a symbol above or check your Fyers connection in Settings.</p>
+        </div>
       ) : !error && (
         <div style={styles.tableContainer}>
           <table style={styles.table}>
@@ -191,13 +213,13 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
                       {row.CE?.lastPrice?.toFixed(2) || '-'}
                       {row.CE && onSelectToken && (
                         <div style={{display:'flex', gap:'2px', justifyContent:'center', marginTop:'2px', opacity: 0.8}}>
-                           <button 
-                             style={{fontSize:'10px', padding:'1px 4px', cursor:'pointer', background:'#00d09c', border:'none', borderRadius:'2px', color:'black'}} 
-                             onClick={() => onSelectToken({...row.CE, symbol: selectedSymbol, expiry: row.expiryDate, strike: row.strikePrice, type: 'CE'})}
+                           <button
+                             style={{fontSize:'10px', padding:'1px 4px', cursor:'pointer', background:'#00d09c', border:'none', borderRadius:'2px', color:'black'}}
+                             onClick={() => onSelectToken({...row.CE, identifier: row.CE?.identifier, symbol: selectedSymbol, expiry: row.expiryDate, strike: row.strikePrice, type: 'CE', ltp: row.CE?.lastPrice})}
                            >B</button>
-                           <button 
-                             style={{fontSize:'10px', padding:'1px 4px', cursor:'pointer', background:'#ff4d4d', border:'none', borderRadius:'2px', color:'white'}} 
-                             onClick={() => onSelectToken({...row.CE, symbol: selectedSymbol, expiry: row.expiryDate, strike: row.strikePrice, type: 'CE'})}
+                           <button
+                             style={{fontSize:'10px', padding:'1px 4px', cursor:'pointer', background:'#ff4d4d', border:'none', borderRadius:'2px', color:'white'}}
+                             onClick={() => onSelectToken({...row.CE, identifier: row.CE?.identifier, symbol: selectedSymbol, expiry: row.expiryDate, strike: row.strikePrice, type: 'CE', ltp: row.CE?.lastPrice})}
                            >S</button>
                         </div>
                       )}
@@ -217,13 +239,13 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
                       {row.PE?.lastPrice?.toFixed(2) || '-'}
                       {row.PE && onSelectToken && (
                         <div style={{display:'flex', gap:'2px', justifyContent:'center', marginTop:'2px', opacity: 0.8}}>
-                           <button 
-                             style={{fontSize:'10px', padding:'1px 4px', cursor:'pointer', background:'#00d09c', border:'none', borderRadius:'2px', color:'black'}} 
-                             onClick={() => onSelectToken({...row.PE, symbol: selectedSymbol, expiry: row.expiryDate, strike: row.strikePrice, type: 'PE'})}
+                           <button
+                             style={{fontSize:'10px', padding:'1px 4px', cursor:'pointer', background:'#00d09c', border:'none', borderRadius:'2px', color:'black'}}
+                             onClick={() => onSelectToken({...row.PE, identifier: row.PE?.identifier, symbol: selectedSymbol, expiry: row.expiryDate, strike: row.strikePrice, type: 'PE', ltp: row.PE?.lastPrice})}
                            >B</button>
-                           <button 
-                             style={{fontSize:'10px', padding:'1px 4px', cursor:'pointer', background:'#ff4d4d', border:'none', borderRadius:'2px', color:'white'}} 
-                             onClick={() => onSelectToken({...row.PE, symbol: selectedSymbol, expiry: row.expiryDate, strike: row.strikePrice, type: 'PE'})}
+                           <button
+                             style={{fontSize:'10px', padding:'1px 4px', cursor:'pointer', background:'#ff4d4d', border:'none', borderRadius:'2px', color:'white'}}
+                             onClick={() => onSelectToken({...row.PE, identifier: row.PE?.identifier, symbol: selectedSymbol, expiry: row.expiryDate, strike: row.strikePrice, type: 'PE', ltp: row.PE?.lastPrice})}
                            >S</button>
                         </div>
                       )}

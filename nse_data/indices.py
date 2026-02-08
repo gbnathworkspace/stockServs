@@ -28,9 +28,37 @@ MAJOR_INDICES = ["NIFTY 50", "NIFTY BANK", "NIFTY FIN SERVICE"]
 # Cache TTL
 TTL_INDICES = 30  # 30 seconds
 
+# In-flight locks for deduplication
+_indices_lock: asyncio.Lock | None = None
+_sensex_lock: asyncio.Lock | None = None
+_RAW_INDICES_TTL = 30  # 30 seconds for raw indices data
+_RAW_SENSEX_TTL = 30   # 30 seconds for raw sensex data
+
 
 async def fetch_indices_data():
-    """Fetch all indices data from NSE"""
+    """Fetch all indices data from NSE with raw-data caching and dedup."""
+    global _indices_lock
+    raw_cache_key = "nse_raw:all_indices"
+
+    cached = cache.get(raw_cache_key)
+    if cached is not None:
+        return cached
+
+    if _indices_lock is None:
+        _indices_lock = asyncio.Lock()
+
+    async with _indices_lock:
+        cached = cache.get(raw_cache_key)
+        if cached is not None:
+            return cached
+
+        data = await _do_fetch_indices()
+        cache.set(raw_cache_key, data, _RAW_INDICES_TTL)
+        return data
+
+
+async def _do_fetch_indices():
+    """Perform the actual HTTP call to NSE for indices."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "*/*",
@@ -40,7 +68,6 @@ async def fetch_indices_data():
 
     async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
         try:
-            # Get cookies first
             try:
                 await client.get("https://www.nseindia.com", headers=headers)
                 await asyncio.sleep(0.3)
@@ -57,7 +84,30 @@ async def fetch_indices_data():
 
 
 async def fetch_sensex_data():
-    """Fetch SENSEX data from BSE"""
+    """Fetch SENSEX data from BSE with raw-data caching and dedup."""
+    global _sensex_lock
+    raw_cache_key = "nse_raw:sensex"
+
+    cached = cache.get(raw_cache_key)
+    if cached is not None:
+        return cached
+
+    if _sensex_lock is None:
+        _sensex_lock = asyncio.Lock()
+
+    async with _sensex_lock:
+        cached = cache.get(raw_cache_key)
+        if cached is not None:
+            return cached
+
+        data = await _do_fetch_sensex()
+        if not data.get("error"):
+            cache.set(raw_cache_key, data, _RAW_SENSEX_TTL)
+        return data
+
+
+async def _do_fetch_sensex():
+    """Perform the actual HTTP call to BSE for SENSEX data."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "application/json",
@@ -71,7 +121,6 @@ async def fetch_sensex_data():
             response = await client.get(BSE_SENSEX_URL, headers=headers)
             response.raise_for_status()
             data = response.json()
-            # BSE API returns direct values
             if data:
                 return {
                     "index": "SENSEX",
@@ -85,7 +134,6 @@ async def fetch_sensex_data():
                 }
         except Exception as e:
             print(f"Error fetching SENSEX: {e}")
-            # Return placeholder if BSE API fails
             return {
                 "index": "SENSEX",
                 "last": 0,

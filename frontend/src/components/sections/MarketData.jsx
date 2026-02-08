@@ -186,14 +186,14 @@ export default function MarketData({ subSection }) {
                 </div>
                 <div className="weekly-block">
                   <div className="section-label positive">Top Gainers</div>
-                  {(day.gainers || []).slice(0, 5).map((g) => (
+                  {(day.topGainers || []).slice(0, 5).map((g) => (
                     <div className="mini-row" key={`g-${g.symbol}`}>
                       <span>{g.symbol}</span>
                       <span className="text-right positive">{g.pChange?.toFixed(2)}%</span>
                     </div>
                   ))}
                   <div className="section-label negative">Top Losers</div>
-                  {(day.losers || []).slice(0, 5).map((l) => (
+                  {(day.topLosers || []).slice(0, 5).map((l) => (
                     <div className="mini-row" key={`l-${l.symbol}`}>
                       <span>{l.symbol}</span>
                       <span className="text-right negative">{l.pChange?.toFixed(2)}%</span>

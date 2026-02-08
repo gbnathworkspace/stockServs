@@ -135,6 +135,28 @@ class OptionClockService:
         next_thursday = today + timedelta(days=days_until_thursday)
         return next_thursday
 
+    def get_upcoming_expiries(self, symbol: str = "NIFTY", count: int = 5) -> List[date]:
+        """
+        Get the next N upcoming Thursday expiry dates.
+        Skips the current Thursday if market has closed (after 3:30 PM).
+        """
+        today = date.today()
+        now = datetime.now()
+        expiries = []
+
+        # Start from today and find upcoming Thursdays
+        days_until_thursday = (3 - today.weekday()) % 7
+        if days_until_thursday == 0 and now.hour >= 15:
+            # If it's Thursday after 3 PM, skip to next Thursday
+            days_until_thursday = 7
+        next_thursday = today + timedelta(days=days_until_thursday)
+
+        while len(expiries) < count:
+            expiries.append(next_thursday)
+            next_thursday += timedelta(days=7)
+
+        return expiries
+
     def get_atm_strike(self, spot_price: float, step: int = 50) -> float:
         """Get the at-the-money strike based on spot price."""
         return round(spot_price / step) * step
@@ -207,11 +229,12 @@ class OptionClockService:
                 return None
 
             spot_data = quotes_response.get("d", [{}])[0].get("v", {})
-            spot_price = spot_data.get("lp", 0)  # Last traded price
+            # Fall back to prev_close_price or close_price when lp is 0 (market closed)
+            spot_price = spot_data.get("lp", 0) or spot_data.get("prev_close_price", 0) or spot_data.get("close_price", 0)
             prev_close = spot_data.get("prev_close_price", spot_price)
 
             if spot_price == 0:
-                print(f"[OPTION_CLOCK] Invalid spot price for {symbol}")
+                print(f"[OPTION_CLOCK] No price data available for {symbol}")
                 return None
 
             # Calculate ATM strike and generate strikes to fetch
@@ -243,11 +266,17 @@ class OptionClockService:
                 if batch_response.get("s") == "ok":
                     all_option_data.extend(batch_response.get("d", []))
 
+            # Get upcoming expiry dates
+            upcoming_expiries = self.get_upcoming_expiries(symbol, count=5)
+
             # Process option data
-            return self._process_option_data(
+            result = self._process_option_data(
                 all_option_data, spot_price, prev_close, symbol, expiry, strikes,
                 symbol_strike_map
             )
+            if result:
+                result["upcoming_expiries"] = upcoming_expiries
+            return result
 
         except Exception as e:
             print(f"[OPTION_CLOCK] Error fetching option chain: {e}")
@@ -299,6 +328,7 @@ class OptionClockService:
                         "call_volume": 0, "put_volume": 0,
                         "call_change": 0, "put_change": 0,
                         "call_pChange": 0, "put_pChange": 0,
+                        "call_identifier": "", "put_identifier": "",
                     }
 
                 if option_type == "CE":
@@ -309,6 +339,7 @@ class OptionClockService:
                     strike_breakdown[strike]["call_volume"] = volume
                     strike_breakdown[strike]["call_change"] = change
                     strike_breakdown[strike]["call_pChange"] = pChange
+                    strike_breakdown[strike]["call_identifier"] = sym
                     if oi > highest_call_oi["oi"]:
                         highest_call_oi = {"strike": strike, "oi": oi}
                 else:
@@ -319,6 +350,7 @@ class OptionClockService:
                     strike_breakdown[strike]["put_volume"] = volume
                     strike_breakdown[strike]["put_change"] = change
                     strike_breakdown[strike]["put_pChange"] = pChange
+                    strike_breakdown[strike]["put_identifier"] = sym
                     if oi > highest_put_oi["oi"]:
                         highest_put_oi = {"strike": strike, "oi": oi}
 

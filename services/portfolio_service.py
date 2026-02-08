@@ -133,25 +133,26 @@ def get_wallet_balance(db: Session, user_id: int) -> float:
 
 def get_portfolio_holdings(db: Session, user_id: int) -> List[HoldingOut]:
     rows = db.query(VirtualHolding).filter(VirtualHolding.user_id == user_id).all()
-    return _enrich_holdings(rows)
+    return [_serialize_holding(row) for row in rows]
 
 
 def get_portfolio_summary(db: Session, user_id: int) -> Dict[str, Any]:
-    """Get portfolio summary including wallet balance and holdings value."""
+    """Get portfolio summary including wallet balance and holdings value.
+
+    LTP enrichment is skipped here for performance; the frontend enriches
+    holdings with live prices via Fyers.
+    """
     wallet = get_or_create_wallet(db, user_id)
     holdings = get_portfolio_holdings(db, user_id)
 
-    # Calculate total holdings value and P&L
     total_invested = sum(h.average_price * h.quantity for h in holdings)
-    total_current = sum((h.ltp or h.average_price) * h.quantity for h in holdings)
-    total_pnl = sum(h.pnl or 0 for h in holdings)
 
     return {
         "wallet_balance": round(wallet.balance, 2),
-        "holdings_value": round(total_current, 2),
+        "holdings_value": None,
         "total_invested": round(total_invested, 2),
-        "total_pnl": round(total_pnl, 2),
-        "net_worth": round(wallet.balance + total_current, 2),
+        "total_pnl": None,
+        "net_worth": None,
         "holdings_count": len(holdings),
         "holdings": holdings
     }
@@ -301,12 +302,12 @@ def execute_trade(db: Session, user_id: int, payload: TradePayload) -> Dict[str,
         VirtualHolding.user_id == user_id
     ).all()
 
-    enriched = _enrich_holdings(holdings)
-    current = next((h for h in enriched if h.symbol == symbol), None)
+    serialized = [_serialize_holding(row) for row in holdings]
+    current = next((h for h in serialized if h.symbol == symbol), None)
 
     return {
         "holding": current,
-        "holdings": enriched,
+        "holdings": serialized,
         "side": side,
         "wallet_balance": round(wallet.balance, 2),
         "order": {

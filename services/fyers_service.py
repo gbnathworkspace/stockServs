@@ -365,8 +365,13 @@ def convert_nse_to_fyers(nse_symbol: str, segment: str = "EQ") -> str:
         RELIANCE -> NSE:RELIANCE-EQ
         NIFTY 50 -> NSE:NIFTY50-INDEX
         BANKNIFTY -> NSE:NIFTYBANK-INDEX
+        NSE:NIFTY2502726000CE -> NSE:NIFTY2502726000CE (already Fyers format)
     """
     nse_symbol = nse_symbol.upper().strip()
+
+    # Already in Fyers format (F&O symbols like NSE:NIFTY2502726000CE)
+    if nse_symbol.startswith("NSE:") or nse_symbol.startswith("BSE:"):
+        return nse_symbol
 
     # Check if it's an index
     if nse_symbol in INDEX_SYMBOL_MAP:

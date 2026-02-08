@@ -438,10 +438,16 @@ async def get_option_chain_fyers(
             "error": f"Failed to fetch option chain for {symbol}"
         }
 
+    # Detect if spot price is from prev_close (market closed)
+    spot = data.get("spot_price", 0)
+    prev = data.get("prev_close", 0)
+    spot_source = "prev_close" if (spot and prev and spot == prev) else "live"
+
     # Format for frontend
     return {
         "symbol": symbol.upper(),
-        "spotPrice": data.get("spot_price", 0),
+        "spotPrice": spot,
+        "spotSource": spot_source,
         "expiryDate": data.get("expiry").isoformat() if data.get("expiry") else None,
         "expiryDates": [d.isoformat() for d in data.get("upcoming_expiries", [])],
         "timestamp": data.get("timestamp").isoformat() if data.get("timestamp") else None,

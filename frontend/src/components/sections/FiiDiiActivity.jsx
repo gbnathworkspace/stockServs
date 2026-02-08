@@ -11,7 +11,7 @@ const API_BASE_URL = window.location.origin;
 
 const FiiDiiChart = ({ data }) => {
   // Sort data chronologically (oldest to newest) for the chart
-  const chartData = [...data].slice(0, 15).reverse();
+  const chartData = [...data].reverse();
 
   if (!chartData.length) return null;
 
@@ -42,7 +42,7 @@ const FiiDiiChart = ({ data }) => {
 
   return (
     <div className="fii-dii-chart-container">
-      <h3 className="history-title">Institutional Flow Trend (Last 15 Days)</h3>
+      <h3 className="history-title">Institutional Flow Trend</h3>
       <div className="chart-legend">
         <div className="legend-item">
           <span className="legend-color fii"></span> FII
@@ -139,9 +139,13 @@ const FiiDiiChart = ({ data }) => {
 export default function FiiDiiActivity() {
   const [todayData, setTodayData] = useState(null);
   const [historyData, setHistoryData] = useState([]);
+  const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const isInitialMount = useRef(true);
+  const [page, setPage] = useState(0);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const PAGE_SIZE = 10;
 
   // Auto-refresh every 60 seconds (FII/DII data doesn't change frequently)
   const { lastUpdate } = useAutoRefresh('fii-dii', () => refreshDataSilent(), 60000);
@@ -151,17 +155,46 @@ export default function FiiDiiActivity() {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  // Fetch chart data independently (30 days, only on mount)
+  useEffect(() => {
+    const loadChartData = async () => {
+      const res = await fastAuthApi(`${API_BASE_URL}/nse_data/fii-dii-history?limit=30&offset=0`);
+      if (res?.records) {
+        setChartData(res.records);
+      }
+    };
+    loadChartData();
+  }, []);
+
+  const loadData = async (pageNum) => {
+    const currentPage = pageNum !== undefined ? pageNum : page;
     setLoading(true);
     setError(null);
     try {
-      const [todayRes, historyRes] = await Promise.all([
+      const offset = currentPage * PAGE_SIZE;
+
+      // Fetch history independently so NSE failure doesn't block it
+      const [todayResult, historyResult] = await Promise.allSettled([
         authApi(`${API_BASE_URL}/nse_data/fii-dii-activity`),
-        authApi(`${API_BASE_URL}/nse_data/fii-dii-history?limit=30`),
+        authApi(`${API_BASE_URL}/nse_data/fii-dii-history?limit=${PAGE_SIZE}&offset=${offset}`),
       ]);
 
-      setTodayData(todayRes);
-      setHistoryData(historyRes?.records || []);
+      if (todayResult.status === 'fulfilled') {
+        setTodayData(todayResult.value);
+      }
+
+      if (historyResult.status === 'fulfilled') {
+        const historyRes = historyResult.value;
+        setHistoryData(historyRes?.records || []);
+        setTotalRecords(historyRes?.total || 0);
+      } else {
+        console.error('Failed to load history:', historyResult.reason);
+      }
+
+      // Only show error if both failed
+      if (todayResult.status === 'rejected' && historyResult.status === 'rejected') {
+        setError(todayResult.reason?.message || 'Failed to load data');
+      }
     } catch (err) {
       console.error('Failed to load FII/DII data:', err);
       setError(err.message || 'Failed to load data');
@@ -170,6 +203,13 @@ export default function FiiDiiActivity() {
       isInitialMount.current = false;
     }
   };
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    loadData(newPage);
+  };
+
+  const totalPages = Math.ceil(totalRecords / PAGE_SIZE) || 1;
 
   const refreshDataSilent = async () => {
     const res = await fastAuthApi(`${API_BASE_URL}/nse_data/fii-dii-activity`);
@@ -362,7 +402,7 @@ export default function FiiDiiActivity() {
       {historyData.length > 0 && (
         <div className="fii-dii-history">
           <h3 className="history-title">
-            Last {historyTotals.days} Trading Days Summary
+            History ({totalRecords} Trading Days)
           </h3>
 
           <div className="history-summary">
@@ -398,7 +438,7 @@ export default function FiiDiiActivity() {
                 </tr>
               </thead>
               <tbody>
-                {historyData.slice(0, 10).map((record, idx) => {
+                {historyData.map((record, idx) => {
                   const total = (record.fii_net_value || 0) + (record.dii_net_value || 0);
                   return (
                     <tr key={record.trade_date || idx}>
@@ -406,6 +446,7 @@ export default function FiiDiiActivity() {
                         {record.trade_date ? new Date(record.trade_date).toLocaleDateString('en-IN', {
                           day: '2-digit',
                           month: 'short',
+                          year: 'numeric',
                         }) : '—'}
                       </td>
                       <td className={`text-right ${getSentiment(record.fii_net_value)}`}>
@@ -423,9 +464,44 @@ export default function FiiDiiActivity() {
               </tbody>
             </table>
           </div>
-          
+
+          {totalPages > 1 && (
+            <div className="pagination-controls">
+              <button
+                className="pagination-btn"
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page === 0}
+              >
+                &lt;
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => {
+                // Show: first, last, current, and neighbors within 2 of current
+                const show = i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 2;
+                const showEllipsis = !show && (i === 1 || i === totalPages - 2);
+                if (showEllipsis) return <span key={i} className="pagination-ellipsis">...</span>;
+                if (!show) return null;
+                return (
+                  <button
+                    key={i}
+                    className={`pagination-num ${i === page ? 'active' : ''}`}
+                    onClick={() => handlePageChange(i)}
+                  >
+                    {i + 1}
+                  </button>
+                );
+              })}
+              <button
+                className="pagination-btn"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page >= totalPages - 1}
+              >
+                &gt;
+              </button>
+            </div>
+          )}
+
           {/* Graph Section */}
-          <FiiDiiChart data={historyData} />
+          <FiiDiiChart data={chartData} />
         </div>
       )}
 

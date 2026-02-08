@@ -1,6 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
+import { authApi } from '../../lib/api.js';
+
+const API_BASE_URL = window.location.origin;
 
 export default function Settings({ subSection }) {
   const navigate = useNavigate();
@@ -15,22 +18,14 @@ export default function Settings({ subSection }) {
   const fileInputRef = useRef(null);
 
   // Check connection status on mount and when subsection changes
+  // Single useEffect with [subSection] covers both mount and subsection changes
   React.useEffect(() => {
     checkFyersStatus();
-  }, []); // Run on mount
-  
-  React.useEffect(() => {
-    checkFyersStatus();
-  }, [subSection]); // Also run when subsection changes
+  }, [subSection]);
 
   const checkFyersStatus = async () => {
     try {
-      const response = await fetch('/fyers/status', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        }
-      });
-      const data = await response.json();
+      const data = await authApi(`${API_BASE_URL}/fyers/status`);
       setFyersConnected(data.connected);
     } catch (error) {
       console.error('Error checking Fyers status:', error);

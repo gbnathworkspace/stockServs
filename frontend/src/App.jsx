@@ -25,7 +25,7 @@ import RefreshControl from './components/RefreshControl.jsx';
 
 function App() {
   const navigate = useNavigate();
-  const { syncThemeWithBackend } = useTheme();
+  useTheme(); // ThemeContext already calls syncThemeWithBackend on mount
   const isAuthed = Boolean(localStorage.getItem('access_token'));
   const userEmail = localStorage.getItem('user_email') || 'User';
   const userName = localStorage.getItem('user_name') || userEmail.split('@')[0];
@@ -38,7 +38,6 @@ function App() {
 
   // Fetch version and handle Fyers callback on mount
   useEffect(() => {
-    syncThemeWithBackend();
     fetch('/static/version.json?t=' + Date.now())
       .then(res => res.json())
       .then(data => setAppVersion(`v${data.version}`))
