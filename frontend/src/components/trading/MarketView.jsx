@@ -1,6 +1,53 @@
 import React, { useRef, useCallback } from 'react';
 import SearchAutocomplete from '../SearchAutocomplete';
 
+const StockCard = React.memo(({ stock, onSelectStock, onOpenChart, onRemoveStock, activeWatchlist, searchQuery, isLast, lastStockElementRef }) => {
+  return (
+    <div
+      ref={isLast ? lastStockElementRef : null}
+      className="stock-card"
+      onClick={() => onSelectStock(stock)}
+    >
+      <div className="stock-card-header">
+        <div className="stock-info">
+          <span className="stock-symbol">{stock.symbol}</span>
+          <span className={`stock-price ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
+            ₹{Math.abs(stock.lastPrice || 0).toFixed(2)}
+          </span>
+        </div>
+        <div className="stock-actions">
+          <button
+            className="chart-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectStock(stock);
+              onOpenChart();
+            }}
+          >
+            📊
+          </button>
+          {activeWatchlist && !searchQuery.trim() && (
+            <button
+              className="remove-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemoveStock(stock.symbol);
+              }}
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="stock-card-body">
+        <div className={`change-pill ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
+          {stock.pChange >= 0 ? '▲' : '▼'} {Math.abs(stock.pChange || 0).toFixed(2)}%
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function MarketView({
   stocks,
   loading,
@@ -83,59 +130,30 @@ export default function MarketView({
       {/* Stocks Grid */}
       <div className="stocks-grid">
         {loading ? (
-          <div className="loading-state">Loading stocks...</div>
+          <div className="empty-state" style={{opacity: 0.7}}>
+            <div className="empty-state-icon">⏳</div>
+            <div className="empty-state-title">Loading stocks...</div>
+          </div>
         ) : stocks.length === 0 ? (
-          <div className="empty-state">No stocks found</div>
+          <div className="empty-state">
+            <div className="empty-state-icon">📊</div>
+            <div className="empty-state-title">No stocks yet</div>
+            <div className="empty-state-text">Click "+ Add Stock" to add stocks to this watchlist</div>
+          </div>
         ) : (
-          stocks.map((stock, index) => {
-            const isLast = index === stocks.length - 1;
-            return (
-              <div 
-                key={`${stock.symbol}-${index}`} 
-                ref={isLast ? lastStockElementRef : null}
-                className="stock-card"
-                onClick={() => onSelectStock(stock)}
-              >
-                <div className="stock-card-header">
-                  <div className="stock-info">
-                    <span className="stock-symbol">{stock.symbol}</span>
-                    <span className={`stock-price ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
-                      ₹{Math.abs(stock.lastPrice || 0).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="stock-actions">
-                    <button 
-                      className="chart-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectStock(stock); // Set selected stock first
-                        onOpenChart();
-                      }}
-                    >
-                      📊
-                    </button>
-                    {activeWatchlist && !searchQuery.trim() && (
-                      <button 
-                        className="remove-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveStock(stock.symbol);
-                        }}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="stock-card-body">
-                  <div className={`change-pill ${stock.pChange >= 0 ? 'positive' : 'negative'}`}>
-                    {stock.pChange >= 0 ? '▲' : '▼'} {Math.abs(stock.pChange || 0).toFixed(2)}%
-                  </div>
-                </div>
-              </div>
-            );
-          })
+          stocks.map((stock, index) => (
+            <StockCard
+              key={stock.symbol}
+              stock={stock}
+              onSelectStock={onSelectStock}
+              onOpenChart={onOpenChart}
+              onRemoveStock={onRemoveStock}
+              activeWatchlist={activeWatchlist}
+              searchQuery={searchQuery}
+              isLast={index === stocks.length - 1}
+              lastStockElementRef={lastStockElementRef}
+            />
+          ))
         )}
       </div>
     </div>
