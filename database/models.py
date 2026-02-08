@@ -70,7 +70,7 @@ class VirtualHolding(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    symbol = Column(String(50), nullable=False)
+    symbol = Column(String(100), nullable=False)
     quantity = Column(Integer, nullable=False, default=0)
     # Store average execution price as a float to avoid integer-cast errors on trades
     average_price = Column(Float, nullable=False, default=0)
@@ -84,7 +84,7 @@ class VirtualOrder(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    symbol = Column(String(50), nullable=False)
+    symbol = Column(String(100), nullable=False)
     side = Column(String(4), nullable=False)  # BUY or SELL
     quantity = Column(Integer, nullable=False)
     price = Column(Float, nullable=False)

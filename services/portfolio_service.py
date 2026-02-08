@@ -30,6 +30,18 @@ def _round_price(price: float) -> float:
     return value
 
 
+def _is_fno_symbol(symbol: str) -> bool:
+    """Detect if a symbol is an F&O derivative (option/future)."""
+    s = (symbol or "").upper().strip()
+    # Fyers format: NSE:NIFTY2621225000CE or NSE:RELIANCE26FEB2000PE
+    if s.startswith("NSE:") and (s.endswith("CE") or s.endswith("PE")):
+        return True
+    # Plain format with CE/PE suffix and digits: NIFTY2621225000CE
+    if (s.endswith("CE") or s.endswith("PE")) and any(c.isdigit() for c in s):
+        return True
+    return False
+
+
 def _serialize_holding(row: VirtualHolding, ltp: Optional[float] = None) -> HoldingOut:
     pnl = None
     if ltp is not None:
@@ -51,6 +63,11 @@ def _fetch_ltp(symbol: str) -> Optional[float]:
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
+
+    # F&O symbols can't be looked up on yfinance — return None
+    # The trade execution uses the provided price for F&O
+    if _is_fno_symbol(symbol):
+        return None
 
     # Fetch from yfinance
     ticker = yf.Ticker(f"{symbol}.NS")
@@ -186,9 +203,11 @@ def execute_trade(db: Session, user_id: int, payload: TradePayload) -> Dict[str,
     side = payload.side
     order_type = getattr(payload, 'order_type', 'MARKET') or 'MARKET'
     limit_price = getattr(payload, 'limit_price', None)
-    
+    is_fno = _is_fno_symbol(symbol)
+
     # Get current market price (LTP)
-    current_ltp = _fetch_ltp(symbol)
+    # For F&O: use the provided price since yfinance doesn't support derivatives
+    current_ltp = payload.price if is_fno else _fetch_ltp(symbol)
     
     # Determine execution price based on order type
     if order_type == "LIMIT":

@@ -7,13 +7,15 @@ export default function TradeModal({
   stock,
   walletBalance,
   onTrade,
-  isSubmitting
+  isSubmitting,
+  mode = 'virtual'
 }) {
+  const isLive = mode === 'real';
   const [form, setForm] = useState({
     quantity: 1,
     price: '',
     orderType: 'market',
-    broker: 'virtual'
+    broker: isLive ? 'fyers' : 'virtual'
   });
 
   useEffect(() => {
@@ -21,10 +23,11 @@ export default function TradeModal({
       setForm(prev => ({
         ...prev,
         price: stock.lastPrice ? stock.lastPrice.toFixed(2) : '',
-        quantity: stock.quantity || 1
+        quantity: stock.quantity || 1,
+        broker: isLive ? 'fyers' : prev.broker
       }));
     }
-  }, [stock]);
+  }, [stock, isLive]);
 
   if (!isOpen || !stock) return null;
 
@@ -33,6 +36,7 @@ export default function TradeModal({
   const totalValue = price * qty;
   const displayName = stock.displayName || stock.symbol;
   const hasPrice = stock.lastPrice && stock.lastPrice > 0;
+  const isFno = stock.isFno || false;
 
   const handleSubmit = (side) => {
     onTrade(side, form);
@@ -58,6 +62,14 @@ export default function TradeModal({
               </span>
             )}
           </div>
+        {isFno && (
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ padding: '2px 8px', background: 'rgba(255, 165, 0, 0.2)', color: '#ffa500', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>F&O</span>
+            {stock.quantity > 1 && (
+              <span style={{ fontSize: '0.8rem', color: '#768390' }}>Lot size: {stock.quantity}</span>
+            )}
+          </div>
+        )}
         </div>
 
         {!hasPrice && (
@@ -67,19 +79,26 @@ export default function TradeModal({
         )}
 
         <div className="trade-form">
-          <div className="form-group">
-            <label>Broker</label>
-            <div className="toggle-group">
-               <button
-                className={`toggle-btn ${form.broker === 'virtual' ? 'active' : ''}`}
-                onClick={() => setForm({...form, broker: 'virtual'})}
-               >Virtual</button>
-               <button
-                className={`toggle-btn ${form.broker === 'fyers' ? 'active' : ''}`}
-                onClick={() => setForm({...form, broker: 'fyers'})}
-               >Fyers Live</button>
+          {!isLive && (
+            <div className="form-group">
+              <label>Broker</label>
+              <div className="toggle-group">
+                 <button
+                  className={`toggle-btn ${form.broker === 'virtual' ? 'active' : ''}`}
+                  onClick={() => setForm({...form, broker: 'virtual'})}
+                 >Virtual</button>
+                 <button
+                  className={`toggle-btn ${form.broker === 'fyers' ? 'active' : ''}`}
+                  onClick={() => setForm({...form, broker: 'fyers'})}
+                 >Fyers Live</button>
+              </div>
             </div>
-          </div>
+          )}
+          {isLive && (
+            <div className="trade-modal-live-banner">
+              Fyers Live Order
+            </div>
+          )}
 
           <div className="form-group">
             <label>Order Type</label>

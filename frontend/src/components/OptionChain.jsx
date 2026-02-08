@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { authApi } from '../lib/api';
 import '../watchlist.css'; 
 
@@ -26,6 +26,8 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
   const [selectedSymbol, setSelectedSymbol] = useState(symbol);
   const [error, setError] = useState('');
   const [spotSource, setSpotSource] = useState('');
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const refreshIntervalRef = useRef(null);
 
   // Common F&O Symbols (must match backend SUPPORTED_INDICES + SUPPORTED_STOCKS)
   const foSymbols = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "RELIANCE", "HDFCBANK", "INFY", "TCS"];
@@ -90,12 +92,14 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
           })).sort((a, b) => a.strikePrice - b.strikePrice)
         };
         setChainData(transformedData);
+        setLastUpdated(new Date());
         if (!expiry && allExpiries.length > 0) {
           setExpiryDates(allExpiries);
           setSelectedExpiry(transformedData.currentExpiry);
         }
       } else {
         setChainData(res);
+        setLastUpdated(new Date());
         if (!expiry && res.expiryDates && res.expiryDates.length > 0) {
           setExpiryDates(res.expiryDates);
           setSelectedExpiry(res.currentExpiry);
@@ -111,6 +115,36 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
 
   useEffect(() => {
     fetchOptionChain(selectedSymbol, selectedExpiry);
+  }, [selectedSymbol, selectedExpiry]);
+
+  // Auto-refresh every 15 seconds during market hours
+  useEffect(() => {
+    const isMarketHours = () => {
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      const day = now.getDay();
+      // Mon-Fri, 9:15 AM to 3:30 PM IST
+      if (day === 0 || day === 6) return false;
+      const timeInMin = hours * 60 + minutes;
+      return timeInMin >= 555 && timeInMin <= 930; // 9:15 to 15:30
+    };
+
+    if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current);
+    }
+
+    if (isMarketHours() && selectedSymbol && selectedExpiry) {
+      refreshIntervalRef.current = setInterval(() => {
+        fetchOptionChain(selectedSymbol, selectedExpiry);
+      }, 15000);
+    }
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
   }, [selectedSymbol, selectedExpiry]);
 
   // Handle symbol change
@@ -136,17 +170,29 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
             {expiryDates.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {chainData && (
             <span style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>
               Spot: <span style={{ color: '#00d09c' }}>{chainData.underlyingValue?.toFixed(2)}</span>
               <span style={{ marginLeft: '1rem', fontSize: '0.9rem', color: '#adbac7' }}>PCR: {chainData.pcr}</span>
             </span>
           )}
+          {lastUpdated && (
+            <span style={{ fontSize: '0.75rem', color: '#768390' }}>
+              {lastUpdated.toLocaleTimeString()}
+            </span>
+          )}
+          <button
+            onClick={() => fetchOptionChain(selectedSymbol, selectedExpiry)}
+            disabled={loading}
+            style={{ padding: '0.4rem 0.8rem', background: '#373e47', border: '1px solid #444c56', color: '#adbac7', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
+          >
+            {loading ? '...' : 'Refresh'}
+          </button>
           {onClose && (
-            <button 
+            <button
               onClick={onClose}
-              style={{ padding: '0.5rem 1rem', marginLeft: '1rem', background: '#373e47', border: 'none', color: 'white', borderRadius: '6px', cursor: 'pointer' }}
+              style={{ padding: '0.5rem 1rem', background: '#373e47', border: 'none', color: 'white', borderRadius: '6px', cursor: 'pointer' }}
             >
               Close
             </button>
