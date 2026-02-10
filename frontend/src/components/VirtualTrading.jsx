@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { authApi, fastAuthApi } from '../lib/api.js';
 import { useLoading } from '../contexts/LoadingContext.jsx';
 import useAutoRefresh, { useRelativeTime } from '../hooks/useAutoRefresh';
@@ -16,13 +16,16 @@ import OrdersView from './trading/OrdersView.jsx';
 
 const API_BASE_URL = window.location.origin;
 
-const VirtualTrading = ({ initialTab = 'trade' }) => {
+const VirtualTrading = ({ initialTab = 'trade', mode = 'virtual' }) => {
+  const isLive = mode === 'real';
   // Map initialTab prop to internal tab names
   const getInitialTab = () => {
     switch (initialTab) {
       case 'trade': return 'stocks';
       case 'portfolio': return 'portfolio';
       case 'orders': return 'orders';
+      case 'fno': return 'fno';
+      case 'wallet': return 'wallet';
       default: return 'stocks';
     }
   };
@@ -39,16 +42,15 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const [fyersHoldings, setFyersHoldings] = useState([]);
   
   // UI State
-  const [loading, setLoading] = useState({ 
-    stocks: false, 
-    portfolio: false, 
-    trade: false, 
-    wallet: false, 
-    fyers: false, 
-    watchlists: false 
+  const [loading, setLoading] = useState({
+    stocks: true,
+    portfolio: false,
+    trade: false,
+    wallet: false,
+    fyers: false,
+    watchlists: true
   });
   
-  const [searchQuery, setSearchQuery] = useState('');
   const [searchPage, setSearchPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [toast, setToast] = useState({ message: '', type: '', show: false });
@@ -64,6 +66,10 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const [watchlistStocks, setWatchlistStocks] = useState([]);
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [allStocksForSearch, setAllStocksForSearch] = useState([]);
+  const [modalSearchQuery, setModalSearchQuery] = useState(''); // Separate search state for Add Stock modal
+
+  // Watchlist cache for fast tab switching
+  const watchlistCache = useRef({});
 
   // Fyers State
   const [fyersConnected, setFyersConnected] = useState(false);
@@ -77,9 +83,16 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   useEffect(() => {
     fetchPortfolio();
     fetchFyersData();
-    fetchAllStocksForSearch();
     fetchWatchlists(); // This will auto-select first watchlist and load stocks
+    authApi(`${API_BASE_URL}/fyers/status`).then(res => setFyersConnected(res.connected)).catch(() => {});
   }, []);
+
+  // Auto-fetch orders when switching to orders tab
+  useEffect(() => {
+    if (activeTab === 'orders') {
+      fetchOrders();
+    }
+  }, [activeTab]);
 
   // --- DATA FETCHING ---
 
@@ -99,6 +112,9 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       const symbolsParam = symbols.slice(0, 50).join(','); // Max 50 symbols
       const res = await fastAuthApi(`${API_BASE_URL}/fyers/market/quotes?symbols=${encodeURIComponent(symbolsParam)}`);
 
+      if (res?.fyers_connected !== undefined) {
+        setFyersConnected(res.fyers_connected);
+      }
       if (res?.quotes && res.fyers_connected) {
         // Merge new prices with existing watchlist stocks
         const updatedStocks = watchlistStocks.map(stock => {
@@ -116,7 +132,24 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
           }
           return stock;
         });
-        setWatchlistStocks(updatedStocks);
+
+        // Only update if prices actually changed
+        const hasChanges = updatedStocks.some((stock, i) =>
+            stock.lastPrice !== watchlistStocks[i]?.lastPrice ||
+            stock.pChange !== watchlistStocks[i]?.pChange
+        );
+        if (hasChanges) {
+            setWatchlistStocks(updatedStocks);
+
+            // Also update portfolio holdings with live prices
+            if (portfolio.length > 0) {
+              const updatedPortfolio = portfolio.map(h => {
+                const quote = res.quotes[h.symbol];
+                return quote ? { ...h, ltp: quote.lastPrice } : h;
+              });
+              setPortfolio(updatedPortfolio);
+            }
+        }
       }
     } catch (err) {
       console.error('Failed to refresh watchlist stocks', err);
@@ -128,17 +161,38 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     setTimeout(() => setToast({ message: '', type: '', show: false }), 3000);
   };
 
+  // Helper: enrich holdings with Fyers live prices
+  const enrichWithFyersPrices = async (holdings) => {
+    if (!holdings || holdings.length === 0) return holdings;
+    try {
+      const symbols = holdings.map(h => h.symbol).slice(0, 50).join(',');
+      const priceRes = await fastAuthApi(`${API_BASE_URL}/fyers/market/quotes?symbols=${encodeURIComponent(symbols)}`);
+      if (priceRes?.quotes && priceRes.fyers_connected) {
+        return holdings.map(h => {
+          const quote = priceRes.quotes[h.symbol];
+          return quote ? { ...h, ltp: quote.lastPrice } : h;
+        });
+      }
+    } catch (err) {
+      console.error('Failed to enrich portfolio prices via Fyers', err);
+    }
+    return holdings;
+  };
+
   const fetchPortfolio = async () => {
     setLoading((l) => ({ ...l, portfolio: true }));
     try {
       const res = await authApi(`${API_BASE_URL}/portfolio/summary`);
-      setPortfolio(res.holdings || []);
       setWalletBalance(res.wallet_balance || 100000);
+      // Enrich holdings with Fyers live prices (backend yfinance can't resolve F&O symbols)
+      const enriched = await enrichWithFyersPrices(res.holdings || []);
+      setPortfolio(enriched);
     } catch (err) {
       console.error('Failed to load portfolio', err);
       try {
         const fallback = await authApi(`${API_BASE_URL}/portfolio`);
-        setPortfolio(fallback.holdings || []);
+        const enriched = await enrichWithFyersPrices(fallback.holdings || []);
+        setPortfolio(enriched);
       } catch (e) {
         showToast('Failed to load portfolio', 'error');
       }
@@ -178,29 +232,45 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
 
   // --- WATCHLIST LOGIC ---
   
-  const fetchWatchlists = async () => {
+  const fetchWatchlists = async (selectId = null) => {
     setLoading(l => ({ ...l, watchlists: true }));
-    showLoading('Loading watchlists...');
     try {
       const res = await authApi(`${API_BASE_URL}/watchlist`);
       const lists = res.watchlists || [];
       setWatchlists(lists);
-      
-      // Auto-select first watchlist if none selected
-      if (lists.length > 0 && !activeWatchlist) {
-        setActiveWatchlist(lists[0]);
-        // fetchWatchlistStocks called by effect when activeWatchlist changes? 
-        // Or explicitly here:
-        fetchWatchlistStocks(lists[0].id);
-      } else if (lists.length === 0) {
-        initializeWatchlists();
+
+      if (lists.length === 0) {
+        setActiveWatchlist(null);
+        setWatchlistStocks([]);
+        setLoading(l => ({ ...l, stocks: false }));
+        return;
       }
+
+      // If a specific ID requested (e.g. after create), select it
+      if (selectId) {
+        const target = lists.find(w => w.id === selectId);
+        if (target) {
+          setActiveWatchlist(target);
+          fetchWatchlistStocks(target.id);
+          return;
+        }
+      }
+
+      // If current activeWatchlist still exists in the new list, keep it
+      if (activeWatchlist && lists.some(w => w.id === activeWatchlist.id)) {
+        setLoading(l => ({ ...l, stocks: false }));
+        return;
+      }
+
+      // Otherwise select first
+      setActiveWatchlist(lists[0]);
+      fetchWatchlistStocks(lists[0].id);
     } catch (err) {
       console.error('Failed to load watchlists', err);
       showToast('Failed to load watchlists', 'error');
+      setLoading(l => ({ ...l, stocks: false }));
     } finally {
       setLoading(l => ({ ...l, watchlists: false }));
-      hideLoading();
     }
   };
 
@@ -208,7 +278,33 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     setLoading(l => ({ ...l, stocks: true }));
     try {
       const res = await authApi(`${API_BASE_URL}/watchlist/${watchlistId}/stocks`);
-      setWatchlistStocks(res.stocks || []);
+      const stocks = res.stocks || [];
+
+      // Fetch prices BEFORE setting state (single render)
+      let finalStocks = stocks;
+      if (stocks.length > 0) {
+        try {
+          const symbols = stocks.map(s => s.symbol).slice(0, 50).join(',');
+          const priceRes = await fastAuthApi(`${API_BASE_URL}/fyers/market/quotes?symbols=${encodeURIComponent(symbols)}`);
+          if (priceRes?.fyers_connected !== undefined) {
+            setFyersConnected(priceRes.fyers_connected);
+          }
+          if (priceRes?.quotes && priceRes.fyers_connected) {
+            finalStocks = stocks.map(stock => {
+              const quote = priceRes.quotes[stock.symbol];
+              return quote ? { ...stock, lastPrice: quote.lastPrice, pChange: quote.pChange, change: quote.change, high: quote.high, low: quote.low, volume: quote.volume } : stock;
+            });
+          }
+          if (priceRes && !priceRes.fyers_connected) {
+            showToast('Connect Fyers for live market prices', 'info');
+          }
+        } catch (priceErr) {
+          console.error('Failed to fetch initial prices', priceErr);
+        }
+      }
+
+      setWatchlistStocks(finalStocks);  // Single setState!
+      watchlistCache.current[watchlistId] = finalStocks;  // Cache for fast tab switching
     } catch (err) {
       console.error('Failed to load watchlist stocks', err);
       showToast('Failed to load stocks', 'error');
@@ -217,59 +313,51 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     }
   };
 
-  const initializeWatchlists = async () => {
-    try {
-      await authApi(`${API_BASE_URL}/watchlist/initialize`, { method: 'POST' });
-      fetchWatchlists();
-    } catch (err) {
-      console.error('Failed to initialize watchlists', err);
-    }
-  };
-
   const createWatchlist = async () => {
     if (watchlists.length >= 15) {
       showToast('Maximum 15 watchlists allowed', 'error');
       return;
     }
+    if (loading.watchlists) return;
+    setLoading(l => ({ ...l, watchlists: true }));
     const name = `Watchlist ${watchlists.length + 1}`;
     try {
-      await authApi(`${API_BASE_URL}/watchlist`, {
+      const res = await authApi(`${API_BASE_URL}/watchlist`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, position: watchlists.length }),
       });
       showToast(`Created ${name}`, 'success');
-      fetchWatchlists();
+      await fetchWatchlists(res.id);
     } catch (err) {
        showToast('Failed to create watchlist', 'error');
+    } finally {
+      setLoading(l => ({ ...l, watchlists: false }));
     }
   };
 
   const deleteWatchlist = async (watchlistId) => {
     const watchlistToDelete = watchlists.find(w => w.id === watchlistId);
-    
+
     if (watchlistToDelete?.is_default) {
       showToast('Cannot delete the default watchlist', 'error');
       return;
     }
-    
+    if (loading.watchlists) return;
+    setLoading(l => ({ ...l, watchlists: true }));
+
     try {
       await authApi(`${API_BASE_URL}/watchlist/${watchlistId}`, { method: 'DELETE' });
       showToast('Watchlist deleted', 'success');
-      
-      // Cleanup
+
       if (activeWatchlist?.id === watchlistId) {
-        const remaining = watchlists.filter(w => w.id !== watchlistId);
-        if (remaining.length > 0) {
-            setActiveWatchlist(remaining[0]);
-            fetchWatchlistStocks(remaining[0].id);
-        } else {
-            setActiveWatchlist(null);
-        }
+        setActiveWatchlist(null);
       }
-      fetchWatchlists();
+      await fetchWatchlists();
     } catch (err) {
       showToast('Failed to delete', 'error');
+    } finally {
+      setLoading(l => ({ ...l, watchlists: false }));
     }
   };
 
@@ -282,8 +370,14 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
         body: JSON.stringify({ symbol }),
       });
       showToast(`Added ${symbol}`, 'success');
-      fetchWatchlistStocks(activeWatchlist.id);
-      // Don't close modal to allow multiple adds
+      // Optimistic update - add to local state
+      setWatchlistStocks(prev => [...prev, { symbol, ltp: null, change: null, pChange: null }]);
+      // Fetch price for just this one stock in background
+      fastAuthApi(`${API_BASE_URL}/fyers/market/quotes?symbols=${encodeURIComponent(symbol)}`).then(priceRes => {
+        if (priceRes?.quotes && priceRes.quotes[symbol]) {
+          setWatchlistStocks(prev => prev.map(s => s.symbol === symbol ? { ...s, ...priceRes.quotes[symbol], lastPrice: priceRes.quotes[symbol].lastPrice } : s));
+        }
+      });
     } catch (err) {
       showToast('Failed to add stock', 'error');
     }
@@ -292,9 +386,10 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const removeStockFromWatchlist = async (symbol) => {
     if (!activeWatchlist) return;
     try {
-      await authApi(`${API_BASE_URL}/watchlist/${activeWatchlist.id}/stocks/${symbol}`, { method: 'DELETE' });
+      await authApi(`${API_BASE_URL}/watchlist/${activeWatchlist.id}/stocks/${encodeURIComponent(symbol)}`, { method: 'DELETE' });
       showToast(`Removed ${symbol}`, 'success');
-      fetchWatchlistStocks(activeWatchlist.id);
+      // Optimistic update - remove from local state
+      setWatchlistStocks(prev => prev.filter(s => s.symbol !== symbol));
     } catch (err) {
       showToast('Failed to remove stock', 'error');
     }
@@ -320,18 +415,18 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
   const handleLoadMore = async () => {
     if (loading.stocks || !hasMore) return;
     const nextPage = searchPage + 1;
-    const query = searchQuery.toUpperCase();
+    const query = modalSearchQuery.toUpperCase();
     
     setLoading(l => ({...l, stocks: true}));
     try {
       const res = await fastAuthApi(`${API_BASE_URL}/nse_data/fno/search?query=${encodeURIComponent(query)}&page=${nextPage}&limit=20`);
       if (res.results) {
         const newMatches = res.results.map(i => ({
+          ...i,
           symbol: i.identifier,
           lastPrice: i.ltp,
           pChange: i.pChange,
           isFno: true,
-          ...i
         }));
         setFilteredStocks(prev => [...prev, ...newMatches]);
         setSearchPage(nextPage);
@@ -344,24 +439,26 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     }
   };
 
+  // Lazy-load all stocks when Add Stock modal opens
   useEffect(() => {
-    if (showAddStockModal) {
-      // In Add Mode, filteredStocks comes from allStocksForSearch + Search Query
-      if (!searchQuery.trim()) {
-         setFilteredStocks(allStocksForSearch.slice(0, 50));
-      } else {
-         performSearch(searchQuery);
-      }
-    } else {
-      // In Watchlist Mode: if searching, show ALL stocks; if not searching, show watchlist stocks
-      if (!searchQuery.trim()) {
-        setFilteredStocks(watchlistStocks);
-      } else {
-        // User is searching - switch to showing ALL stocks, not filtering watchlist
-        performSearch(searchQuery);
-      }
+    if (showAddStockModal && allStocksForSearch.length === 0) {
+      fetchAllStocksForSearch();
     }
-  }, [searchQuery, watchlistStocks, allStocksForSearch, showAddStockModal]);
+  }, [showAddStockModal]);
+
+  // Update filtered stocks for Add Stock modal only
+  useEffect(() => {
+    if (!showAddStockModal) return;
+
+    if (!modalSearchQuery.trim()) {
+      setFilteredStocks(allStocksForSearch.slice(0, 50));
+      return;
+    }
+
+    // Debounced search inside modal
+    const cleanup = performSearch(modalSearchQuery);
+    return cleanup;
+  }, [modalSearchQuery, allStocksForSearch, showAddStockModal]);
 
   const performSearch = (queryStr) => {
       const query = queryStr.toUpperCase();
@@ -379,11 +476,11 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
                   if (res.results) {
                       setHasMore(res.results.length === 20 && res.total > 20);
                       fnoMatches = res.results.map(i => ({
+                          ...i,
                           symbol: i.identifier,
                           lastPrice: i.ltp,
                           pChange: i.pChange,
                           isFno: true,
-                          ...i
                       }));
                   }
                } catch (e) {
@@ -411,6 +508,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       
       if (res.results && res.results.length > 0) {
         const results = res.results.map(i => ({
+          ...i,
           symbol: i.identifier,
           display: i.display || i.identifier,
           lastPrice: i.ltp || 0,
@@ -419,7 +517,6 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
           expiry: i.expiry,
           type: i.type,
           isFno: true,
-          ...i
         }));
         
         // Remove duplicates
@@ -430,7 +527,7 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
           return true;
         });
         
-        return uniqueResults.slice(0, 8);
+        return uniqueResults.slice(0, 15);
       }
     } catch (e) {
       console.error("Autocomplete search failed", e);
@@ -496,8 +593,10 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
           body: JSON.stringify(payload),
          });
          
-         setPortfolio(res.holdings || []);
          if (res.wallet_balance !== undefined) setWalletBalance(res.wallet_balance);
+         // Enrich holdings with Fyers live prices before setting portfolio
+         const enriched = await enrichWithFyersPrices(res.holdings || []);
+         setPortfolio(enriched);
          showToast(`${side} ${tradeForm.quantity} ${selectedStock.symbol} Success`, 'success');
       }
       setTimeout(() => setSelectedStock(null), 500); // Close modal
@@ -509,7 +608,40 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
     }
   };
 
+  const handleSelectStock = async (stock) => {
+    setSelectedStock(stock);
+    if (!stock.lastPrice || stock.lastPrice === 0) {
+      try {
+        const symbol = stock.identifier || stock.symbol;
+        const priceRes = await fastAuthApi(
+          `${API_BASE_URL}/fyers/market/quotes?symbols=${encodeURIComponent(symbol)}`
+        );
+        if (priceRes?.quotes && priceRes.fyers_connected) {
+          const quote = priceRes.quotes[symbol];
+          if (quote) {
+            setSelectedStock(prev => prev && prev.symbol === stock.symbol
+              ? { ...prev, lastPrice: quote.lastPrice, pChange: quote.pChange, change: quote.change }
+              : prev
+            );
+          }
+        }
+      } catch (e) {
+        // Silent fail
+      }
+    }
+  };
+
   // --- RENDER ---
+
+  const handleWatchlistSwitch = useCallback((wl) => {
+    setActiveWatchlist(wl);
+    // Show cached data immediately if available
+    if (watchlistCache.current[wl.id]) {
+      setWatchlistStocks(watchlistCache.current[wl.id]);
+    }
+    // Fetch fresh data in background (or as primary if no cache)
+    fetchWatchlistStocks(wl.id);
+  }, []);
 
   return (
     <div className="virtual-trading">
@@ -517,11 +649,14 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       {toast.show && <div className={`virtual-toast ${toast.type}`}>{toast.message}</div>}
 
       {/* Tabs */}
-      <div className="section-tabs" style={{marginBottom: '1rem', display: 'flex', gap: '8px', borderBottom: '1px solid #444c56', paddingBottom: '8px', overflowX: 'auto'}}>
-         {['stocks', 'portfolio', 'orders', 'fno', 'wallet'].map(tab => (
-           <button 
+      <div className="section-tabs" style={{marginBottom: '1rem', display: 'flex', gap: '8px', borderBottom: `1px solid ${isLive ? '#5c4a1e' : '#444c56'}`, paddingBottom: '8px', overflowX: 'auto', alignItems: 'center'}}>
+         <span className={`mode-badge ${isLive ? 'mode-badge-live' : 'mode-badge-sandbox'}`}>
+           {isLive ? 'LIVE' : 'SANDBOX'}
+         </span>
+         {['stocks', 'portfolio', 'orders', 'fno', ...(isLive ? [] : ['wallet'])].map(tab => (
+           <button
              key={tab}
-             className={`virtual-tab ${activeTab === tab ? 'active' : ''}`}
+             className={`virtual-tab ${activeTab === tab ? 'active' : ''} ${isLive ? 'live-mode-tab' : ''}`}
              onClick={() => setActiveTab(tab)}
            >
              {tab === 'stocks' ? 'Trade' : tab === 'fno' ? 'Option Chain' : tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -533,19 +668,32 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       {activeTab === 'stocks' && (
         <div className="virtual-stocks-container">
           <MarketStatus />
-          <MarketView 
-            stocks={filteredStocks}
-            loading={loading.stocks && filteredStocks.length === 0} // Only show full loader if empty
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
+          {!fyersConnected && !loading.stocks && watchlistStocks.length > 0 && (
+            <div style={{
+              padding: '8px 12px',
+              background: '#2d1f00',
+              border: '1px solid #5c4a1e',
+              borderRadius: '6px',
+              color: '#ffb347',
+              fontSize: '0.8rem',
+              marginBottom: '8px'
+            }}>
+              Fyers not connected — prices may be unavailable
+            </div>
+          )}
+          <MarketView
+            stocks={watchlistStocks}
+            loading={loading.stocks && watchlistStocks.length === 0}
+            searchQuery=""
+            setSearchQuery={() => {}}
             watchlists={watchlists}
             activeWatchlist={activeWatchlist}
-            setActiveWatchlist={(wl) => { setActiveWatchlist(wl); fetchWatchlistStocks(wl.id); }}
+            setActiveWatchlist={handleWatchlistSwitch}
             onCreateWatchlist={createWatchlist}
             onDeleteWatchlist={deleteWatchlist}
             onRemoveStock={removeStockFromWatchlist}
-            onShowAddStock={() => { setSearchQuery(''); setShowAddStockModal(true); }}
-            onSelectStock={setSelectedStock}
+            onShowAddStock={() => { setModalSearchQuery(''); setShowAddStockModal(true); }}
+            onSelectStock={handleSelectStock}
             onOpenChart={() => setIsChartOpen(true)}
             onSearch={handleSearch}
             hasMore={false} // Watchlist view doesn't have infinite scroll usually, unless in Add mode (handled by Add Modal)
@@ -599,18 +747,30 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       )}
 
       {activeTab === 'fno' && (
-        <OptionChain 
-          symbol="NIFTY" 
-          onClose={() => setActiveTab('stocks')} 
+        <OptionChain
+          symbol="NIFTY"
+          onClose={() => setActiveTab('stocks')}
           onSelectToken={(token) => {
+              // Build user-friendly display name
+              const expShort = token.expiry ? token.expiry.replace(/^(\d{4})-(\d{2})-(\d{2})$/, (_, y, m, d) => {
+                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                return `${parseInt(d)} ${months[parseInt(m)-1]}`;
+              }) : '';
+              const displayName = `${token.symbol} ${token.strike} ${token.type}${expShort ? ` (${expShort})` : ''}`;
+
+              // Lot sizes for common F&O symbols
+              const lotSizes = { NIFTY: 75, BANKNIFTY: 15, FINNIFTY: 25, MIDCPNIFTY: 50 };
+              const lotSize = lotSizes[token.symbol] || 1;
+
               const stockObj = {
-                  symbol: token.identifier || `${token.symbol} ${token.expiry} ${token.strike} ${token.type}`,
-                  lastPrice: token.ltp,
-                  pChange: token.pChange,
+                  symbol: token.identifier || `NSE:${token.symbol}${token.expiry?.replace(/-/g,'')}${token.strike}${token.type}`,
+                  displayName,
+                  lastPrice: token.ltp || 0,
+                  pChange: token.pChange || 0,
+                  quantity: lotSize,
                   isFno: true
               };
-              let qty = token.symbol === 'NIFTY' ? 50 : 15; // Rough heuristic
-              setSelectedStock(stockObj);
+              handleSelectStock(stockObj);
           }}
         />
       )}
@@ -641,13 +801,14 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
       {/* MODALS */}
       
       {/* Trade Modal */}
-      <TradeModal 
+      <TradeModal
         isOpen={!!selectedStock && !showAddStockModal && !isChartOpen} // Only show if not adding stock or charting
         onClose={() => setSelectedStock(null)}
         stock={selectedStock}
         walletBalance={walletBalance}
         onTrade={handleTrade}
         isSubmitting={loading.trade}
+        mode={mode}
       />
 
       {/* Chart Modal */}
@@ -664,22 +825,22 @@ const VirtualTrading = ({ initialTab = 'trade' }) => {
           For simplicity, I'll render the MarketView component inside a modal wrapper here, passing special props.
       */}
       {showAddStockModal && (
-          <div className="stock-trade-modal" onClick={() => setShowAddStockModal(false)}>
+          <div className="stock-trade-modal" onClick={() => { setShowAddStockModal(false); setModalSearchQuery(''); setFilteredStocks([]); }}>
               <div className="stock-trade-shell" onClick={(e) => e.stopPropagation()} style={{maxWidth: '800px', width: '90%', height: '80vh', display: 'flex', flexDirection: 'column'}}>
                   <div className="stock-trade-header">
                       <h3>Add Stock to {activeWatchlist?.name}</h3>
-                      <button className="icon-button" onClick={() => setShowAddStockModal(false)}>×</button>
+                      <button className="icon-button" onClick={() => { setShowAddStockModal(false); setModalSearchQuery(''); setFilteredStocks([]); }}>×</button>
                   </div>
                   <div className="stock-trade-content" style={{overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1}}>
                        <div className="search-row">
-                           <input type="text" placeholder="Search NSE stocks..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="search-input" autoFocus />
+                           <input type="text" placeholder="Search NSE stocks..." value={modalSearchQuery} onChange={e => setModalSearchQuery(e.target.value)} className="search-input" autoFocus />
                        </div>
                        <div className="add-stock-list" style={{overflowY: 'auto', flex: 1, paddingRight: '4px'}}>
                            {filteredStocks.length === 0 ? <div className="loading">No stocks found</div> : 
-                             filteredStocks.map(stock => {
-                                 const added = watchlistStocks.some(s => s.symbol === stock.symbol);
+                             filteredStocks.map((stock, index) => {
+                                 const added = watchlistStocks.some(s => s.symbol.toUpperCase() === (stock.identifier || stock.symbol).toUpperCase());
                                  return (
-                                     <div key={stock.symbol} className={`add-stock-item ${added ? 'disabled' : ''}`} onClick={() => !added && addStockToWatchlist(stock.symbol)}>
+                                     <div key={stock.identifier || stock.symbol || index} className={`add-stock-item ${added ? 'disabled' : ''}`} onClick={() => !added && addStockToWatchlist(stock.symbol)}>
                                          <div className="stock-info">
                                              <span className="stock-symbol">{stock.display || stock.symbol}</span>
                                              <span className="stock-price">₹{Number(stock.lastPrice||0).toFixed(2)}</span>

@@ -54,7 +54,9 @@ export const api = async (url, options = {}) => {
 };
 
 /**
- * Authenticated API call with Bearer token
+ * Authenticated API call with Bearer token and GET request deduplication.
+ * If a GET request to the same URL is already in-flight, returns the same promise
+ * instead of making a duplicate request. POST/PUT/DELETE are never deduplicated.
  */
 export const authApi = async (url, options = {}) => {
   const token = localStorage.getItem('access_token');
@@ -65,7 +67,20 @@ export const authApi = async (url, options = {}) => {
     Authorization: `Bearer ${token}`,
   };
 
-  return api(url, { ...options, headers });
+  const mergedOptions = { ...options, headers };
+
+  // Only deduplicate GET requests (no method or method === 'GET')
+  const isGet = !mergedOptions.method || mergedOptions.method === 'GET';
+  if (isGet && pendingRequests.has(url)) {
+    return pendingRequests.get(url);
+  }
+
+  const promise = api(url, mergedOptions).finally(() => {
+    if (isGet) pendingRequests.delete(url);
+  });
+
+  if (isGet) pendingRequests.set(url, promise);
+  return promise;
 };
 
 /**
@@ -132,8 +147,8 @@ export const silentAuthApi = async (url, options = {}) => {
 };
 
 /**
- * Fast API call for auto-refresh with request deduplication
- * - Prevents duplicate requests for the same URL
+ * Fast API call for auto-refresh with silent error handling.
+ * - Deduplication is handled by authApi (GET requests share the same in-flight promise)
  * - Filters out abort errors (don't show toast for cancelled requests)
  * - Silent fail - returns null on error without throwing
  * @param {string} url - API endpoint
@@ -141,31 +156,19 @@ export const silentAuthApi = async (url, options = {}) => {
  * @param {function} onError - Optional error callback for toast notifications
  */
 export const fastAuthApi = async (url, options = {}, onError = null) => {
-  // If same request is already pending, return that promise (deduplication)
-  if (pendingRequests.has(url)) {
-    return pendingRequests.get(url);
-  }
+  try {
+    return await authApi(url, options);
+  } catch (error) {
+    // Don't show error toast for aborted requests (user navigated away or request cancelled)
+    const isAbortError = error.name === 'AbortError' ||
+                         error.message?.includes('aborted') ||
+                         error.message?.includes('signal');
 
-  const promise = (async () => {
-    try {
-      return await authApi(url, options);
-    } catch (error) {
-      // Don't show error toast for aborted requests (user navigated away or request cancelled)
-      const isAbortError = error.name === 'AbortError' ||
-                           error.message?.includes('aborted') ||
-                           error.message?.includes('signal');
-
-      if (!isAbortError && onError && typeof onError === 'function') {
-        onError(error.message || 'Request failed');
-      }
-      return null;
-    } finally {
-      pendingRequests.delete(url);
+    if (!isAbortError && onError && typeof onError === 'function') {
+      onError(error.message || 'Request failed');
     }
-  })();
-
-  pendingRequests.set(url, promise);
-  return promise;
+    return null;
+  }
 };
 
 /**

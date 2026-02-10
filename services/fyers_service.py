@@ -1,8 +1,10 @@
 import os
+import hashlib
 import httpx
 import csv
 import io
 import asyncio
+import requests
 from typing import List, Dict, Optional
 from datetime import datetime
 from fyers_apiv3 import fyersModel
@@ -13,6 +15,7 @@ load_dotenv()
 FYERS_CLIENT_ID = os.getenv("FYERS_CLIENT_ID")
 FYERS_SECRET_KEY = os.getenv("FYERS_SECRET_KEY")
 FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI")
+FYERS_PIN = os.getenv("FYERS_PIN")
 
 # Symbol master configuration
 SYM_MASTER_DIR = os.path.join(os.getcwd(), "data", "symbols")
@@ -112,6 +115,46 @@ def generate_fyers_access_token(auth_code: str):
         print(f"[FYERS_TOKEN] Traceback: {error_details}")
         return {"s": "error", "message": str(e), "code": "exception", "details": error_details}
 
+def refresh_fyers_access_token(refresh_token: str):
+    """
+    Use refresh token + PIN to get a new access token from Fyers v3 API.
+    Endpoint: https://api-t1.fyers.in/api/v3/validate-refresh-token
+    """
+    if not FYERS_CLIENT_ID or not FYERS_SECRET_KEY:
+        print("[FYERS_REFRESH] ERROR: Fyers credentials not configured")
+        return None
+
+    if not refresh_token:
+        print("[FYERS_REFRESH] No refresh token available")
+        return None
+
+    if not FYERS_PIN:
+        print("[FYERS_REFRESH] No FYERS_PIN configured — cannot auto-refresh")
+        return None
+
+    try:
+        app_id_hash = hashlib.sha256(
+            (FYERS_CLIENT_ID + ":" + FYERS_SECRET_KEY).encode()
+        ).hexdigest()
+
+        resp = requests.post(
+            "https://api-t1.fyers.in/api/v3/validate-refresh-token",
+            json={
+                "grant_type": "refresh_token",
+                "appIdHash": app_id_hash,
+                "refresh_token": refresh_token,
+                "pin": FYERS_PIN,
+            },
+            timeout=15,
+        )
+        result = resp.json()
+        print(f"[FYERS_REFRESH] Response: code={result.get('code')}, s={result.get('s')}")
+        return result
+    except Exception as e:
+        print(f"[FYERS_REFRESH] Exception: {e}")
+        return None
+
+
 def get_fyers_client(access_token: str):
     """
     Get an authenticated Fyers client
@@ -206,7 +249,7 @@ def get_fyers_symbols():
         with open(SYM_MASTER_FO, "r", encoding="utf-8") as f:
             reader = csv.reader(f)
             for row in reader:
-                if len(row) < 16: continue
+                if len(row) < 17: continue
                 # NEW MAPPING based on debug:
                 # 0: FyToken, 1: Description, 9: Symbol, 8: ExpiryTimestamp, 13: Base, 15: Strike, 16: Type
                 try:
@@ -322,8 +365,13 @@ def convert_nse_to_fyers(nse_symbol: str, segment: str = "EQ") -> str:
         RELIANCE -> NSE:RELIANCE-EQ
         NIFTY 50 -> NSE:NIFTY50-INDEX
         BANKNIFTY -> NSE:NIFTYBANK-INDEX
+        NSE:NIFTY2502726000CE -> NSE:NIFTY2502726000CE (already Fyers format)
     """
     nse_symbol = nse_symbol.upper().strip()
+
+    # Already in Fyers format (F&O symbols like NSE:NIFTY2502726000CE)
+    if nse_symbol.startswith("NSE:") or nse_symbol.startswith("BSE:"):
+        return nse_symbol
 
     # Check if it's an index
     if nse_symbol in INDEX_SYMBOL_MAP:

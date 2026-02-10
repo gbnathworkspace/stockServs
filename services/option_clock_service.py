@@ -26,7 +26,29 @@ class OptionClockService:
     # Index symbols and their Fyers symbol format
     SUPPORTED_INDICES = {
         "NIFTY": "NSE:NIFTY50-INDEX",
-        "BANKNIFTY": "NSE:NIFTYBANK-INDEX"
+        "BANKNIFTY": "NSE:NIFTYBANK-INDEX",
+        "FINNIFTY": "NSE:FINNIFTY-INDEX",
+        "MIDCPNIFTY": "NSE:MIDCPNIFTY-INDEX",
+    }
+
+    # Stock symbols for F&O (use EQ segment for spot price)
+    SUPPORTED_STOCKS = {
+        "RELIANCE": "NSE:RELIANCE-EQ",
+        "HDFCBANK": "NSE:HDFCBANK-EQ",
+        "INFY": "NSE:INFY-EQ",
+        "TCS": "NSE:TCS-EQ",
+    }
+
+    # Strike step sizes per symbol
+    STRIKE_STEPS = {
+        "NIFTY": 50,
+        "BANKNIFTY": 100,
+        "FINNIFTY": 50,
+        "MIDCPNIFTY": 25,
+        "RELIANCE": 20,
+        "HDFCBANK": 20,
+        "INFY": 20,
+        "TCS": 50,
     }
 
     # Option symbol format: NSE:NIFTY24DEC24000CE, NSE:NIFTY24DEC24000PE
@@ -37,8 +59,56 @@ class OptionClockService:
         7: "JUL", 8: "AUG", 9: "SEP", 10: "OCT", 11: "NOV", 12: "DEC"
     }
 
+    # NSE weekly option month codes: 1-9 for Jan-Sep, O/N/D for Oct/Nov/Dec
+    WEEKLY_MONTH_CODES = {
+        1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6",
+        7: "7", 8: "8", 9: "9", 10: "O", 11: "N", 12: "D"
+    }
+
     def __init__(self):
         self.last_snapshots: Dict[str, OptionClockSnapshot] = {}
+        self._expiry_cache: Dict[str, dict] = {}  # {symbol: {"dates": [...], "ts": float}}
+
+    def _get_master_expiry_dates(self, symbol: str) -> List[date]:
+        """
+        Read expiry dates from the NSE_FO.csv master file.
+        Field index 2 == '14' means options, field 13 == symbol name,
+        field 8 is the Unix timestamp of the expiry date.
+        Results are cached for 6 hours per symbol.
+        """
+        import time as _time
+
+        # Check cache
+        cached = self._expiry_cache.get(symbol)
+        if cached and (_time.time() - cached["ts"]) < 6 * 3600:
+            return cached["dates"]
+
+        csv_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'data', 'symbols', 'NSE_FO.csv'
+        )
+
+        try:
+            dates_set = set()
+            with open(csv_path, 'r') as f:
+                for line in f:
+                    parts = line.strip().split(',')
+                    if len(parts) > 13 and parts[2] == '14' and parts[13] == symbol:
+                        try:
+                            ts = int(parts[8])
+                            d = datetime.fromtimestamp(ts).date()
+                            dates_set.add(d)
+                        except (ValueError, OSError):
+                            continue
+            sorted_dates = sorted(dates_set)
+            self._expiry_cache[symbol] = {"dates": sorted_dates, "ts": _time.time()}
+            return sorted_dates
+        except FileNotFoundError:
+            print(f"[OPTION_CLOCK] WARNING: NSE_FO.csv not found at {csv_path}, falling back to old logic")
+            return []
+        except Exception as e:
+            print(f"[OPTION_CLOCK] WARNING: Error reading NSE_FO.csv: {e}, falling back to old logic")
+            return []
 
     def get_fyers_client(self, access_token: str) -> fyersModel.FyersModel:
         """Get an authenticated Fyers client."""
@@ -53,7 +123,10 @@ class OptionClockService:
         """
         Get a valid Fyers access token from the database.
         Uses the most recently created token.
+        Auto-refreshes expired tokens using refresh_token if available.
         """
+        from services.fyers_service import refresh_fyers_access_token
+
         db = SessionLocal()
         try:
             token_record = (
@@ -61,28 +134,99 @@ class OptionClockService:
                 .order_by(FyersToken.created_at.desc())
                 .first()
             )
-            if token_record and token_record.access_token:
-                # Check if token is not expired (if expires_at is set)
-                if token_record.expires_at and token_record.expires_at < datetime.now():
-                    print("[OPTION_CLOCK] Token expired")
-                    return None
+            if not token_record or not token_record.access_token:
+                return None
+
+            # Token is valid
+            if not token_record.expires_at or token_record.expires_at > datetime.now():
                 return token_record.access_token
+
+            # Token expired — try auto-refresh
+            if token_record.refresh_token:
+                print("[SYSTEM_TOKEN] Token expired, attempting refresh...")
+                refresh_result = refresh_fyers_access_token(token_record.refresh_token)
+                if refresh_result and refresh_result.get("s") == "ok":
+                    new_access = refresh_result.get("access_token")
+                    new_refresh = refresh_result.get("refresh_token")
+                    if new_access:
+                        token_record.access_token = new_access
+                        if new_refresh:
+                            token_record.refresh_token = new_refresh
+                        token_record.created_at = datetime.utcnow()
+                        token_record.expires_at = datetime.utcnow() + timedelta(days=1)
+                        db.commit()
+                        print(f"[SYSTEM_TOKEN] Token refreshed successfully")
+                        return new_access
+                print("[SYSTEM_TOKEN] Refresh failed")
+            else:
+                print("[SYSTEM_TOKEN] Token expired, no refresh_token available")
             return None
         finally:
             db.close()
 
     def get_nearest_expiry(self, symbol: str = "NIFTY") -> date:
         """
-        Get the nearest Thursday expiry for the given index.
-        NIFTY expires on Thursday, BANKNIFTY also on Thursday (changed from Wednesday).
+        Get the nearest expiry for the given symbol from the master file.
+        Falls back to Thursday-based logic if master data is unavailable.
         """
         today = date.today()
+        now = datetime.now()
+        master_dates = self._get_master_expiry_dates(symbol)
+
+        if master_dates:
+            for d in master_dates:
+                if d > today:
+                    return d
+                if d == today:
+                    # If today is expiry and after 15:30, skip to next
+                    if now.hour > 15 or (now.hour == 15 and now.minute >= 30):
+                        continue
+                    return d
+            # All dates in the past — shouldn't happen, but fall through
+            print(f"[OPTION_CLOCK] WARNING: No future expiry dates found in master for {symbol}")
+
+        # Fallback: old Thursday logic
+        print(f"[OPTION_CLOCK] WARNING: Using Thursday fallback for {symbol} expiry")
         days_until_thursday = (3 - today.weekday()) % 7
-        if days_until_thursday == 0 and datetime.now().hour >= 15:
-            # If it's Thursday after 3 PM, next expiry is next Thursday
+        if days_until_thursday == 0 and now.hour >= 15:
+            days_until_thursday = 7
+        return today + timedelta(days=days_until_thursday)
+
+    def get_upcoming_expiries(self, symbol: str = "NIFTY", count: int = 5) -> List[date]:
+        """
+        Get the next N upcoming expiry dates from the master file.
+        Skips today's expiry if market has closed (after 15:30).
+        Falls back to Thursday-based logic if master data is unavailable.
+        """
+        today = date.today()
+        now = datetime.now()
+        master_dates = self._get_master_expiry_dates(symbol)
+
+        if master_dates:
+            expiries = []
+            for d in master_dates:
+                if d > today:
+                    expiries.append(d)
+                elif d == today:
+                    if now.hour > 15 or (now.hour == 15 and now.minute >= 30):
+                        continue
+                    expiries.append(d)
+                if len(expiries) >= count:
+                    break
+            if expiries:
+                return expiries
+
+        # Fallback: old Thursday logic
+        print(f"[OPTION_CLOCK] WARNING: Using Thursday fallback for {symbol} upcoming expiries")
+        expiries = []
+        days_until_thursday = (3 - today.weekday()) % 7
+        if days_until_thursday == 0 and now.hour >= 15:
             days_until_thursday = 7
         next_thursday = today + timedelta(days=days_until_thursday)
-        return next_thursday
+        while len(expiries) < count:
+            expiries.append(next_thursday)
+            next_thursday += timedelta(days=7)
+        return expiries
 
     def get_atm_strike(self, spot_price: float, step: int = 50) -> float:
         """Get the at-the-money strike based on spot price."""
@@ -95,46 +239,69 @@ class OptionClockService:
             strikes.append(atm_strike + (i * step))
         return strikes
 
+    def _is_monthly_expiry(self, expiry_date: date, symbol: str = "NIFTY") -> bool:
+        """
+        Check if the given date is the monthly (last) expiry of its month.
+        Uses master file data to determine the last expiry of the month.
+        Falls back to last-Thursday logic if master data unavailable.
+        """
+        master_dates = self._get_master_expiry_dates(symbol)
+        if master_dates:
+            # Monthly expiry = last expiry date in the same month
+            same_month = [d for d in master_dates
+                          if d.year == expiry_date.year and d.month == expiry_date.month]
+            if same_month:
+                return expiry_date == max(same_month)
+
+        # Fallback: last Thursday of the month
+        if expiry_date.month == 12:
+            next_month = date(expiry_date.year + 1, 1, 1)
+        else:
+            next_month = date(expiry_date.year, expiry_date.month + 1, 1)
+        last_day = next_month - timedelta(days=1)
+        days_since_thursday = (last_day.weekday() - 3) % 7
+        last_thursday = last_day - timedelta(days=days_since_thursday)
+        return expiry_date == last_thursday
+
     def format_option_symbol(self, index: str, expiry: date, strike: float, option_type: str) -> str:
         """
         Format the Fyers option symbol.
-        Example: NSE:NIFTY24D2624000CE (for NIFTY 26 Dec 2024 24000 CE)
-        Note: Monthly expiry uses full month name, weekly uses date format
+        Monthly expiry: NSE:NIFTY26FEB25000CE (YY + full month + strike + type)
+        Weekly expiry:  NSE:NIFTY2621225000CE (YY + month_code + day(2-digit) + strike + type)
+
+        Weekly month codes: 1-9 for Jan-Sep, O/N/D for Oct/Nov/Dec
         """
         year = str(expiry.year)[-2:]  # Last 2 digits
-        month = self.MONTH_MAP[expiry.month]
-        day = expiry.day
-
-        # For weekly expiry (most common), format is: NIFTY24D26 or NIFTY2412D (varies)
-        # Fyers uses format: NIFTY24DEC24000CE for monthly, NIFTY24D2624000CE for weekly
-        # Let's use the standard format that works with Fyers API
         strike_str = str(int(strike))
 
-        # Weekly format: NIFTY24D26 (YY + Month first letter + Day)
-        # Monthly format: NIFTY24DEC (YY + MONTH)
-        # We'll use a format that typically works
-        month_letter = month[0]  # First letter: J, F, M, A, M, J, J, A, S, O, N, D
+        if self._is_monthly_expiry(expiry, index):
+            # Monthly format: NSE:NIFTY26FEB25000CE
+            month = self.MONTH_MAP[expiry.month]
+            symbol = f"NSE:{index}{year}{month}{strike_str}{option_type}"
+        else:
+            # Weekly format: NSE:NIFTY2621225000CE
+            month_code = self.WEEKLY_MONTH_CODES[expiry.month]
+            day = str(expiry.day).zfill(2)
+            symbol = f"NSE:{index}{year}{month_code}{day}{strike_str}{option_type}"
 
-        # Standard Fyers format for weekly options
-        symbol = f"NSE:{index}{year}{month_letter}{day}{strike_str}{option_type}"
         return symbol
 
     def fetch_option_chain(self, access_token: str, symbol: str = "NIFTY") -> Optional[Dict]:
         """
-        Fetch option chain data from Fyers for the given index.
-        Returns aggregated OI data for calls and puts.
+        Fetch option chain data from Fyers for the given index or stock.
+        Returns aggregated OI data with LTP, volume, and change for calls and puts.
         """
         try:
             fyers = self.get_fyers_client(access_token)
 
-            # First, get the spot price
-            index_symbol = self.SUPPORTED_INDICES.get(symbol)
-            if not index_symbol:
+            # Get the spot/underlying symbol
+            spot_symbol = self.SUPPORTED_INDICES.get(symbol) or self.SUPPORTED_STOCKS.get(symbol)
+            if not spot_symbol:
                 print(f"[OPTION_CLOCK] Unsupported symbol: {symbol}")
                 return None
 
             # Fetch spot price using quotes API
-            quotes_data = {"symbols": index_symbol}
+            quotes_data = {"symbols": spot_symbol}
             quotes_response = fyers.quotes(quotes_data)
 
             if quotes_response.get("s") != "ok":
@@ -142,15 +309,16 @@ class OptionClockService:
                 return None
 
             spot_data = quotes_response.get("d", [{}])[0].get("v", {})
-            spot_price = spot_data.get("lp", 0)  # Last traded price
+            # Fall back to prev_close_price or close_price when lp is 0 (market closed)
+            spot_price = spot_data.get("lp", 0) or spot_data.get("prev_close_price", 0) or spot_data.get("close_price", 0)
             prev_close = spot_data.get("prev_close_price", spot_price)
 
             if spot_price == 0:
-                print(f"[OPTION_CLOCK] Invalid spot price for {symbol}")
+                print(f"[OPTION_CLOCK] No price data available for {symbol}")
                 return None
 
             # Calculate ATM strike and generate strikes to fetch
-            step = 50 if symbol == "NIFTY" else 100  # BANKNIFTY has 100 step
+            step = self.STRIKE_STEPS.get(symbol, 50)
             atm_strike = self.get_atm_strike(spot_price, step)
             strikes = self.generate_strikes(atm_strike, step, count=15)
 
@@ -159,10 +327,17 @@ class OptionClockService:
             # Fetch option quotes for all strikes
             # Fyers supports batch quotes, up to 50 symbols at once
             option_symbols = []
+            symbol_strike_map = {}  # Map Fyers symbol -> (strike, option_type)
             for strike in strikes:
                 ce_symbol = self.format_option_symbol(symbol, expiry, strike, "CE")
                 pe_symbol = self.format_option_symbol(symbol, expiry, strike, "PE")
                 option_symbols.extend([ce_symbol, pe_symbol])
+                symbol_strike_map[ce_symbol] = (strike, "CE")
+                symbol_strike_map[pe_symbol] = (strike, "PE")
+
+            print(f"[OPTION_CLOCK] Fetching {len(option_symbols)} option symbols for {symbol} expiry {expiry}")
+            if option_symbols:
+                print(f"[OPTION_CLOCK] Sample symbols: {option_symbols[0]}, {option_symbols[1]}")
 
             # Fetch in batches if needed
             all_option_data = []
@@ -174,11 +349,30 @@ class OptionClockService:
 
                 if batch_response.get("s") == "ok":
                     all_option_data.extend(batch_response.get("d", []))
+                else:
+                    print(f"[OPTION_CLOCK] Batch {i//batch_size + 1} quote failed: {batch_response.get('s')} - {batch_response.get('message', 'unknown')}")
+
+            # Filter out items with error markers (invalid symbols)
+            all_option_data = [
+                item for item in all_option_data
+                if item.get("v", {}).get("s") != "error" and "errmsg" not in item.get("v", {})
+            ]
+
+            # Get upcoming expiry dates
+            upcoming_expiries = self.get_upcoming_expiries(symbol, count=5)
+
+            if not all_option_data:
+                print(f"[OPTION_CLOCK] WARNING: No option quotes returned for {symbol} expiry {expiry}. Returning None to trigger fallback.")
+                return None
 
             # Process option data
-            return self._process_option_data(
-                all_option_data, spot_price, prev_close, symbol, expiry, strikes
+            result = self._process_option_data(
+                all_option_data, spot_price, prev_close, symbol, expiry, strikes,
+                symbol_strike_map
             )
+            if result:
+                result["upcoming_expiries"] = upcoming_expiries
+            return result
 
         except Exception as e:
             print(f"[OPTION_CLOCK] Error fetching option chain: {e}")
@@ -193,9 +387,10 @@ class OptionClockService:
         prev_close: float,
         symbol: str,
         expiry: date,
-        strikes: List[float]
+        strikes: List[float],
+        symbol_strike_map: Dict[str, tuple] = None
     ) -> Dict:
-        """Process raw option data into aggregated metrics."""
+        """Process raw option data into aggregated metrics with full price data."""
 
         total_call_oi = 0
         total_put_oi = 0
@@ -207,38 +402,56 @@ class OptionClockService:
             v = item.get("v", {})
             sym = item.get("n", "")
 
-            # Parse symbol to extract strike and type
-            # Format: NSE:NIFTY24D2624000CE
+            # Look up strike and type from pre-built mapping
             try:
-                if "CE" in sym:
-                    option_type = "CE"
-                    strike_str = sym.split("CE")[0][-5:]  # Last 5 chars before CE
-                elif "PE" in sym:
-                    option_type = "PE"
-                    strike_str = sym.split("PE")[0][-5:]
+                if symbol_strike_map and sym in symbol_strike_map:
+                    strike, option_type = symbol_strike_map[sym]
                 else:
+                    # Fallback: skip unknown symbols
                     continue
-
-                strike = float(strike_str)
-                oi = v.get("open_interest", 0) or 0
-                oi_change = v.get("oi_change", 0) or 0
+                oi = v.get("oi") or v.get("open_interest") or 0
+                if oi is None:
+                    oi = 0
+                pdoi = v.get("pdoi") or 0
+                if pdoi is None:
+                    pdoi = 0
+                oi_change = oi - pdoi
+                ltp = v.get("lp", 0) or v.get("prev_close_price", 0) or 0
+                volume = v.get("vol_traded_today", 0) or v.get("volume", 0) or 0
+                change = v.get("ch", 0) or 0
+                pChange = v.get("chp", 0) or 0
 
                 if strike not in strike_breakdown:
                     strike_breakdown[strike] = {
                         "call_oi": 0, "put_oi": 0,
-                        "call_oi_change": 0, "put_oi_change": 0
+                        "call_oi_change": 0, "put_oi_change": 0,
+                        "call_ltp": 0, "put_ltp": 0,
+                        "call_volume": 0, "put_volume": 0,
+                        "call_change": 0, "put_change": 0,
+                        "call_pChange": 0, "put_pChange": 0,
+                        "call_identifier": "", "put_identifier": "",
                     }
 
                 if option_type == "CE":
                     total_call_oi += oi
                     strike_breakdown[strike]["call_oi"] = oi
                     strike_breakdown[strike]["call_oi_change"] = oi_change
+                    strike_breakdown[strike]["call_ltp"] = ltp
+                    strike_breakdown[strike]["call_volume"] = volume
+                    strike_breakdown[strike]["call_change"] = change
+                    strike_breakdown[strike]["call_pChange"] = pChange
+                    strike_breakdown[strike]["call_identifier"] = sym
                     if oi > highest_call_oi["oi"]:
                         highest_call_oi = {"strike": strike, "oi": oi}
                 else:
                     total_put_oi += oi
                     strike_breakdown[strike]["put_oi"] = oi
                     strike_breakdown[strike]["put_oi_change"] = oi_change
+                    strike_breakdown[strike]["put_ltp"] = ltp
+                    strike_breakdown[strike]["put_volume"] = volume
+                    strike_breakdown[strike]["put_change"] = change
+                    strike_breakdown[strike]["put_pChange"] = pChange
+                    strike_breakdown[strike]["put_identifier"] = sym
                     if oi > highest_put_oi["oi"]:
                         highest_put_oi = {"strike": strike, "oi": oi}
 

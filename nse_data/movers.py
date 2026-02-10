@@ -13,9 +13,45 @@ DEFAULT_INDEX = "NIFTY 50"
 # Daily master list of all active equities
 EQUITY_LIST_URL = "https://archives.nseindia.com/content/equities/EQUITY_L.csv"
 
+# In-flight request deduplication: prevents multiple concurrent callers from
+# each triggering a separate slow HTTP request to the same NSE endpoint.
+_inflight_locks: dict[str, asyncio.Lock] = {}
+
+# TTL for raw index data cache (seconds)
+_RAW_INDEX_TTL = 120
+
 
 async def fetch_index_data(index_name: str = DEFAULT_INDEX):
-    """Helper function to fetch index constituents."""
+    """Helper function to fetch index constituents.
+
+    Uses a two-layer optimisation:
+    1. Raw-data cache so top-gainers + top-losers share one fetch.
+    2. Per-index asyncio lock so concurrent requests don't each hit NSE.
+    """
+    raw_cache_key = f"nse_raw:index:{index_name}"
+
+    # Fast path: serve from raw cache
+    cached = cache.get(raw_cache_key)
+    if cached is not None:
+        return cached
+
+    # Acquire a per-index lock so only one coroutine fetches at a time
+    if index_name not in _inflight_locks:
+        _inflight_locks[index_name] = asyncio.Lock()
+
+    async with _inflight_locks[index_name]:
+        # Double-check after acquiring lock (another coroutine may have filled cache)
+        cached = cache.get(raw_cache_key)
+        if cached is not None:
+            return cached
+
+        data = await _do_fetch_index(index_name)
+        cache.set(raw_cache_key, data, _RAW_INDEX_TTL)
+        return data
+
+
+async def _do_fetch_index(index_name: str):
+    """Perform the actual HTTP call to NSE."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "*/*",
@@ -25,9 +61,8 @@ async def fetch_index_data(index_name: str = DEFAULT_INDEX):
 
     url = f"{BASE_API_URL}{index_name.replace(' ', '%20')}"
 
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
         try:
-            # Try to get cookies, but don't fail if it errors (it might 403 but still set cookies or API might work)
             try:
                 await client.get("https://www.nseindia.com", headers=headers)
                 await asyncio.sleep(0.5)

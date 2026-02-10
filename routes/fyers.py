@@ -7,6 +7,7 @@ from routes.deps import get_current_user
 from services.fyers_service import (
     get_fyers_auth_url,
     generate_fyers_access_token,
+    refresh_fyers_access_token,
     fetch_fyers_holdings,
     fetch_fyers_positions,
     place_fyers_order,
@@ -45,30 +46,49 @@ async def get_fyers_status(
     db: Session = Depends(get_db)
 ):
     """
-    Check if Fyers is connected with valid, non-expired token
+    Check if Fyers is connected with valid, non-expired token.
+    Auto-refreshes expired tokens using refresh_token if available.
     """
     token = db.query(FyersToken).filter(FyersToken.user_id == current_user.id).first()
 
-    # Check if token exists AND is valid
     is_connected = False
     is_expired = False
+    was_refreshed = False
 
     if token and token.access_token:
-        # Token is valid if:
-        # 1. No expiry set (legacy tokens), OR
-        # 2. Expiry is in the future
         if not token.expires_at:
             is_connected = True
         elif token.expires_at > datetime.now():
             is_connected = True
         else:
+            # Token expired — try auto-refresh
             is_expired = True
+            if token.refresh_token:
+                print(f"[FYERS_STATUS] Token expired for user {current_user.id}, attempting refresh...")
+                refresh_result = refresh_fyers_access_token(token.refresh_token)
+                if refresh_result and refresh_result.get("s") == "ok":
+                    new_access = refresh_result.get("access_token")
+                    new_refresh = refresh_result.get("refresh_token")
+                    if new_access:
+                        token.access_token = new_access
+                        if new_refresh:
+                            token.refresh_token = new_refresh
+                        token.created_at = datetime.utcnow()
+                        token.expires_at = datetime.utcnow() + timedelta(days=1)
+                        db.commit()
+                        is_connected = True
+                        is_expired = False
+                        was_refreshed = True
+                        print(f"[FYERS_STATUS] Token refreshed successfully for user {current_user.id}")
+                else:
+                    print(f"[FYERS_STATUS] Refresh failed for user {current_user.id}: {refresh_result}")
 
     return {
         "connected": is_connected,
         "connected_at": token.created_at if token else None,
         "expires_at": token.expires_at if token else None,
-        "is_expired": is_expired
+        "is_expired": is_expired,
+        "was_refreshed": was_refreshed,
     }
 
 @router.get("/callback")

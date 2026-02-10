@@ -19,6 +19,7 @@ from services.fyers_service import (
     fetch_quotes_batch,
     fetch_index_quotes,
     fetch_historical_data,
+    refresh_fyers_access_token,
     download_fyers_cm_master,
     SYM_MASTER_CM,
     MAJOR_INDICES,
@@ -32,6 +33,7 @@ router = APIRouter(prefix="/fyers/market", tags=["Fyers Market Data"])
 def _get_user_or_system_token(current_user: User, db: Session) -> Optional[str]:
     """
     Get user's Fyers token or fall back to system token.
+    Auto-refreshes expired tokens using refresh_token if available.
     Returns None if no valid token is available.
     """
     # 1. Try user's token first
@@ -40,11 +42,27 @@ def _get_user_or_system_token(current_user: User, db: Session) -> Optional[str]:
     ).first()
 
     if user_token and user_token.access_token:
-        # Check expiry if set
-        if user_token.expires_at and user_token.expires_at > datetime.now():
+        # Valid token
+        if not user_token.expires_at:
             return user_token.access_token
-        elif not user_token.expires_at:
+        if user_token.expires_at > datetime.now():
             return user_token.access_token
+
+        # Expired — try auto-refresh
+        if user_token.refresh_token:
+            refresh_result = refresh_fyers_access_token(user_token.refresh_token)
+            if refresh_result and refresh_result.get("s") == "ok":
+                new_access = refresh_result.get("access_token")
+                new_refresh = refresh_result.get("refresh_token")
+                if new_access:
+                    user_token.access_token = new_access
+                    if new_refresh:
+                        user_token.refresh_token = new_refresh
+                    user_token.created_at = datetime.utcnow()
+                    user_token.expires_at = datetime.utcnow() + timedelta(days=1)
+                    db.commit()
+                    print(f"[FYERS_MARKET] Token auto-refreshed for user {current_user.id}")
+                    return new_access
 
     # 2. Fall back to system token (any valid token in DB)
     system_token = option_clock_service.get_system_access_token()
@@ -226,6 +244,14 @@ async def get_quotes(
     fyers_symbols = [convert_nse_to_fyers(s) for s in symbol_list]
     quotes = fetch_quotes_batch(token, fyers_symbols)
 
+    if not quotes and len(fyers_symbols) > 0:
+        return {
+            "quotes": {},
+            "fyers_connected": True,
+            "quotes_error": True,
+            "message": "Failed to fetch quotes from Fyers API"
+        }
+
     return {
         "quotes": quotes,
         "fyers_connected": True,
@@ -391,17 +417,43 @@ async def get_option_chain_fyers(
     data = option_clock_service.fetch_option_chain(token, symbol.upper())
 
     if not data:
+        # Fyers failed -- try NSE fallback
+        try:
+            from nse_data.fno import fetch_nse_data, format_option_chain, INDEX_FO_SYMBOLS
+            from nse_data.fno import NSE_OPTION_CHAIN_INDICES, NSE_OPTION_CHAIN_EQUITIES
+            sym = symbol.upper()
+            if sym in INDEX_FO_SYMBOLS:
+                nse_url = f"{NSE_OPTION_CHAIN_INDICES}{sym}"
+            else:
+                nse_url = f"{NSE_OPTION_CHAIN_EQUITIES}{sym}"
+            raw = await fetch_nse_data(nse_url, sym)
+            if raw and raw.get("records"):
+                nse_result = format_option_chain(raw)
+                return {**nse_result, "fyers_connected": True, "source": "nse_fallback"}
+        except Exception:
+            pass
         return {
             "data": None,
             "fyers_connected": True,
             "error": f"Failed to fetch option chain for {symbol}"
         }
 
+    # Detect if spot price is live or stale based on market hours
+    spot = data.get("spot_price", 0)
+    prev = data.get("prev_close", 0)
+    now = datetime.now()
+    is_market_hours = (now.weekday() < 5 and
+                       (now.hour > 9 or (now.hour == 9 and now.minute >= 15)) and
+                       (now.hour < 15 or (now.hour == 15 and now.minute <= 30)))
+    spot_source = "live" if is_market_hours else "prev_close"
+
     # Format for frontend
     return {
         "symbol": symbol.upper(),
-        "spotPrice": data.get("spot_price", 0),
+        "spotPrice": spot,
+        "spotSource": spot_source,
         "expiryDate": data.get("expiry").isoformat() if data.get("expiry") else None,
+        "expiryDates": [d.isoformat() for d in data.get("upcoming_expiries", [])],
         "timestamp": data.get("timestamp").isoformat() if data.get("timestamp") else None,
         "totalCallOI": data.get("total_call_oi", 0),
         "totalPutOI": data.get("total_put_oi", 0),

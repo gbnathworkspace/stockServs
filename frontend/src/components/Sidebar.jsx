@@ -1,19 +1,12 @@
 import React, { useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Target, 
-  TrendingUp, 
-  Building2, 
-  LineChart, 
-  Wallet, 
-  Star, 
+import {
+  LayoutDashboard,
+  TrendingUp,
+  Building2,
+  LineChart,
+  Star,
   Settings,
-  Clock,
-  Zap,
   Activity,
-  Users,
-  Search,
-  BarChart3,
   ChevronRight
 } from 'lucide-react';
 
@@ -23,19 +16,6 @@ const menuItems = [
     label: 'Dashboard',
     icon: LayoutDashboard,
     subsections: []
-  },
-  {
-    id: 'products',
-    label: 'TradeFinder Products',
-    icon: Target,
-    subsections: [
-      { id: 'option-clock', label: 'Option Clock', icon: Clock },
-      { id: 'option-apex', label: 'Option Apex', icon: Zap },
-      { id: 'market-pulse', label: 'Market Pulse', icon: Activity },
-      { id: 'insider-strategy', label: 'Insider Strategy', icon: Users },
-      { id: 'sector-scope', label: 'Sector Scope', icon: Search },
-      { id: 'swing-spectrum', label: 'Swing Spectrum', icon: BarChart3 },
-    ]
   },
   {
     id: 'trading',
@@ -88,7 +68,7 @@ const menuItems = [
 
 export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse, mobileOpen, onMobileClose }) {
   // Accordion behavior: Only one menu expanded at a time (desktop focus)
-  const [expandedMenus, setExpandedMenus] = useState(['products']);
+  const [expandedMenus, setExpandedMenus] = useState([]);
 
 
   const toggleMenu = (menuId) => {

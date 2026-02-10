@@ -93,7 +93,7 @@ export default function Dashboard({ onNavigate }) {
     if (!value && value !== 0) return 'N/A';
     const num = Number(value);
     if (isNaN(num)) return 'N/A';
-    return `₹${(num / 100).toFixed(0)} Cr`;
+    return `${(num / 100).toFixed(0)} Cr`;
   };
 
   const walletBalance = summary?.wallet_balance ?? 100000;
@@ -102,61 +102,68 @@ export default function Dashboard({ onNavigate }) {
   const totalPnL = summary?.total_pnl ?? 0;
   const pnlPercent = investedValue > 0 ? ((totalPnL / investedValue) * 100).toFixed(2) : 0;
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  const isMarketOpen = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    const time = hour * 60 + minute;
+    // Market open: Mon-Fri, 9:15 AM - 3:30 PM IST
+    return day >= 1 && day <= 5 && time >= 555 && time <= 930;
+  };
+
   return (
     <div className="dashboard-section">
+      {/* Welcome + Refresh Header */}
       <div className="section-header">
         <div className="section-title">
-          <span className="section-title-icon">📊</span>
-          <h2>Dashboard</h2>
+          <h2>{getGreeting()}</h2>
         </div>
-        <button onClick={loadDashboardData} disabled={loading}>
-          {loading ? 'Loading...' : 'Refresh'}
-        </button>
+        <div className="dash-header-right">
+          <span className={`market-status-badge ${isMarketOpen() ? 'open' : 'closed'}`}>
+            {isMarketOpen() ? 'Market Open' : 'Market Closed'}
+          </span>
+          <button onClick={loadDashboardData} disabled={loading}>
+            {loading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="dashboard-grid">
-        <div className="stat-card">
-          <div className="stat-card-header">
-            <div className="stat-card-icon blue">💰</div>
-          </div>
-          <div className="stat-card-value">{formatCurrency(walletBalance)}</div>
-          <div className="stat-card-label">Available Balance</div>
+      {/* Compact Portfolio Summary Bar */}
+      <div className="dash-summary-bar">
+        <div className="dash-summary-item" onClick={() => onNavigate('wallet.balance')}>
+          <span className="dash-summary-label">Balance</span>
+          <span className="dash-summary-value">{formatCurrency(walletBalance)}</span>
         </div>
-
-        <div className="stat-card">
-          <div className="stat-card-header">
-            <div className="stat-card-icon green">📈</div>
-          </div>
-          <div className="stat-card-value">{formatCurrency(investedValue)}</div>
-          <div className="stat-card-label">Total Invested</div>
+        <div className="dash-summary-divider" />
+        <div className="dash-summary-item" onClick={() => onNavigate('trading.portfolio')}>
+          <span className="dash-summary-label">Invested</span>
+          <span className="dash-summary-value">{formatCurrency(investedValue)}</span>
         </div>
-
-        <div className="stat-card">
-          <div className="stat-card-header">
-            <div className="stat-card-icon blue">💹</div>
-          </div>
-          <div className="stat-card-value">{formatCurrency(currentValue)}</div>
-          <div className="stat-card-label">Current Value</div>
+        <div className="dash-summary-divider" />
+        <div className="dash-summary-item" onClick={() => onNavigate('trading.portfolio')}>
+          <span className="dash-summary-label">Current Value</span>
+          <span className="dash-summary-value">{formatCurrency(currentValue)}</span>
         </div>
-
-        <div className="stat-card">
-          <div className="stat-card-header">
-            <div className="stat-card-icon green">📊</div>
-            <span className={`stat-card-change ${totalPnL >= 0 ? 'positive' : 'negative'}`}>
-              {totalPnL >= 0 ? '+' : ''}{pnlPercent}%
-            </span>
-          </div>
-          <div className={`stat-card-value ${totalPnL >= 0 ? 'positive' : 'negative'}`}>
+        <div className="dash-summary-divider" />
+        <div className="dash-summary-item" onClick={() => onNavigate('trading.portfolio')}>
+          <span className="dash-summary-label">P&L</span>
+          <span className={`dash-summary-value ${totalPnL >= 0 ? 'positive' : 'negative'}`}>
             {totalPnL >= 0 ? '+' : ''}{formatCurrency(totalPnL)}
-          </div>
-          <div className="stat-card-label">Total P&L</div>
+            <span className="dash-summary-pct">({totalPnL >= 0 ? '+' : ''}{pnlPercent}%)</span>
+          </span>
         </div>
       </div>
 
       {/* Quick Actions */}
       <div className="dashboard-actions">
-        <h3>Quick Actions</h3>
         <div className="quick-actions-grid">
           <button className="quick-action-btn" onClick={() => onNavigate('trading.trade')}>
             <span className="quick-action-icon">💹</span>
@@ -180,7 +187,7 @@ export default function Dashboard({ onNavigate }) {
       {/* FII/DII Activity */}
       {fiiDiiData && (
         <div className="fii-dii-container">
-          <h3>📊 FII/DII Activity {fiiDiiData.date && <span className="fii-dii-date">({fiiDiiData.date})</span>}</h3>
+          <h3>FII/DII Activity {fiiDiiData.date && <span className="fii-dii-date">({fiiDiiData.date})</span>}</h3>
           <div className="fii-dii-row">
             <div className="fii-dii-block">
               <div className="fii-dii-title">FII (Foreign)</div>
@@ -249,7 +256,14 @@ export default function Dashboard({ onNavigate }) {
               </div>
             ))}
             {marketData.gainers.length === 0 && (
-              <div className="loading">No data available</div>
+              <div className="loading">
+                {loading ? (
+                  <>
+                    <div className="loading-spinner loading-spinner-sm" />
+                    <span>Loading market data...</span>
+                  </>
+                ) : 'No data available'}
+              </div>
             )}
           </div>
         </div>
@@ -274,7 +288,14 @@ export default function Dashboard({ onNavigate }) {
               </div>
             ))}
             {marketData.losers.length === 0 && (
-              <div className="loading">No data available</div>
+              <div className="loading">
+                {loading ? (
+                  <>
+                    <div className="loading-spinner loading-spinner-sm" />
+                    <span>Loading market data...</span>
+                  </>
+                ) : 'No data available'}
+              </div>
             )}
           </div>
         </div>

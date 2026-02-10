@@ -14,18 +14,12 @@ import OrderHistory from './components/sections/OrderHistory.jsx';
 import Wallet from './components/sections/Wallet.jsx';
 import Watchlist from './components/sections/Watchlist.jsx';
 import Settings from './components/sections/Settings.jsx';
-import OptionClock from './components/sections/OptionClock.jsx';
-import OptionApex from './components/sections/OptionApex.jsx';
-import MarketPulse from './components/sections/MarketPulse.jsx';
-import InsiderStrategy from './components/sections/InsiderStrategy.jsx';
-import SectorScope from './components/sections/SectorScope.jsx';
-import SwingSpectrum from './components/sections/SwingSpectrum.jsx';
 import Documentation from './components/sections/Documentation.jsx';
 import RefreshControl from './components/RefreshControl.jsx';
 
 function App() {
   const navigate = useNavigate();
-  const { syncThemeWithBackend } = useTheme();
+  useTheme(); // ThemeContext already calls syncThemeWithBackend on mount
   const isAuthed = Boolean(localStorage.getItem('access_token'));
   const userEmail = localStorage.getItem('user_email') || 'User';
   const userName = localStorage.getItem('user_name') || userEmail.split('@')[0];
@@ -38,7 +32,6 @@ function App() {
 
   // Fetch version and handle Fyers callback on mount
   useEffect(() => {
-    syncThemeWithBackend();
     fetch('/static/version.json?t=' + Date.now())
       .then(res => res.json())
       .then(data => setAppVersion(`v${data.version}`))
@@ -106,25 +99,6 @@ function App() {
       case 'dashboard':
         return <Dashboard onNavigate={handleSectionChange} />;
 
-      case 'products':
-        // Handle TradeFinder Products subsections
-        switch (subSection) {
-          case 'option-clock':
-            return <OptionClock />;
-          case 'option-apex':
-            return <OptionApex />;
-          case 'market-pulse':
-            return <MarketPulse />;
-          case 'insider-strategy':
-            return <InsiderStrategy />;
-          case 'sector-scope':
-            return <SectorScope />;
-          case 'swing-spectrum':
-            return <SwingSpectrum />;
-          default:
-            return <OptionClock />; // Default to first product
-        }
-
       case 'trading':
         if (subSection === 'portfolio' || subSection === 'orders') {
           return (
@@ -167,13 +141,6 @@ function App() {
   const getSectionTitle = () => {
     const titles = {
       'dashboard': 'Dashboard',
-      'products': 'TradeFinder Products',
-      'products.option-clock': 'Option Clock',
-      'products.option-apex': 'Option Apex',
-      'products.market-pulse': 'Market Pulse',
-      'products.insider-strategy': 'Insider Strategy',
-      'products.sector-scope': 'Sector Scope',
-      'products.swing-spectrum': 'Swing Spectrum',
       'trading': 'Market Sandbox',
       'real-trading': 'Market Connect',
       'market': 'Market Data',
@@ -199,9 +166,9 @@ function App() {
       <div className="app-layout">
         {/* Mobile Menu Overlay */}
         {mobileMenuOpen && (
-          <div 
-            className="mobile-overlay" 
-            onClick={() => setMobileMenuOpen(false)} 
+          <div
+            className="mobile-overlay"
+            onClick={() => setMobileMenuOpen(false)}
           />
         )}
 
@@ -218,7 +185,7 @@ function App() {
           <header className="main-header">
             <div className="header-left">
               {/* Mobile Hamburger Button */}
-              <button 
+              <button
                 className="mobile-menu-btn"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 aria-label="Toggle menu"

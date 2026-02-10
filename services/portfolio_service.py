@@ -30,6 +30,18 @@ def _round_price(price: float) -> float:
     return value
 
 
+def _is_fno_symbol(symbol: str) -> bool:
+    """Detect if a symbol is an F&O derivative (option/future)."""
+    s = (symbol or "").upper().strip()
+    # Fyers format: NSE:NIFTY2621225000CE or NSE:RELIANCE26FEB2000PE
+    if s.startswith("NSE:") and (s.endswith("CE") or s.endswith("PE")):
+        return True
+    # Plain format with CE/PE suffix and digits: NIFTY2621225000CE
+    if (s.endswith("CE") or s.endswith("PE")) and any(c.isdigit() for c in s):
+        return True
+    return False
+
+
 def _serialize_holding(row: VirtualHolding, ltp: Optional[float] = None) -> HoldingOut:
     pnl = None
     if ltp is not None:
@@ -51,6 +63,11 @@ def _fetch_ltp(symbol: str) -> Optional[float]:
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
+
+    # F&O symbols can't be looked up on yfinance — return None
+    # The trade execution uses the provided price for F&O
+    if _is_fno_symbol(symbol):
+        return None
 
     # Fetch from yfinance
     ticker = yf.Ticker(f"{symbol}.NS")
@@ -133,32 +150,68 @@ def get_wallet_balance(db: Session, user_id: int) -> float:
 
 def get_portfolio_holdings(db: Session, user_id: int) -> List[HoldingOut]:
     rows = db.query(VirtualHolding).filter(VirtualHolding.user_id == user_id).all()
-    return _enrich_holdings(rows)
+    return [_serialize_holding(row) for row in rows]
 
 
 def get_portfolio_summary(db: Session, user_id: int) -> Dict[str, Any]:
-    """Get portfolio summary including wallet balance and holdings value."""
+    """Get portfolio summary including wallet balance and holdings value.
+
+    LTP enrichment is skipped here for performance; the frontend enriches
+    holdings with live prices via Fyers.
+    """
     wallet = get_or_create_wallet(db, user_id)
     holdings = get_portfolio_holdings(db, user_id)
 
-    # Calculate total holdings value and P&L
     total_invested = sum(h.average_price * h.quantity for h in holdings)
-    total_current = sum((h.ltp or h.average_price) * h.quantity for h in holdings)
-    total_pnl = sum(h.pnl or 0 for h in holdings)
 
     return {
         "wallet_balance": round(wallet.balance, 2),
-        "holdings_value": round(total_current, 2),
+        "holdings_value": None,
         "total_invested": round(total_invested, 2),
-        "total_pnl": round(total_pnl, 2),
-        "net_worth": round(wallet.balance + total_current, 2),
+        "total_pnl": None,
+        "net_worth": None,
         "holdings_count": len(holdings),
         "holdings": holdings
     }
 
 
+def _sync_missing_orders(db: Session, user_id: int) -> None:
+    """Create retroactive BUY order records for holdings that have no matching orders."""
+    holdings = db.query(VirtualHolding).filter(VirtualHolding.user_id == user_id).all()
+    if not holdings:
+        return
+
+    # Get all symbols that already have at least one order
+    existing_order_symbols = set(
+        row[0] for row in db.query(VirtualOrder.symbol).filter(
+            VirtualOrder.user_id == user_id
+        ).distinct().all()
+    )
+
+    new_orders = []
+    for h in holdings:
+        if h.symbol not in existing_order_symbols:
+            new_orders.append(VirtualOrder(
+                user_id=user_id,
+                symbol=h.symbol,
+                side="BUY",
+                quantity=h.quantity,
+                price=h.average_price,
+                total_value=round(h.average_price * h.quantity, 2),
+                order_type="MARKET",
+                status="FILLED",
+            ))
+
+    if new_orders:
+        db.add_all(new_orders)
+        db.commit()
+
+
 def get_order_history(db: Session, user_id: int, limit: int = 50) -> List[Dict[str, Any]]:
     """Get user's order history."""
+    # Ensure all holdings have matching order records
+    _sync_missing_orders(db, user_id)
+
     orders = db.query(VirtualOrder).filter(
         VirtualOrder.user_id == user_id
     ).order_by(VirtualOrder.created_at.desc()).limit(limit).all()
@@ -185,9 +238,11 @@ def execute_trade(db: Session, user_id: int, payload: TradePayload) -> Dict[str,
     side = payload.side
     order_type = getattr(payload, 'order_type', 'MARKET') or 'MARKET'
     limit_price = getattr(payload, 'limit_price', None)
-    
+    is_fno = _is_fno_symbol(symbol)
+
     # Get current market price (LTP)
-    current_ltp = _fetch_ltp(symbol)
+    # For F&O: use the provided price since yfinance doesn't support derivatives
+    current_ltp = payload.price if is_fno else _fetch_ltp(symbol)
     
     # Determine execution price based on order type
     if order_type == "LIMIT":
@@ -301,12 +356,12 @@ def execute_trade(db: Session, user_id: int, payload: TradePayload) -> Dict[str,
         VirtualHolding.user_id == user_id
     ).all()
 
-    enriched = _enrich_holdings(holdings)
-    current = next((h for h in enriched if h.symbol == symbol), None)
+    serialized = [_serialize_holding(row) for row in holdings]
+    current = next((h for h in serialized if h.symbol == symbol), None)
 
     return {
         "holding": current,
-        "holdings": enriched,
+        "holdings": serialized,
         "side": side,
         "wallet_balance": round(wallet.balance, 2),
         "order": {
