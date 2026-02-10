@@ -175,8 +175,43 @@ def get_portfolio_summary(db: Session, user_id: int) -> Dict[str, Any]:
     }
 
 
+def _sync_missing_orders(db: Session, user_id: int) -> None:
+    """Create retroactive BUY order records for holdings that have no matching orders."""
+    holdings = db.query(VirtualHolding).filter(VirtualHolding.user_id == user_id).all()
+    if not holdings:
+        return
+
+    # Get all symbols that already have at least one order
+    existing_order_symbols = set(
+        row[0] for row in db.query(VirtualOrder.symbol).filter(
+            VirtualOrder.user_id == user_id
+        ).distinct().all()
+    )
+
+    new_orders = []
+    for h in holdings:
+        if h.symbol not in existing_order_symbols:
+            new_orders.append(VirtualOrder(
+                user_id=user_id,
+                symbol=h.symbol,
+                side="BUY",
+                quantity=h.quantity,
+                price=h.average_price,
+                total_value=round(h.average_price * h.quantity, 2),
+                order_type="MARKET",
+                status="FILLED",
+            ))
+
+    if new_orders:
+        db.add_all(new_orders)
+        db.commit()
+
+
 def get_order_history(db: Session, user_id: int, limit: int = 50) -> List[Dict[str, Any]]:
     """Get user's order history."""
+    # Ensure all holdings have matching order records
+    _sync_missing_orders(db, user_id)
+
     orders = db.query(VirtualOrder).filter(
         VirtualOrder.user_id == user_id
     ).order_by(VirtualOrder.created_at.desc()).limit(limit).all()

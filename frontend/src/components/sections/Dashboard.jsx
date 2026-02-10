@@ -256,7 +256,14 @@ export default function Dashboard({ onNavigate }) {
               </div>
             ))}
             {marketData.gainers.length === 0 && (
-              <div className="loading">No data available</div>
+              <div className="loading">
+                {loading ? (
+                  <>
+                    <div className="loading-spinner loading-spinner-sm" />
+                    <span>Loading market data...</span>
+                  </>
+                ) : 'No data available'}
+              </div>
             )}
           </div>
         </div>
@@ -281,7 +288,14 @@ export default function Dashboard({ onNavigate }) {
               </div>
             ))}
             {marketData.losers.length === 0 && (
-              <div className="loading">No data available</div>
+              <div className="loading">
+                {loading ? (
+                  <>
+                    <div className="loading-spinner loading-spinner-sm" />
+                    <span>Loading market data...</span>
+                  </>
+                ) : 'No data available'}
+              </div>
             )}
           </div>
         </div>

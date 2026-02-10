@@ -67,6 +67,48 @@ class OptionClockService:
 
     def __init__(self):
         self.last_snapshots: Dict[str, OptionClockSnapshot] = {}
+        self._expiry_cache: Dict[str, dict] = {}  # {symbol: {"dates": [...], "ts": float}}
+
+    def _get_master_expiry_dates(self, symbol: str) -> List[date]:
+        """
+        Read expiry dates from the NSE_FO.csv master file.
+        Field index 2 == '14' means options, field 13 == symbol name,
+        field 8 is the Unix timestamp of the expiry date.
+        Results are cached for 6 hours per symbol.
+        """
+        import time as _time
+
+        # Check cache
+        cached = self._expiry_cache.get(symbol)
+        if cached and (_time.time() - cached["ts"]) < 6 * 3600:
+            return cached["dates"]
+
+        csv_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'data', 'symbols', 'NSE_FO.csv'
+        )
+
+        try:
+            dates_set = set()
+            with open(csv_path, 'r') as f:
+                for line in f:
+                    parts = line.strip().split(',')
+                    if len(parts) > 13 and parts[2] == '14' and parts[13] == symbol:
+                        try:
+                            ts = int(parts[8])
+                            d = datetime.fromtimestamp(ts).date()
+                            dates_set.add(d)
+                        except (ValueError, OSError):
+                            continue
+            sorted_dates = sorted(dates_set)
+            self._expiry_cache[symbol] = {"dates": sorted_dates, "ts": _time.time()}
+            return sorted_dates
+        except FileNotFoundError:
+            print(f"[OPTION_CLOCK] WARNING: NSE_FO.csv not found at {csv_path}, falling back to old logic")
+            return []
+        except Exception as e:
+            print(f"[OPTION_CLOCK] WARNING: Error reading NSE_FO.csv: {e}, falling back to old logic")
+            return []
 
     def get_fyers_client(self, access_token: str) -> fyersModel.FyersModel:
         """Get an authenticated Fyers client."""
@@ -124,37 +166,66 @@ class OptionClockService:
 
     def get_nearest_expiry(self, symbol: str = "NIFTY") -> date:
         """
-        Get the nearest Thursday expiry for the given index.
-        NIFTY expires on Thursday, BANKNIFTY also on Thursday (changed from Wednesday).
-        """
-        today = date.today()
-        days_until_thursday = (3 - today.weekday()) % 7
-        if days_until_thursday == 0 and datetime.now().hour >= 15:
-            # If it's Thursday after 3 PM, next expiry is next Thursday
-            days_until_thursday = 7
-        next_thursday = today + timedelta(days=days_until_thursday)
-        return next_thursday
-
-    def get_upcoming_expiries(self, symbol: str = "NIFTY", count: int = 5) -> List[date]:
-        """
-        Get the next N upcoming Thursday expiry dates.
-        Skips the current Thursday if market has closed (after 3:30 PM).
+        Get the nearest expiry for the given symbol from the master file.
+        Falls back to Thursday-based logic if master data is unavailable.
         """
         today = date.today()
         now = datetime.now()
-        expiries = []
+        master_dates = self._get_master_expiry_dates(symbol)
 
-        # Start from today and find upcoming Thursdays
+        if master_dates:
+            for d in master_dates:
+                if d > today:
+                    return d
+                if d == today:
+                    # If today is expiry and after 15:30, skip to next
+                    if now.hour > 15 or (now.hour == 15 and now.minute >= 30):
+                        continue
+                    return d
+            # All dates in the past — shouldn't happen, but fall through
+            print(f"[OPTION_CLOCK] WARNING: No future expiry dates found in master for {symbol}")
+
+        # Fallback: old Thursday logic
+        print(f"[OPTION_CLOCK] WARNING: Using Thursday fallback for {symbol} expiry")
         days_until_thursday = (3 - today.weekday()) % 7
         if days_until_thursday == 0 and now.hour >= 15:
-            # If it's Thursday after 3 PM, skip to next Thursday
+            days_until_thursday = 7
+        return today + timedelta(days=days_until_thursday)
+
+    def get_upcoming_expiries(self, symbol: str = "NIFTY", count: int = 5) -> List[date]:
+        """
+        Get the next N upcoming expiry dates from the master file.
+        Skips today's expiry if market has closed (after 15:30).
+        Falls back to Thursday-based logic if master data is unavailable.
+        """
+        today = date.today()
+        now = datetime.now()
+        master_dates = self._get_master_expiry_dates(symbol)
+
+        if master_dates:
+            expiries = []
+            for d in master_dates:
+                if d > today:
+                    expiries.append(d)
+                elif d == today:
+                    if now.hour > 15 or (now.hour == 15 and now.minute >= 30):
+                        continue
+                    expiries.append(d)
+                if len(expiries) >= count:
+                    break
+            if expiries:
+                return expiries
+
+        # Fallback: old Thursday logic
+        print(f"[OPTION_CLOCK] WARNING: Using Thursday fallback for {symbol} upcoming expiries")
+        expiries = []
+        days_until_thursday = (3 - today.weekday()) % 7
+        if days_until_thursday == 0 and now.hour >= 15:
             days_until_thursday = 7
         next_thursday = today + timedelta(days=days_until_thursday)
-
         while len(expiries) < count:
             expiries.append(next_thursday)
             next_thursday += timedelta(days=7)
-
         return expiries
 
     def get_atm_strike(self, spot_price: float, step: int = 50) -> float:
@@ -168,19 +239,28 @@ class OptionClockService:
             strikes.append(atm_strike + (i * step))
         return strikes
 
-    def _is_monthly_expiry(self, expiry_date: date) -> bool:
-        """Check if the given date is the last Thursday of its month."""
-        # Find the last day of the month
+    def _is_monthly_expiry(self, expiry_date: date, symbol: str = "NIFTY") -> bool:
+        """
+        Check if the given date is the monthly (last) expiry of its month.
+        Uses master file data to determine the last expiry of the month.
+        Falls back to last-Thursday logic if master data unavailable.
+        """
+        master_dates = self._get_master_expiry_dates(symbol)
+        if master_dates:
+            # Monthly expiry = last expiry date in the same month
+            same_month = [d for d in master_dates
+                          if d.year == expiry_date.year and d.month == expiry_date.month]
+            if same_month:
+                return expiry_date == max(same_month)
+
+        # Fallback: last Thursday of the month
         if expiry_date.month == 12:
             next_month = date(expiry_date.year + 1, 1, 1)
         else:
             next_month = date(expiry_date.year, expiry_date.month + 1, 1)
         last_day = next_month - timedelta(days=1)
-
-        # Find the last Thursday (weekday 3)
         days_since_thursday = (last_day.weekday() - 3) % 7
         last_thursday = last_day - timedelta(days=days_since_thursday)
-
         return expiry_date == last_thursday
 
     def format_option_symbol(self, index: str, expiry: date, strike: float, option_type: str) -> str:
@@ -194,7 +274,7 @@ class OptionClockService:
         year = str(expiry.year)[-2:]  # Last 2 digits
         strike_str = str(int(strike))
 
-        if self._is_monthly_expiry(expiry):
+        if self._is_monthly_expiry(expiry, index):
             # Monthly format: NSE:NIFTY26FEB25000CE
             month = self.MONTH_MAP[expiry.month]
             symbol = f"NSE:{index}{year}{month}{strike_str}{option_type}"
@@ -272,6 +352,12 @@ class OptionClockService:
                 else:
                     print(f"[OPTION_CLOCK] Batch {i//batch_size + 1} quote failed: {batch_response.get('s')} - {batch_response.get('message', 'unknown')}")
 
+            # Filter out items with error markers (invalid symbols)
+            all_option_data = [
+                item for item in all_option_data
+                if item.get("v", {}).get("s") != "error" and "errmsg" not in item.get("v", {})
+            ]
+
             # Get upcoming expiry dates
             upcoming_expiries = self.get_upcoming_expiries(symbol, count=5)
 
@@ -323,8 +409,12 @@ class OptionClockService:
                 else:
                     # Fallback: skip unknown symbols
                     continue
-                oi = v.get("oi", 0) or v.get("open_interest", 0) or 0
-                pdoi = v.get("pdoi", 0) or 0
+                oi = v.get("oi") or v.get("open_interest") or 0
+                if oi is None:
+                    oi = 0
+                pdoi = v.get("pdoi") or 0
+                if pdoi is None:
+                    pdoi = 0
                 oi_change = oi - pdoi
                 ltp = v.get("lp", 0) or v.get("prev_close_price", 0) or 0
                 volume = v.get("vol_traded_today", 0) or v.get("volume", 0) or 0

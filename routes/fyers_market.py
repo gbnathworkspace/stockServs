@@ -438,10 +438,14 @@ async def get_option_chain_fyers(
             "error": f"Failed to fetch option chain for {symbol}"
         }
 
-    # Detect if spot price is from prev_close (market closed)
+    # Detect if spot price is live or stale based on market hours
     spot = data.get("spot_price", 0)
     prev = data.get("prev_close", 0)
-    spot_source = "prev_close" if (spot and prev and spot == prev) else "live"
+    now = datetime.now()
+    is_market_hours = (now.weekday() < 5 and
+                       (now.hour > 9 or (now.hour == 9 and now.minute >= 15)) and
+                       (now.hour < 15 or (now.hour == 15 and now.minute <= 30)))
+    spot_source = "live" if is_market_hours else "prev_close"
 
     # Format for frontend
     return {

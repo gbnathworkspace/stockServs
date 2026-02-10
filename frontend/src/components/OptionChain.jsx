@@ -73,7 +73,7 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
           data: Object.entries(res.strikeData).map(([strike, data]) => ({
             strikePrice: parseFloat(strike),
             expiryDate: res.expiryDate,
-            CE: (data.call_oi || data.call_ltp) ? {
+            CE: data.call_identifier ? {
               openInterest: data.call_oi || 0,
               totalTradedVolume: data.call_volume || 0,
               lastPrice: data.call_ltp || 0,
@@ -81,7 +81,7 @@ const OptionChain = ({ symbol = 'NIFTY', onClose, onSelectToken }) => {
               pChange: data.call_pChange || 0,
               identifier: data.call_identifier || null,
             } : null,
-            PE: (data.put_oi || data.put_ltp) ? {
+            PE: data.put_identifier ? {
               openInterest: data.put_oi || 0,
               totalTradedVolume: data.put_volume || 0,
               lastPrice: data.put_ltp || 0,

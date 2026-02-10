@@ -34,7 +34,11 @@ export default function PortfolioView({
   loading, 
   onSelectHolding 
 }) {
-  const totalValue = portfolio.reduce((sum, item) => sum + (item.quantity * (item.ltp || item.average_price)), 0);
+  const hasAllPrices = portfolio.every(item => item.ltp != null && item.ltp > 0);
+  const totalValue = portfolio.reduce((sum, item) => {
+    const price = (item.ltp != null && item.ltp > 0) ? item.ltp : item.average_price;
+    return sum + (item.quantity * price);
+  }, 0);
   const totalInvested = portfolio.reduce((sum, item) => sum + (item.quantity * item.average_price), 0);
   const totalPnl = totalValue - totalInvested;
   
@@ -43,16 +47,18 @@ export default function PortfolioView({
       <div className="portfolio-summary">
         <div className="summary-card">
           <span className="label">Current Value</span>
-          <span className="value">₹{totalValue.toLocaleString()}</span>
+          <span className="value">{hasAllPrices ? `₹${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '—'}</span>
         </div>
         <div className="summary-card">
           <span className="label">Invested</span>
-          <span className="value">₹{totalInvested.toLocaleString()}</span>
+          <span className="value">₹{totalInvested.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
         </div>
-        <div className={`summary-card ${totalPnl >= 0 ? 'positive' : 'negative'}`}>
+        <div className={`summary-card ${hasAllPrices ? (totalPnl >= 0 ? 'positive' : 'negative') : ''}`}>
           <span className="label">Total P&L</span>
           <span className="value">
-            {totalPnl >= 0 ? '+' : '-'}₹{Math.abs(totalPnl).toLocaleString()}
+            {hasAllPrices
+              ? `${totalPnl >= 0 ? '+' : '-'}₹${Math.abs(totalPnl).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+              : '—'}
           </span>
         </div>
       </div>
@@ -80,9 +86,11 @@ export default function PortfolioView({
             </thead>
             <tbody>
               {portfolio.map((item, idx) => {
-                 const currVal = item.quantity * (item.ltp || item.average_price);
-                 const pnl = currVal - (item.quantity * item.average_price);
-                 const pnlPercent = (pnl / (item.quantity * item.average_price)) * 100;
+                 const hasLtp = item.ltp != null && item.ltp > 0;
+                 const currVal = hasLtp ? item.quantity * item.ltp : null;
+                 const invested = item.quantity * item.average_price;
+                 const pnl = currVal != null ? currVal - invested : null;
+                 const pnlPercent = pnl != null && invested > 0 ? (pnl / invested) * 100 : null;
                  const parsed = parseSymbolDisplay(item.symbol);
 
                  return (
@@ -95,11 +103,15 @@ export default function PortfolioView({
                     </td>
                     <td className="text-right">{item.quantity}</td>
                     <td className="text-right">₹{item.average_price.toFixed(2)}</td>
-                    <td className="text-right">₹{item.ltp?.toFixed(2) || '-'}</td>
-                    <td className="text-right">₹{currVal.toLocaleString()}</td>
-                    <td className={`text-right ${pnl >= 0 ? 'positive' : 'negative'}`}>
-                      <div>{pnl >= 0 ? '+' : '-'}₹{Math.abs(pnl).toLocaleString()}</div>
-                      <div className="sub-text">({pnlPercent >= 0 ? '+' : '-'}{Math.abs(pnlPercent).toFixed(2)}%)</div>
+                    <td className="text-right">{hasLtp ? `₹${item.ltp.toFixed(2)}` : '-'}</td>
+                    <td className="text-right">{currVal != null ? `₹${currVal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}</td>
+                    <td className={`text-right ${pnl != null ? (pnl >= 0 ? 'positive' : 'negative') : ''}`}>
+                      {pnl != null ? (
+                        <>
+                          <div>{pnl >= 0 ? '+' : '-'}₹{Math.abs(pnl).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                          <div className="sub-text">({pnlPercent >= 0 ? '+' : '-'}{Math.abs(pnlPercent).toFixed(2)}%)</div>
+                        </>
+                      ) : <div>-</div>}
                     </td>
                   </tr>
                  );

@@ -130,9 +130,10 @@ export default function MarketView({
       {/* Stocks Grid */}
       <div className="stocks-grid">
         {loading ? (
-          <div className="empty-state" style={{opacity: 0.7}}>
-            <div className="empty-state-icon">⏳</div>
+          <div className="empty-state" style={{opacity: 0.9}}>
+            <div className="loading-spinner" style={{width: '40px', height: '40px', marginBottom: '1rem'}}></div>
             <div className="empty-state-title">Loading stocks...</div>
+            <div className="empty-state-text" style={{color: 'var(--text-secondary)', fontSize: '0.85rem'}}>Fetching watchlist data</div>
           </div>
         ) : stocks.length === 0 ? (
           <div className="empty-state">

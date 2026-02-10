@@ -42,13 +42,13 @@ const VirtualTrading = ({ initialTab = 'trade', mode = 'virtual' }) => {
   const [fyersHoldings, setFyersHoldings] = useState([]);
   
   // UI State
-  const [loading, setLoading] = useState({ 
-    stocks: false, 
-    portfolio: false, 
-    trade: false, 
-    wallet: false, 
-    fyers: false, 
-    watchlists: false 
+  const [loading, setLoading] = useState({
+    stocks: true,
+    portfolio: false,
+    trade: false,
+    wallet: false,
+    fyers: false,
+    watchlists: true
   });
   
   const [searchPage, setSearchPage] = useState(1);
@@ -242,6 +242,7 @@ const VirtualTrading = ({ initialTab = 'trade', mode = 'virtual' }) => {
       if (lists.length === 0) {
         setActiveWatchlist(null);
         setWatchlistStocks([]);
+        setLoading(l => ({ ...l, stocks: false }));
         return;
       }
 
@@ -257,6 +258,7 @@ const VirtualTrading = ({ initialTab = 'trade', mode = 'virtual' }) => {
 
       // If current activeWatchlist still exists in the new list, keep it
       if (activeWatchlist && lists.some(w => w.id === activeWatchlist.id)) {
+        setLoading(l => ({ ...l, stocks: false }));
         return;
       }
 
@@ -266,6 +268,7 @@ const VirtualTrading = ({ initialTab = 'trade', mode = 'virtual' }) => {
     } catch (err) {
       console.error('Failed to load watchlists', err);
       showToast('Failed to load watchlists', 'error');
+      setLoading(l => ({ ...l, stocks: false }));
     } finally {
       setLoading(l => ({ ...l, watchlists: false }));
     }

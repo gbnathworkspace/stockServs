@@ -42,7 +42,12 @@ const MarketStatus = () => {
     fetchIndices();
   }, []);
 
-  if (loading && indices.length === 0) return <div className="market-status-loading">Loading market data...</div>;
+  if (loading && indices.length === 0) return (
+    <div className="market-status-loading" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+      <div className="loading-spinner" style={{width: '16px', height: '16px', borderWidth: '2px'}}></div>
+      Loading market data...
+    </div>
+  );
 
   // Show message if Fyers not connected
   if (!fyersConnected && !loading && indices.length === 0) {
