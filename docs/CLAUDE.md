@@ -7,11 +7,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Stock Services (stockServs)** - A full-stack stock market analysis and paper trading platform for the Indian stock market (NSE/BSE). Built with FastAPI backend and React frontend, featuring real-time market data, options analysis, and virtual trading capabilities.
 
 ### Key Features
-- **TradeFinder Products**: Option Clock, Option Apex, Market Pulse, Insider Strategy, Sector Scope, Swing Spectrum
-- **Virtual Trading (Market Sandbox)**: Paper trading with virtual wallet
-- **Real Trading (Market Connect)**: Fyers broker integration
-- **Market Data**: Top gainers/losers, FII/DII activity, sector heatmaps, bulk deals
+- **Trading**: Unified trading hub with Sandbox (paper trading) and Live (Fyers broker) modes
+- **Market Data**: Top gainers/losers, Nifty contributors, FII/DII activity, weekly movers, bulk deals
+- **Option Chain**: Real-time options data with strike selection
 - **Watchlist Management**: Up to 15 watchlists per user
+- **Backend Analytics APIs** (API-only, no frontend UI): Option Clock, Option Apex, Market Pulse, Insider Strategy, Swing Spectrum
 
 ## Architecture
 
@@ -129,14 +129,18 @@ All routes below require `Authorization: Bearer <token>` header.
 |--------|---------|
 | `/nse` | NSE market data |
 | `/portfolio` | Virtual portfolio management |
+| `/holdings` | User holdings management |
 | `/watchlist` | Watchlist CRUD |
-| `/market-pulse` | Volume surge analysis |
-| `/swing-spectrum` | Breakout detection |
-| `/insider-strategy` | Composite stock picks |
-| `/option-apex` | Options candle data |
-| `/option-clock` | OI-based direction signals |
+| `/market-data` | Market data endpoints |
+| `/market-pulse` | Volume surge analysis (API only) |
+| `/swing-spectrum` | Breakout detection (API only) |
+| `/insider-strategy` | Composite stock picks (API only) |
+| `/option-apex` | Options candle data (API only) |
+| `/option-clock` | OI-based direction signals (API only) |
 | `/sectors` | Sector heatmaps and stocks |
 | `/fyers` | Fyers broker integration (callback is public) |
+| `/fyers-market` | Fyers market data (prices, quotes) |
+| `/profile` | User profile management |
 | `/logs` | API logs and error logs |
 
 ### System Endpoints
@@ -152,23 +156,29 @@ All routes below require `Authorization: Bearer <token>` header.
 frontend/src/
 ├── App.jsx                 # Main app with routing logic
 ├── main.jsx               # React entry point
+├── styles.css             # Global styles
 ├── contexts/              # Theme, Loading, Toast contexts
 ├── hooks/                 # useAutoRefresh, useOnlineStatus
-├── lib/api.js             # API client with retry logic
+├── lib/api.js             # API client with retry + 401 session expiry handling
 ├── pages/                 # Login, Signup pages
 ├── components/
 │   ├── sections/          # Main view components
 │   │   ├── Dashboard.jsx
-│   │   ├── Watchlist.jsx
-│   │   ├── OptionClock.jsx
-│   │   ├── OptionApex.jsx
-│   │   ├── MarketPulse.jsx
-│   │   ├── InsiderStrategy.jsx
-│   │   ├── SectorScope.jsx
-│   │   ├── SwingSpectrum.jsx
-│   │   └── ...
-│   ├── trading/           # Trading-related components
-│   └── *.jsx              # Shared components
+│   │   ├── Documentation.jsx
+│   │   ├── FiiDiiActivity.jsx
+│   │   ├── MarketData.jsx
+│   │   ├── NiftyContributors.jsx
+│   │   ├── OrderHistory.jsx
+│   │   ├── Settings.jsx
+│   │   ├── Wallet.jsx
+│   │   └── Watchlist.jsx
+│   ├── VirtualTrading.jsx  # Unified trading (Sandbox + Live mode toggle)
+│   ├── OptionChain.jsx     # Options chain viewer
+│   ├── Sidebar.jsx         # Navigation sidebar
+│   ├── SearchAutocomplete.jsx
+│   ├── RefreshControl.jsx
+│   ├── LoadingOverlay.jsx
+│   └── *.jsx              # Card components and shared UI
 └── utils/                 # Utility functions
 ```
 
@@ -187,7 +197,7 @@ frontend/src/
 4. **Response Format**: Return Pydantic models or dicts; FastAPI handles JSON serialization
 
 ### Frontend
-1. **Section Navigation**: Use `activeSection` state with dot notation (e.g., `products.option-clock`)
+1. **Section Navigation**: Use `activeSection` state with dot notation (e.g., `market.gainers`, `settings.profile`)
 2. **API Calls**: Always use `authApi` or `authApiWithRetry` from `lib/api.js`
 3. **Styling**: Use CSS classes, no inline styles or Tailwind
 4. **Icons**: Import from `lucide-react` package
@@ -205,6 +215,10 @@ Required in `.env` (see `.env.example`):
 # Database
 DATABASE_URL=postgresql://user:pass@host:port/db
 
+# AWS Parameter Store (alternative to DATABASE_URL)
+DB_SSM_PARAM_NAME=/stockservs/db-url
+AWS_REGION=ap-south-1
+
 # Authentication
 JWT_SECRET=your-secret-key
 
@@ -212,12 +226,21 @@ JWT_SECRET=your-secret-key
 FYERS_CLIENT_ID=xxx
 FYERS_SECRET_KEY=xxx
 FYERS_REDIRECT_URI=http://localhost:8000/fyers/callback
+FYERS_PIN=xxxx
+
+# Zerodha Integration (optional)
+KITE_API_KEY=xxx
+KITE_API_SECRET=xxx
+KITE_REDIRECT_URL=http://localhost:8000/zerodha/callback
 
 # Google OAuth (optional)
 GOOGLE_CLIENT_ID=xxx
 
 # CORS (production)
 ALLOWED_ORIGINS=https://yourdomain.com
+
+# Scheduler
+ENABLE_FII_DII_SCHEDULER=true
 
 # Debug
 DEBUG_SQL=false

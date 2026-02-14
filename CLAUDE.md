@@ -6,6 +6,10 @@ See [docs/CLAUDE.md](docs/CLAUDE.md) for full project documentation.
 
 - **Only commit to the `jackrnd` branch.** Never switch to, commit to, or push to `main` or any other branch.
 - Always confirm with the user before pushing to remote.
+- **Never merge to main or trigger a build/deploy after individual tasks.** Accumulate work on `jackrnd`.
+- After completing all requested tasks, ask: "All tasks are done — ready to build?"
+- **Only merge `jackrnd` → `main` and deploy when the user explicitly says "build".**
+- The deploy workflow (merge to main → GitHub Actions → Docker → EC2) is triggered ONLY on user's "build" command.
 
 ## Temporary File Rules
 
@@ -36,7 +40,9 @@ See [docs/CLAUDE.md](docs/CLAUDE.md) for full project documentation.
 │   ├── feature-implementation.md
 │   ├── performance-analysis.md
 │   └── api-integration.md
-└── tasks/            ← One folder per task
+└── tasks/            ← Active tasks at top level
+    ├── archive/      ← Completed/abandoned tasks (historical reference)
+    │   └── <id>-<short-name>/
     └── <id>-<short-name>/
         ├── plan.md          ← MANDATORY before any code changes
         ├── conversation.md  ← Key decisions & reasoning
@@ -71,3 +77,4 @@ Every task folder must have a `plan.md` with:
 4. Add new anti-patterns if mistakes were made
 5. Bump the version number of the dynamic workflow
 6. Write `outcome.md` in the task folder
+7. Move the completed task folder to `.workflows/tasks/archive/`
