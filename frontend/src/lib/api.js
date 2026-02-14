@@ -2,12 +2,28 @@
  * API Client with timeout, retry logic, and error recovery
  */
 
-const DEFAULT_TIMEOUT = 30000; // 15 seconds (NSE API can be slow)
+const DEFAULT_TIMEOUT = 30000; // 30 seconds (NSE API can be slow)
 const MAX_RETRIES = 3;
 const RETRY_DELAY_BASE = 1000; // 1 second base delay
 
 // Track pending requests to prevent duplicates
 const pendingRequests = new Map();
+
+// Flag to prevent multiple redirects to login
+let isRedirectingToLogin = false;
+
+/**
+ * Handle expired/invalid session by clearing token and reloading.
+ * ProtectedRoute in main.jsx will redirect to login automatically.
+ * Only triggers once to avoid reload loops.
+ */
+const handleSessionExpired = () => {
+  if (isRedirectingToLogin) return;
+  isRedirectingToLogin = true;
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('user_email');
+  window.location.reload();
+};
 
 /**
  * Sleep utility for retry delays
@@ -33,7 +49,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = DEFAULT_TIMEOUT) =>
 };
 
 /**
- * Base API call with error handling
+ * Base API call with error handling.
  */
 export const api = async (url, options = {}) => {
   const res = await fetchWithTimeout(url, options, options.timeout || DEFAULT_TIMEOUT);
@@ -46,6 +62,12 @@ export const api = async (url, options = {}) => {
     } catch (e) {
       // ignore JSON parse errors
     }
+
+    // Session expired — only redirect if we had a token (avoids triggering on login 401s)
+    if (res.status === 401 && localStorage.getItem('access_token')) {
+      handleSessionExpired();
+    }
+
     const error = new Error(message);
     error.status = res.status;
     throw error;

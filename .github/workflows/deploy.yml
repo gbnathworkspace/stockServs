@@ -57,6 +57,7 @@ jobs:
         FYERS_CLIENT_ID: ${{ secrets.FYERS_CLIENT_ID }}
         FYERS_SECRET_KEY: ${{ secrets.FYERS_SECRET_KEY }}
         FYERS_REDIRECT_URI: ${{ secrets.FYERS_REDIRECT_URI }}
+        FYERS_PIN: ${{ secrets.FYERS_PIN }}
       run: |
         ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa "${EC2_USER}@${EC2_HOST}" "
           echo '=== Stopping old container ==='
@@ -76,6 +77,7 @@ jobs:
             -e FYERS_CLIENT_ID='${FYERS_CLIENT_ID}' \
             -e FYERS_SECRET_KEY='${FYERS_SECRET_KEY}' \
             -e FYERS_REDIRECT_URI='${FYERS_REDIRECT_URI}' \
+            -e FYERS_PIN='${FYERS_PIN}' \
             --restart unless-stopped \
             ${DOCKER_USER}/stock_servs:latest
           
