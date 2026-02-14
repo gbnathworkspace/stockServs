@@ -6,7 +6,6 @@ import LoadingOverlay from './components/LoadingOverlay.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import Dashboard from './components/sections/Dashboard.jsx';
 import VirtualTrading from './components/VirtualTrading.jsx';
-import RealTrading from './components/RealTrading.jsx';
 import MarketData from './components/sections/MarketData.jsx';
 import NiftyContributors from './components/sections/NiftyContributors.jsx';
 import FiiDiiActivity from './components/sections/FiiDiiActivity.jsx';
@@ -110,8 +109,8 @@ function App() {
         return <VirtualTrading initialTab="trade" />;
 
       case 'real-trading':
-        // Real Trading - Fyers integration
-        return <RealTrading initialTab={subSection === 'fyers' ? 'trade' : 'trade'} />;
+        // Legacy: redirect to unified trading
+        return <VirtualTrading initialTab="trade" />;
 
       case 'market':
         if (subSection === 'nifty-contributors') {
@@ -141,8 +140,8 @@ function App() {
   const getSectionTitle = () => {
     const titles = {
       'dashboard': 'Dashboard',
-      'trading': 'Market Sandbox',
-      'real-trading': 'Market Connect',
+      'trading': 'Trading',
+      'real-trading': 'Trading',
       'market': 'Market Data',
       'market.gainers': 'Top Gainers',
       'market.losers': 'Top Losers',

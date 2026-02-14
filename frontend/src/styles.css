@@ -5246,6 +5246,199 @@ td.stock-link {
   letter-spacing: 0.5px;
 }
 
+/* ===== TRADING MODE TOGGLE BAR ===== */
+.trading-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background: var(--bg-secondary, #1a1e24);
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #2d333b);
+}
+
+.mode-toggle {
+  display: flex;
+  background: var(--bg-primary, #0d1117);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.mode-toggle-btn {
+  padding: 0.45rem 1.2rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: var(--text-secondary, #8b949e);
+  letter-spacing: 0.3px;
+}
+
+.mode-toggle-btn:hover:not(.active) {
+  color: var(--text-primary, #c9d1d9);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mode-toggle-btn.active.sandbox {
+  background: rgba(0, 208, 156, 0.15);
+  color: var(--accent-green, #00d09c);
+  border: 1px solid rgba(0, 208, 156, 0.3);
+}
+
+.mode-toggle-btn.active.live {
+  background: rgba(255, 165, 0, 0.15);
+  color: #ffa500;
+  border: 1px solid rgba(255, 165, 0, 0.35);
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+.fyers-connected-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #8b949e);
+}
+
+.connected-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green, #00d09c);
+  box-shadow: 0 0 6px rgba(0, 208, 156, 0.5);
+}
+
+.disconnect-link {
+  background: none;
+  border: none;
+  color: #ff6b6b;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.disconnect-link:hover {
+  background: rgba(255, 107, 107, 0.1);
+}
+
+/* Fyers connect prompt (inline) */
+.fyers-connect-prompt {
+  margin-bottom: 1rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(255, 165, 0, 0.06), rgba(255, 165, 0, 0.02));
+  border: 1px solid rgba(255, 165, 0, 0.2);
+  border-radius: 12px;
+}
+
+.connect-prompt-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.connect-icon-small {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.connect-prompt-content > div:first-of-type {
+  flex: 1;
+  min-width: 200px;
+}
+
+.connect-prompt-content strong {
+  display: block;
+  color: var(--text-primary, #c9d1d9);
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.connect-prompt-content p {
+  color: var(--text-secondary, #8b949e);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.connect-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.connect-btn-primary {
+  padding: 0.5rem 1.2rem;
+  background: #ffa500;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.connect-btn-primary:hover:not(:disabled) {
+  background: #ffb733;
+  transform: translateY(-1px);
+}
+
+.connect-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.connect-btn-secondary {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--text-secondary, #8b949e);
+  border: 1px solid var(--border-color, #2d333b);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.connect-btn-secondary:hover {
+  color: var(--text-primary, #c9d1d9);
+  border-color: var(--text-secondary, #8b949e);
+}
+
+/* Footer badge live mode */
+.footer-badge-live {
+  background: rgba(255, 165, 0, 0.15) !important;
+  color: #ffa500 !important;
+}
+
+/* Disabled tabs when broker not connected */
+.virtual-tab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .trading-mode-bar {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .connect-prompt-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  .connect-actions {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* ===== SETTINGS & PROFILE ===== */
 .settings-section {
   display: flex;

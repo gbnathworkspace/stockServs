@@ -16,8 +16,20 @@ import OrdersView from './trading/OrdersView.jsx';
 
 const API_BASE_URL = window.location.origin;
 
-const VirtualTrading = ({ initialTab = 'trade', mode = 'virtual' }) => {
-  const isLive = mode === 'real';
+const VirtualTrading = ({ initialTab = 'trade' }) => {
+  // Trading mode: 'sandbox' or 'live' — persisted in localStorage
+  const [tradingMode, setTradingMode] = useState(() => localStorage.getItem('trading_mode') || 'sandbox');
+  const isLive = tradingMode === 'live';
+
+  // Fyers connection state for live mode
+  const [fyersStatus, setFyersStatus] = useState({ connected: false, loading: true });
+  const [connectingFyers, setConnectingFyers] = useState(false);
+
+  const switchMode = (newMode) => {
+    setTradingMode(newMode);
+    localStorage.setItem('trading_mode', newMode);
+  };
+
   // Map initialTab prop to internal tab names
   const getInitialTab = () => {
     switch (initialTab) {
@@ -84,8 +96,46 @@ const VirtualTrading = ({ initialTab = 'trade', mode = 'virtual' }) => {
     fetchPortfolio();
     fetchFyersData();
     fetchWatchlists(); // This will auto-select first watchlist and load stocks
-    authApi(`${API_BASE_URL}/fyers/status`).then(res => setFyersConnected(res.connected)).catch(() => {});
+    // Check Fyers connection status
+    authApi(`${API_BASE_URL}/fyers/status`)
+      .then(res => {
+        setFyersConnected(res.connected);
+        setFyersStatus({ connected: res.connected, loading: false });
+      })
+      .catch(() => {
+        setFyersStatus({ connected: false, loading: false });
+      });
   }, []);
+
+  // Fyers connect/disconnect handlers for live mode
+  const handleConnectFyers = async () => {
+    setConnectingFyers(true);
+    try {
+      const res = await authApi(`${API_BASE_URL}/fyers/auth-url`);
+      if (res.url) {
+        window.location.href = res.url;
+      } else {
+        showToast('Failed to get Fyers auth URL', 'error');
+      }
+    } catch (err) {
+      showToast('Error: ' + (err.message || 'Failed to connect to Fyers'), 'error');
+    } finally {
+      setConnectingFyers(false);
+    }
+  };
+
+  const handleDisconnectFyers = async () => {
+    if (!confirm('Disconnect your Fyers account?')) return;
+    try {
+      await authApi(`${API_BASE_URL}/fyers/disconnect`, { method: 'DELETE' });
+      setFyersConnected(false);
+      setFyersStatus({ connected: false, loading: false });
+      switchMode('sandbox');
+      showToast('Fyers disconnected', 'info');
+    } catch (err) {
+      showToast('Error disconnecting Fyers', 'error');
+    }
+  };
 
   // Auto-fetch orders when switching to orders tab
   useEffect(() => {
@@ -648,16 +698,60 @@ const VirtualTrading = ({ initialTab = 'trade', mode = 'virtual' }) => {
       {/* Toast */}
       {toast.show && <div className={`virtual-toast ${toast.type}`}>{toast.message}</div>}
 
-      {/* Tabs */}
+      {/* Mode Toggle */}
+      <div className="trading-mode-bar">
+        <div className="mode-toggle">
+          <button
+            className={`mode-toggle-btn ${!isLive ? 'active sandbox' : ''}`}
+            onClick={() => switchMode('sandbox')}
+          >
+            Sandbox
+          </button>
+          <button
+            className={`mode-toggle-btn ${isLive ? 'active live' : ''}`}
+            onClick={() => switchMode('live')}
+          >
+            Live
+          </button>
+        </div>
+        {isLive && fyersStatus.connected && (
+          <div className="fyers-connected-indicator">
+            <span className="connected-dot"></span>
+            <span>Fyers Connected</span>
+            <button className="disconnect-link" onClick={handleDisconnectFyers}>Disconnect</button>
+          </div>
+        )}
+      </div>
+
+      {/* Live mode connect prompt */}
+      {isLive && !fyersStatus.loading && !fyersStatus.connected && (
+        <div className="fyers-connect-prompt">
+          <div className="connect-prompt-content">
+            <span className="connect-icon-small">🔗</span>
+            <div>
+              <strong>Connect your broker to enable live trading</strong>
+              <p>Your credentials are handled securely through Fyers' official OAuth flow.</p>
+            </div>
+            <div className="connect-actions">
+              <button className="connect-btn-primary" onClick={handleConnectFyers} disabled={connectingFyers}>
+                {connectingFyers ? 'Connecting...' : 'Connect Fyers'}
+              </button>
+              <button className="connect-btn-secondary" onClick={() => switchMode('sandbox')}>
+                Back to Sandbox
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs - shown always (disabled in live mode without Fyers) */}
       <div className="section-tabs" style={{marginBottom: '1rem', display: 'flex', gap: '8px', borderBottom: `1px solid ${isLive ? '#5c4a1e' : '#444c56'}`, paddingBottom: '8px', overflowX: 'auto', alignItems: 'center'}}>
-         <span className={`mode-badge ${isLive ? 'mode-badge-live' : 'mode-badge-sandbox'}`}>
-           {isLive ? 'LIVE' : 'SANDBOX'}
-         </span>
          {['stocks', 'portfolio', 'orders', 'fno', ...(isLive ? [] : ['wallet'])].map(tab => (
            <button
              key={tab}
              className={`virtual-tab ${activeTab === tab ? 'active' : ''} ${isLive ? 'live-mode-tab' : ''}`}
              onClick={() => setActiveTab(tab)}
+             disabled={isLive && !fyersStatus.connected}
            >
              {tab === 'stocks' ? 'Trade' : tab === 'fno' ? 'Option Chain' : tab.charAt(0).toUpperCase() + tab.slice(1)}
            </button>
@@ -808,7 +902,7 @@ const VirtualTrading = ({ initialTab = 'trade', mode = 'virtual' }) => {
         walletBalance={walletBalance}
         onTrade={handleTrade}
         isSubmitting={loading.trade}
-        mode={mode}
+        mode={isLive ? 'real' : 'virtual'}
       />
 
       {/* Chart Modal */}
