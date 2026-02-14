@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard,
   TrendingUp,
-  Building2,
   LineChart,
   Star,
   Settings,
@@ -19,14 +18,8 @@ const menuItems = [
   },
   {
     id: 'trading',
-    label: 'Market Sandbox',
+    label: 'Trading',
     icon: TrendingUp,
-    subsections: []
-  },
-  {
-    id: 'real-trading',
-    label: 'Market Connect',
-    icon: Building2,
     subsections: []
   },
   {
@@ -161,8 +154,12 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
       <div className="sidebar-footer">
         {!collapsed && (
           <div className="sidebar-footer-content">
-            <span className="footer-label">Market Sandbox Mode</span>
-            <span className="footer-badge">Demo</span>
+            <span className="footer-label">
+              {localStorage.getItem('trading_mode') === 'live' ? 'Live Trading Mode' : 'Sandbox Mode'}
+            </span>
+            <span className={`footer-badge ${localStorage.getItem('trading_mode') === 'live' ? 'footer-badge-live' : ''}`}>
+              {localStorage.getItem('trading_mode') === 'live' ? 'LIVE' : 'DEMO'}
+            </span>
           </div>
         )}
       </div>
