@@ -144,7 +144,9 @@ api_responses.json
 # ===========================
 # Claude/AI Assistant Files
 # ===========================
-.claude/
+# Ignore local Claude state (settings, worktrees) but keep shared project skills
+.claude/*
+!.claude/skills/
 
 # ===========================
 # Docker
